@@ -1,0 +1,16 @@
+{
+  "name": "brightpath",
+  "private": true,
+  "description": "BrightPath monorepo-style layout: backend (Bun + Elysia) and frontend (Vite + React) in one repo. Each has its own package.json.",
+  "scripts": {
+    "install:all": "bun install --cwd backend && bun install --cwd frontend",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "dev:backend": "bun run --cwd backend dev",
+    "dev:worker": "bun run --cwd backend worker:dev",
+    "dev:frontend": "bun run --cwd frontend dev",
+    "openapi:export": "bun run --cwd backend openapi:export",
+    "gen:api": "bun run openapi:export && bun run --cwd frontend gen:api"
+  }
+}

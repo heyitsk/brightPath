@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build / test output
+dist/
+build/
+coverage/
+
+# Generated Prisma client (recreate with `bun run db:generate`)
+/src/generated/prisma
+
+# Logs
+*.log
+logs/
+
+# Misc
+.DS_Store
+*.trace
+*.tgz
+*.bun
+package-lock.json
