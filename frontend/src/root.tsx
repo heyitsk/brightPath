@@ -8,6 +8,11 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import { api, unwrap } from './api/client.server'
+import { CoverBar } from './components/site/CoverBar'
+import { SiteFooter } from './components/site/SiteFooter'
+import { TabBar } from './components/site/TabBar'
+import { SampleBand, TopBar } from './components/site/TopBar'
+import { getNavigation } from './data/navigation'
 import stylesheet from './styles/app.css?url'
 import archivoLatin from './styles/fonts/archivo-latin.woff2?url'
 import martianLatin from './styles/fonts/mm-latin.woff2?url'
@@ -20,11 +25,13 @@ export const links: Route.LinksFunction = () => [
 ]
 
 /**
- * Site config (brand, contact slots, finder gate size, disclaimer texts) for every page.
- * Disclaimer and regulator wording must come from here, never be typed into the frontend.
+ * Site config (brand, contact slots, finder gate size, disclaimer texts) and menu data
+ * for every page. Disclaimer and regulator wording must come from /site/config, never be
+ * typed into the frontend. Navigation is SAMPLE data until GET /navigation/explore exists.
  */
 export async function loader() {
   let result
+  const navigation = getNavigation()
   try {
     result = await api.GET('/site/config')
   } catch {
@@ -33,7 +40,12 @@ export async function loader() {
       { status: 503 },
     )
   }
-  return { siteConfig: unwrap(result) }
+  return {
+    siteConfig: unwrap(result),
+    navigation: await navigation,
+    // Year for the footer copyright line, fixed on the server so hydration matches.
+    year: new Date().getFullYear(),
+  }
 }
 
 export type SiteConfig = Awaited<ReturnType<typeof loader>>['siteConfig']
@@ -57,7 +69,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />
+  return (
+    <>
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
+      <SampleBand />
+      <TopBar />
+      <CoverBar />
+      <main id="main">
+        <Outlet />
+      </main>
+      <SiteFooter />
+      <TabBar />
+    </>
+  )
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
