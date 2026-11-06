@@ -1,0 +1,23 @@
+// Phase 1: site-wide settings and versioned legal/disclaimer texts (plan §4.1).
+
+model SiteSetting {
+  key         String   @id // validated against the registry in src/modules/site/settings.registry.ts
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+/// Append-only. The active text for a key is its highest version, so edits keep history.
+model Disclaimer {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  key         String
+  version     Int
+  text        String
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@unique([key, version])
+  @@map("disclaimers")
+}

@@ -2,7 +2,8 @@ import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  // A folder, not a single file: every *.prisma inside is merged (one file per domain).
+  schema: "prisma/schema",
   migrations: {
     path: "prisma/migrations",
   },

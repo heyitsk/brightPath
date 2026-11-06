@@ -11,5 +11,5 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "scripts", "prisma.config.ts"]
+  "include": ["src", "scripts", "tests", "prisma/seed.ts", "prisma.config.ts"]
 }

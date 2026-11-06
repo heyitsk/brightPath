@@ -6,6 +6,7 @@
     "@elysiajs/openapi": "^1.4.17",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "^7.10.1",
+    "@sinclair/typebox": "0.34.52",
     "bullmq": "^6.7.0",
     "dotenv": "^18.0.9",
     "elysia": "^1.4.31",
@@ -24,7 +25,12 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "NODE_ENV=test bun run scripts/prepare-test-db.ts && NODE_ENV=test bun test",
+    "test:watch": "NODE_ENV=test bun test --watch",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "bun run prisma/seed.ts",
+    "admin:bootstrap": "bun run scripts/bootstrap-admin.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
