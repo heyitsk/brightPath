@@ -1,0 +1,43 @@
+/* Base element and layout styles, copied verbatim from the v3 design (site.css). Do not restyle here. */
+@layer base {
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:80px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:1rem;line-height:1.6;font-variation-settings:"wdth" 100;caret-color:var(--action);scrollbar-color:var(--line) var(--paper)}
+::selection{background:#d6cdf3;color:var(--ink)}
+img,svg{display:block;max-width:100%}
+a{color:var(--violet);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--ink)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:2px}
+h1,h2,h3,h4{line-height:1.15;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:2rem;font-weight:780;font-variation-settings:"wdth" 86}
+h2{font-size:1.625rem;font-weight:740;font-variation-settings:"wdth" 88}
+h3{font-size:1.1875rem;font-weight:700;font-variation-settings:"wdth" 92}
+h4{font-size:1rem;font-weight:700}
+p{margin:0 0 1em;max-width:68ch}
+.num,.tab{font-variant-numeric:tabular-nums lining-nums}
+.mono{font-family:var(--mono);font-size:.8125rem;letter-spacing:0}
+@media (min-width:900px){
+  h1{font-size:3.125rem}
+  h2{font-size:2.125rem}
+  h3{font-size:1.3125rem}
+}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:#fff;padding:12px 16px;z-index:100}
+.skip:focus{left:8px;top:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lead{font-size:1.125rem;color:var(--ink-2);max-width:60ch}
+@media (min-width:900px){.lead{font-size:1.25rem}}
+.muted{color:var(--muted)}
+.small{font-size:.9375rem}
+
+/* sections */
+.section{padding:48px 0}
+@media (min-width:900px){.section{padding:80px 0}}
+.section-head{margin-bottom:24px;max-width:720px}
+.section-head p{margin-top:12px;color:var(--ink-2)}
+.band-2{background:var(--paper-2)}
+.band-cover{background:var(--cover);color:var(--cover-ink)}
+.band-cover a:not(.btn){color:#e4dcff}
+.band-cover .visa a{color:var(--violet)}
+}

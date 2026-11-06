@@ -4,24 +4,29 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js",
+    "typecheck": "react-router typegen && tsc -b",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "gen:api": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts",
-    "typecheck": "tsc -b"
+    "gen:api": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts"
   },
   "dependencies": {
+    "@react-router/node": "^7.18.5",
+    "@react-router/serve": "^7.18.5",
     "@tailwindcss/vite": "^4.3.4",
+    "isbot": "^5.2.2",
+    "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-router": "^7.18.5",
     "tailwindcss": "^4.3.4"
   },
   "devDependencies": {
+    "@react-router/dev": "^7.18.5",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
     "openapi-typescript": "^7.13.0",
     "oxlint": "^1.90.0",
     "typescript": "~5.9.0",

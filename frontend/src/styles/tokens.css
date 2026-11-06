@@ -1,0 +1,73 @@
+/*
+  v3 passport design tokens. Names and values are exactly those of
+  _reference/design/design-handoff-v3/src/site.css :root. Do not change a value
+  without a written design decision.
+  `static` emits every variable, because components.css uses them through var().
+*/
+@theme static {
+  --paper: #eef3ef;
+  --paper-2: #e2ebe5;
+  --sheet: #f8fbf9;
+  --line: #a9bfb5;
+  --line-soft: #cddcd4;
+  --ink: #14203a;
+  --ink-2: #36435a;
+  --muted: #4f5b70;
+  --cover: #16244a;
+  --cover-2: #22356a;
+  --cover-ink: #eef2fa;
+  --cover-muted: #b9c4de;
+  --foil: #d4b25e;
+  --violet: #4a3a8f;
+  --green: #1b6648;
+  --red: #b3261e;
+  --action: #c23b1e;
+  --action-hover: #9f2f16;
+  --focus: #4a3a8f;
+  --r: 4px;
+  --r-lg: 8px;
+  --shadow-1: 0 1px 2px rgba(20,32,58,.08),0 2px 6px rgba(20,32,58,.06);
+  --shadow-2: 0 6px 18px rgba(20,32,58,.12),0 2px 4px rgba(20,32,58,.06);
+  --gut: 16px;
+  --max: 1180px;
+  --font: "Archivo",system-ui,sans-serif;
+  --mono: "Martian Mono",ui-monospace,monospace;
+
+  /* Guilloche security patterns (DESIGN.md "Security patterns"), extracted from the built previews. */
+  --waves: url("/patterns/waves.svg");
+  --rose-img: url("/patterns/rose.svg");
+  --rose-navy: url("/patterns/rose-navy.svg");
+}
+
+/* Tailwind utility names (bg-paper, text-ink, font-mono, rounded-sm = --r, rounded-lg = --r-lg, ...) pointing at the tokens above. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-sheet: var(--sheet);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-cover: var(--cover);
+  --color-cover-2: var(--cover-2);
+  --color-cover-ink: var(--cover-ink);
+  --color-cover-muted: var(--cover-muted);
+  --color-foil: var(--foil);
+  --color-violet: var(--violet);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-focus: var(--focus);
+  --radius-sm: var(--r);
+  --radius-lg: var(--r-lg);
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+  --container-max: var(--max);
+}
+
+:root {
+  color-scheme: light;
+}
+@media (min-width:700px){:root{--gut:28px}}
