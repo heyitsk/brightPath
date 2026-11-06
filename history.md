@@ -68,6 +68,16 @@ Format: **ID — decision.** *Why.* Status.
 - **D-045 — Query parameters sent with an empty or whitespace-only value are treated as not provided (global `emptyQueryAsAbsent` plugin, runs before validation). Request bodies are not relaxed.** Found when Apidog sent `?actorId=&limit=&cursor=` and got a 422. Tools and HTML forms commonly send blank filters. Bodies stay strict because an empty password or name is a real error. Owner-approved 2026-11-07. Spec bumped to 0.3.1. Consequence for later phases: an empty `q`/search param means "no search", never "match nothing". *Done.*
 - **Process lesson:** a typecheck whose output was compressed in my tooling looked clean but was still failing; always check the exit code (`bun run typecheck; echo $?`). A test-order bug (a test file closing the shared Redis client) was also caught: test files must not close shared connections. *Note.*
 
+### Phase 2 build decisions (2026-11-07)
+- **D-046 — Phase 2 is admin-only; the public country/state endpoints stay in Phase 7.** Plan §6.1 puts `GET /countries` and `/counselling/states` in Phase 7, and nothing public needs this data before the catalogue exists. 18 routes under `/admin/states|countries|sources|nmc-notices`, minimum role EDITOR (ADMIN passes, COUNSELLOR refused). Spec 0.4.0. *Done.*
+- **D-047 — States and countries are never deleted; slugs cannot be changed.** Colleges will reference them and slugs appear in public URLs. Hide with `State.isLive = false` / `Country.status = COMING_SOON`. Admin paths use the UUID, not the slug. *Done.*
+- **D-048 — A source can be deleted only while nothing cites it (409 otherwise); NMC notices can be deleted (audited), but retiring a real notice should use `isActive = false`.** Sources will be cited by fees, closing ranks and colleges, so deletion has to be blocked by the database, not by hope. Today nothing cites a source, so the 409 path is written but cannot yet be exercised; Phase 4 must add a test when the first foreign key to `sources` appears. *Done.*
+- **D-049 — NMC notices accept only `scope = COUNTRY` for now; `COLLEGE` returns a field error.** The `collegeId` column exists (so Phase 4 needs no data migration) but has no foreign key until the college table exists. Phase 4 must add the FK and enable `COLLEGE`. *Done; follow-up in Phase 4.*
+- **D-050 — Stored links must be http(s); `checkedAt` and `publishedAt` cannot be in the future (one day of slack for time zones).** Links are rendered as hyperlinks, so `javascript:` must never be storable. A future "checked on" date would defeat the provenance rule in PDF §5. Dates may be sent as `2026-10-01` or a full ISO date-time. *Done.*
+- **D-051 — Seed inserts only missing rows (`createMany skipDuplicates`), so re-running never overwrites staff edits.** `bun run db:seed` creates 36 states/UTs (8 live: UP, MH, RJ, BR, MP, KA, TN, KL, in that menu order) and 8 countries (Russia, Kazakhstan, Kyrgyzstan, Uzbekistan, Georgia LIVE; Philippines, Nepal, Bangladesh COMING_SOON). `nearIndia` is set only for Nepal and Bangladesh (land neighbours); flight times are left empty because a fact needs a checked source (PDF §5). *Done; see Q-7.*
+- **D-052 — `aliases` (lower-case text array) added to State and Country now.** The plain-words search (D-005) needs "up", "kyrgyz", etc.; adding the column later would cost another migration. Seeded conservatively. Parsing logic itself is Phase 5. *Done.*
+- **D-053 — Uniqueness (slug/code/ISO code) is checked in the service first and reported as a field error (422), not left to a database error.** Matches the "fix 1 thing below" form contract (D-020). The unique indexes remain as the safety net. *Done.*
+
 ## Discussions and findings
 ### 2026-11-06 — Planning session
 - Read `MBBS-Website-What-We-Build-First.pdf` (4 pages, text) and `MBBS-Previews-v3-Passport.pdf` (18 pages, images only). For the UI PDF I viewed the screens for the menus, rank predictor, college finder, compare, abroad and India college pages, state counselling and enquiry form to extract the data fields. I only skimmed the home, country, guide, about and contact sheets, so their data needs are inferred and should be checked.
@@ -92,13 +102,14 @@ Format: **ID — decision.** *Why.* Status.
 | Q-4 | Is a second-person approval needed before publishing college data? | Phase 4 | No, editors publish; audit log covers accountability |
 | Q-5 | Hosting target (AWS, VPS, other) | Phase 8 | Host-agnostic Docker deployment |
 | Q-6 | Staff and counsellor headcount, and whether counsellors should only see their assigned enquiries | Phase 6 | COUNSELLOR sees all enquiries; assignment is informational |
+| Q-7 | Which countries count as "near India" (the PDF example search "under 35 lakh, near India")? Is it land borders, or flight time? | Phase 5 | Only Nepal and Bangladesh are flagged; Central Asian countries and Georgia are not. Editable per country in the admin API |
 
 ## Phase log
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 0 Foundation | **Done** (2026-11-06) | Uncommitted. 16 tests pass; spec 0.2.0 exported; CI workflow written but not yet run on GitHub |
 | 1 Staff auth, audit, settings | **Done** (2026-11-06) | Uncommitted. 49 tests pass; spec 0.3.0 (16 routes); verified live (bootstrap → login → forced password change → settings → `/site/config`) against the test DB |
-| 2 Reference data | Not started | |
+| 2 Reference data | **Done** (2026-11-07) | Uncommitted, on branch `feat/backend-phase-2`. 73 tests pass (20 new); spec 0.4.0 (18 new admin routes); migration `20261106193139_phase2_reference_data`; seed verified idempotent against the dev DB |
 | 3 NEET Rank Predictor | Not started | Needs NTA files |
 | 4 College catalogue + imports | Not started | |
 | 5 Finder, closing ranks, compare | Not started | |

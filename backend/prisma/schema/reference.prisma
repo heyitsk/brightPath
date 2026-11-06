@@ -1,0 +1,109 @@
+// Phase 2: reference data and provenance (plan §4.2). Managed by staff through /admin/*;
+// the public API for these arrives with the content phase (7).
+
+enum CountryStatus {
+  LIVE
+  COMING_SOON
+}
+
+enum SourceKind {
+  NTA
+  MCC
+  STATE_COUNSELLING
+  NMC
+  WDOMS
+  COLLEGE_WEBSITE
+  OTHER
+}
+
+enum NmcNoticeSeverity {
+  ADVISORY
+  WARNING
+}
+
+enum NmcNoticeScope {
+  COLLEGE
+  COUNTRY
+}
+
+/// Indian states and union territories. Never deleted (colleges will reference them): hide with isLive.
+model State {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  slug      String   @unique // public URL part; immutable after creation
+  name      String
+  /// Short postal-style code, e.g. "UP". Unique.
+  code      String   @unique
+  /// Shown in menus / counselling pages once real data exists.
+  isLive    Boolean  @default(false)
+  sortOrder Int      @default(1000)
+  /// Lower-case alternative spellings used by the plain-words search (e.g. "up").
+  aliases   String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isLive, sortOrder])
+  @@map("states")
+}
+
+/// Study-abroad destinations. Never deleted: use status COMING_SOON to hide.
+model Country {
+  id                     String        @id @default(uuid(7)) @db.Uuid
+  slug                   String        @unique
+  name                   String
+  /// ISO 3166-1 alpha-2, e.g. "RU". Unique.
+  isoCode                String        @unique
+  status                 CountryStatus @default(COMING_SOON)
+  /// Editable flag behind the "near India" search phrase.
+  nearIndia              Boolean       @default(false)
+  /// Free text such as "about 5 hours". Left empty until a staff member verifies it.
+  typicalFlightFromDelhi String?
+  sortOrder              Int           @default(1000)
+  aliases                String[]
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  nmcNotices             NmcNotice[]
+
+  @@index([status, sortOrder])
+  @@map("countries")
+}
+
+/// An official document or page that a fact can be traced back to (NTA result, NMC notice, WDOMS entry, ...).
+model Source {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  kind        SourceKind
+  title       String
+  publisher   String?
+  url         String?
+  notes       String?
+  createdById String?    @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([kind])
+  @@map("sources")
+}
+
+/// An NMC advisory/warning. Drives the red "NMC alert" badge once colleges exist.
+model NmcNotice {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  title       String
+  url         String
+  publishedAt DateTime
+  severity    NmcNoticeSeverity
+  scope       NmcNoticeScope
+  /// Set when scope = COUNTRY.
+  countryId   String?           @db.Uuid
+  country     Country?          @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  /// Set when scope = COLLEGE. Plain column for now: the foreign key is added with the college table (Phase 4).
+  collegeId   String?           @db.Uuid
+  isActive    Boolean           @default(true)
+  /// When staff last confirmed the notice is still current (plan §3.3 rule 3).
+  checkedAt   DateTime
+  createdById String?           @db.Uuid
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([countryId, isActive])
+  @@index([collegeId, isActive])
+  @@map("nmc_notices")
+}
