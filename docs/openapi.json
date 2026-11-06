@@ -1,8 +1,8 @@
 {
   "info": {
     "title": "BrightPath API",
-    "description": "Backend API for BrightPath. This spec is the contract for the frontend: every route documents its summary, request body and responses. Exported to docs/openapi.json via `bun run openapi:export`.",
-    "version": "0.1.0"
+    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
+    "version": "0.3.1"
   },
   "tags": [
     {
@@ -10,10 +10,83 @@
       "description": "Service and dependency health"
     },
     {
-      "name": "Jobs",
-      "description": "Background job enqueueing (BullMQ)"
+      "name": "Site",
+      "description": "Public site-wide configuration"
+    },
+    {
+      "name": "Admin · Auth",
+      "description": "Staff login, logout, current user, change password"
+    },
+    {
+      "name": "Admin · Staff",
+      "description": "Staff accounts and roles (ADMIN only)"
+    },
+    {
+      "name": "Admin · Site",
+      "description": "Site settings and disclaimer texts (ADMIN only)"
+    },
+    {
+      "name": "Admin · Audit",
+      "description": "Audit log of staff changes (ADMIN only)"
     }
   ],
+  "components": {
+    "schemas": {
+      "ErrorEnvelope": {
+        "description": "Standard error body returned by every non-2xx response",
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ],
+            "properties": {
+              "code": {
+                "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                "type": "string"
+              },
+              "fields": {
+                "description": "Per-field problems. Present for validation errors.",
+                "type": "array",
+                "items": {
+                  "description": "One problem with one field",
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "message"
+                  ],
+                  "properties": {
+                    "path": {
+                      "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                      "type": "string"
+                    },
+                    "message": {
+                      "description": "Human-readable explanation, safe to show next to the field",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "requestId": {
+                "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "openapi": "3.1.2",
   "paths": {
     "/health": {
@@ -125,13 +198,221 @@
         "operationId": "getHealth"
       }
     },
-    "/jobs/example": {
+    "/site/config": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "summary": "Site configuration",
+        "description": "Everything the frontend needs on every page, in one cacheable call: brand name, contact details (null until the owner adds them), the finder's free-results count, and the current disclaimer texts. Disclaimer `version` 0 means the built-in default is in use. Supports `ETag` / `If-None-Match` (answers 304 with an empty body when unchanged).",
+        "responses": {
+          "200": {
+            "description": "Public site configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Public site configuration",
+                  "type": "object",
+                  "required": [
+                    "brand",
+                    "contact",
+                    "finder",
+                    "disclaimers"
+                  ],
+                  "properties": {
+                    "brand": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "description": "Brand name, null until decided. The UI shows a placeholder.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "contact": {
+                      "type": "object",
+                      "required": [
+                        "phone",
+                        "whatsapp",
+                        "email",
+                        "officeAddress",
+                        "callbackHours"
+                      ],
+                      "properties": {
+                        "phone": {
+                          "description": "Business phone (call + WhatsApp)",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "whatsapp": {
+                          "description": "WhatsApp number if different from phone",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "email": {
+                          "description": "Business email",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "officeAddress": {
+                          "description": "Office address",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "callbackHours": {
+                          "description": "Counsellor call-back hours",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "finder": {
+                      "type": "object",
+                      "required": [
+                        "freeResultsPerGroup"
+                      ],
+                      "properties": {
+                        "freeResultsPerGroup": {
+                          "description": "India and abroad results shown before the student leaves their details",
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "description": "India and abroad results shown before the student leaves their details",
+                              "type": "integer"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "disclaimers": {
+                      "description": "Current disclaimer texts by key",
+                      "type": "object",
+                      "patternProperties": {
+                        "^(.*)$": {
+                          "type": "object",
+                          "required": [
+                            "version",
+                            "text"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "0 = built-in default",
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "description": "0 = built-in default",
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "text": {
+                              "description": "The wording to show, exactly as written",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. See the `Retry-After` header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Too many requests. See the `Retry-After` header",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getSiteConfig"
+      }
+    },
+    "/admin/auth/login": {
       "post": {
         "tags": [
-          "Jobs"
+          "Admin · Auth"
         ],
-        "summary": "Enqueue an example background job",
-        "description": "Adds a job to the `example` BullMQ queue and returns immediately with 202 Accepted. The worker process (`bun run worker`) picks it up asynchronously.",
+        "summary": "Log in",
+        "description": "Starts a staff session and sets the `bp_session` cookie (httpOnly, SameSite=Lax, Secure in production). Wrong email and wrong password give the same 401 message. After 5 wrong passwords the account is locked for 15 minutes (429). Limited to 10 attempts per minute per IP. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.",
         "requestBody": {
           "required": true,
           "content": {
@@ -139,13 +420,23 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "message"
+                  "email",
+                  "password"
                 ],
                 "properties": {
-                  "message": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Staff email (case-insensitive)",
+                    "examples": [
+                      "priya@example.com"
+                    ],
+                    "type": "string"
+                  },
+                  "password": {
                     "minLength": 1,
-                    "maxLength": 500,
-                    "description": "Free-text payload handed to the worker",
+                    "maxLength": 128,
+                    "description": "Account password",
                     "type": "string"
                   }
                 }
@@ -155,13 +446,23 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "message"
+                  "email",
+                  "password"
                 ],
                 "properties": {
-                  "message": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Staff email (case-insensitive)",
+                    "examples": [
+                      "priya@example.com"
+                    ],
+                    "type": "string"
+                  },
+                  "password": {
                     "minLength": 1,
-                    "maxLength": 500,
-                    "description": "Free-text payload handed to the worker",
+                    "maxLength": 128,
+                    "description": "Account password",
                     "type": "string"
                   }
                 }
@@ -171,13 +472,23 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "message"
+                  "email",
+                  "password"
                 ],
                 "properties": {
-                  "message": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Staff email (case-insensitive)",
+                    "examples": [
+                      "priya@example.com"
+                    ],
+                    "type": "string"
+                  },
+                  "password": {
                     "minLength": 1,
-                    "maxLength": 500,
-                    "description": "Free-text payload handed to the worker",
+                    "maxLength": 128,
+                    "description": "Account password",
                     "type": "string"
                   }
                 }
@@ -186,25 +497,314 @@
           }
         },
         "responses": {
-          "202": {
-            "description": "Job accepted for processing",
+          "200": {
+            "description": "Logged in; session cookie set",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Job accepted for processing",
+                  "description": "Logged in; session cookie set",
                   "type": "object",
                   "required": [
-                    "jobId",
-                    "queue"
+                    "user"
                   ],
                   "properties": {
-                    "jobId": {
-                      "description": "BullMQ job id",
-                      "type": "string"
-                    },
-                    "queue": {
-                      "description": "Queue the job was added to",
-                      "type": "string"
+                    "user": {
+                      "description": "A staff member who can use the admin API",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "role",
+                        "isActive",
+                        "mustChangePassword",
+                        "lastLoginAt",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "description": "Staff user id",
+                          "type": "string"
+                        },
+                        "email": {
+                          "format": "email",
+                          "description": "Login email, always lower-case",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Display name",
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "ADMIN",
+                            "EDITOR",
+                            "COUNSELLOR"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "Inactive users cannot log in and their sessions are revoked",
+                          "type": "boolean"
+                        },
+                        "mustChangePassword": {
+                          "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                          "type": "boolean"
+                        },
+                        "lastLoginAt": {
+                          "description": "Last successful login",
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. See the `Retry-After` header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Too many requests. See the `Retry-After` header",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }
@@ -212,11 +812,3870 @@
             }
           }
         },
-        "operationId": "postJobsExample"
+        "operationId": "postAdminAuthLogin"
+      }
+    },
+    "/admin/auth/me": {
+      "get": {
+        "tags": [
+          "Admin · Auth"
+        ],
+        "summary": "Current staff member",
+        "description": "Returns the logged-in staff member. The frontend calls this on load to learn the role and whether `mustChangePassword` is set.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "description": "A staff member who can use the admin API",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "role",
+                        "isActive",
+                        "mustChangePassword",
+                        "lastLoginAt",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "description": "Staff user id",
+                          "type": "string"
+                        },
+                        "email": {
+                          "format": "email",
+                          "description": "Login email, always lower-case",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Display name",
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "ADMIN",
+                            "EDITOR",
+                            "COUNSELLOR"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "Inactive users cannot log in and their sessions are revoked",
+                          "type": "boolean"
+                        },
+                        "mustChangePassword": {
+                          "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                          "type": "boolean"
+                        },
+                        "lastLoginAt": {
+                          "description": "Last successful login",
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminAuthMe"
+      }
+    },
+    "/admin/auth/logout": {
+      "post": {
+        "tags": [
+          "Admin · Auth"
+        ],
+        "summary": "Log out",
+        "description": "Ends the current session and clears the cookie. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminAuthLogout"
+      }
+    },
+    "/admin/auth/change-password": {
+      "post": {
+        "tags": [
+          "Admin · Auth"
+        ],
+        "summary": "Change own password",
+        "description": "Verifies the current password, sets the new one, clears `mustChangePassword`, and ends every OTHER session of this user. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "The password you use now",
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "At least 12 characters, not containing your email, different from the current one",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "The password you use now",
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "At least 12 characters, not containing your email, different from the current one",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "The password you use now",
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "At least 12 characters, not containing your email, different from the current one",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminAuthChange-password"
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "Admin · Staff"
+        ],
+        "summary": "List staff",
+        "description": "All staff accounts, active first. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "A staff member who can use the admin API",
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "email",
+                          "name",
+                          "role",
+                          "isActive",
+                          "mustChangePassword",
+                          "lastLoginAt",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "description": "Staff user id",
+                            "type": "string"
+                          },
+                          "email": {
+                            "format": "email",
+                            "description": "Login email, always lower-case",
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Display name",
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "ADMIN",
+                              "EDITOR",
+                              "COUNSELLOR"
+                            ]
+                          },
+                          "isActive": {
+                            "description": "Inactive users cannot log in and their sessions are revoked",
+                            "type": "boolean"
+                          },
+                          "mustChangePassword": {
+                            "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                            "type": "boolean"
+                          },
+                          "lastLoginAt": {
+                            "description": "Last successful login",
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminUsers"
+      },
+      "post": {
+        "tags": [
+          "Admin · Staff"
+        ],
+        "summary": "Create staff member",
+        "description": "Creates an account with a temporary password and `mustChangePassword = true`. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "name",
+                  "role",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Login email (stored lower-case)",
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Display name",
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "name",
+                  "role",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Login email (stored lower-case)",
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Display name",
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "name",
+                  "role",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Login email (stored lower-case)",
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Display name",
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Created",
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "description": "A staff member who can use the admin API",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "role",
+                        "isActive",
+                        "mustChangePassword",
+                        "lastLoginAt",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "description": "Staff user id",
+                          "type": "string"
+                        },
+                        "email": {
+                          "format": "email",
+                          "description": "Login email, always lower-case",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Display name",
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "ADMIN",
+                            "EDITOR",
+                            "COUNSELLOR"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "Inactive users cannot log in and their sessions are revoked",
+                          "type": "boolean"
+                        },
+                        "mustChangePassword": {
+                          "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                          "type": "boolean"
+                        },
+                        "lastLoginAt": {
+                          "description": "Last successful login",
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminUsers"
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "Admin · Staff"
+        ],
+        "summary": "Get staff member",
+        "description": "One staff account. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "description": "Staff user id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "description": "A staff member who can use the admin API",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "role",
+                        "isActive",
+                        "mustChangePassword",
+                        "lastLoginAt",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "description": "Staff user id",
+                          "type": "string"
+                        },
+                        "email": {
+                          "format": "email",
+                          "description": "Login email, always lower-case",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Display name",
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "ADMIN",
+                            "EDITOR",
+                            "COUNSELLOR"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "Inactive users cannot log in and their sessions are revoked",
+                          "type": "boolean"
+                        },
+                        "mustChangePassword": {
+                          "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                          "type": "boolean"
+                        },
+                        "lastLoginAt": {
+                          "description": "Last successful login",
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminUsersById"
+      },
+      "patch": {
+        "tags": [
+          "Admin · Staff"
+        ],
+        "summary": "Update staff member",
+        "description": "Change name, role or active status. Role changes and deactivation end the user's sessions. An ADMIN cannot change their own role or active status. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "description": "Staff user id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "isActive": {
+                    "description": "false deactivates the account and ends its sessions",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "isActive": {
+                    "description": "false deactivates the account and ends its sessions",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "EDITOR",
+                      "COUNSELLOR"
+                    ]
+                  },
+                  "isActive": {
+                    "description": "false deactivates the account and ends its sessions",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "description": "A staff member who can use the admin API",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "role",
+                        "isActive",
+                        "mustChangePassword",
+                        "lastLoginAt",
+                        "createdAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "description": "Staff user id",
+                          "type": "string"
+                        },
+                        "email": {
+                          "format": "email",
+                          "description": "Login email, always lower-case",
+                          "type": "string"
+                        },
+                        "name": {
+                          "description": "Display name",
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "ADMIN",
+                            "EDITOR",
+                            "COUNSELLOR"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "Inactive users cannot log in and their sessions are revoked",
+                          "type": "boolean"
+                        },
+                        "mustChangePassword": {
+                          "description": "True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared.",
+                          "type": "boolean"
+                        },
+                        "lastLoginAt": {
+                          "description": "Last successful login",
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchAdminUsersById"
+      }
+    },
+    "/admin/users/{id}/reset-password": {
+      "post": {
+        "tags": [
+          "Admin · Staff"
+        ],
+        "summary": "Reset a staff member's password",
+        "description": "Sets a temporary password, clears any lockout, forces a change at next login and ends all their sessions. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "description": "Staff user id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Temporary password, at least 12 characters. The user must change it at first login.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminUsersByIdReset-password"
+      }
+    },
+    "/admin/settings": {
+      "get": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "List site settings",
+        "description": "Every known setting with its current value and default. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "A site setting",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "description",
+                          "isPublic",
+                          "value",
+                          "default",
+                          "isDefault",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "key": {
+                            "description": "Setting key, e.g. `contact.phone`",
+                            "examples": [
+                              "finder.freeResultsPerGroup"
+                            ],
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "isPublic": {
+                            "description": "Exposed through the public GET /site/config",
+                            "type": "boolean"
+                          },
+                          "value": {
+                            "description": "Current effective value"
+                          },
+                          "default": {
+                            "description": "Value used when no override is stored"
+                          },
+                          "isDefault": {
+                            "description": "True when no override is stored",
+                            "type": "boolean"
+                          },
+                          "updatedAt": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminSettings"
+      }
+    },
+    "/admin/settings/{key}": {
+      "put": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "Update a site setting",
+        "description": "Validates the value against that setting's rules, stores it, writes an audit entry and refreshes the public config cache. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "description": "Setting key from GET /admin/settings",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "value"
+                ],
+                "properties": {
+                  "value": {
+                    "description": "New value; its type depends on the key (string, number or list). Use null to clear a text setting."
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "value"
+                ],
+                "properties": {
+                  "value": {
+                    "description": "New value; its type depends on the key (string, number or list). Use null to clear a text setting."
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "value"
+                ],
+                "properties": {
+                  "value": {
+                    "description": "New value; its type depends on the key (string, number or list). Use null to clear a text setting."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "item"
+                  ],
+                  "properties": {
+                    "item": {
+                      "description": "A site setting",
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "description",
+                        "isPublic",
+                        "value",
+                        "default",
+                        "isDefault",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "key": {
+                          "description": "Setting key, e.g. `contact.phone`",
+                          "examples": [
+                            "finder.freeResultsPerGroup"
+                          ],
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "isPublic": {
+                          "description": "Exposed through the public GET /site/config",
+                          "type": "boolean"
+                        },
+                        "value": {
+                          "description": "Current effective value"
+                        },
+                        "default": {
+                          "description": "Value used when no override is stored"
+                        },
+                        "isDefault": {
+                          "description": "True when no override is stored",
+                          "type": "boolean"
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putAdminSettingsByKey"
+      }
+    },
+    "/admin/disclaimers": {
+      "get": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "List disclaimers",
+        "description": "Each legal text with its active version and full history. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "A versioned legal/disclaimer text",
+                        "type": "object",
+                        "required": [
+                          "key",
+                          "description",
+                          "version",
+                          "text",
+                          "isBuiltIn",
+                          "history"
+                        ],
+                        "properties": {
+                          "key": {
+                            "examples": [
+                              "NOT_GUARANTEED"
+                            ],
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "description": "Active version; 0 = built-in default",
+                            "anyOf": [
+                              {
+                                "format": "integer",
+                                "default": 0,
+                                "type": "string"
+                              },
+                              {
+                                "description": "Active version; 0 = built-in default",
+                                "type": "integer"
+                              }
+                            ]
+                          },
+                          "text": {
+                            "description": "Active text",
+                            "type": "string"
+                          },
+                          "isBuiltIn": {
+                            "description": "True until an admin publishes the first edited version",
+                            "type": "boolean"
+                          },
+                          "history": {
+                            "description": "All stored versions, newest first",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "version",
+                                "text",
+                                "createdAt"
+                              ],
+                              "properties": {
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminDisclaimers"
+      }
+    },
+    "/admin/disclaimers/{key}": {
+      "put": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "Publish a new disclaimer version",
+        "description": "Never edits in place: adds the next version so earlier wording is kept. 409 if the text is unchanged. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "description": "Disclaimer key: NOT_GUARANTEED, FOREIGN_COLLEGES_NMC or ENQUIRY_CONSENT",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "minLength": 10,
+                    "maxLength": 2000,
+                    "description": "The new wording",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "minLength": 10,
+                    "maxLength": 2000,
+                    "description": "The new wording",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "minLength": 10,
+                    "maxLength": 2000,
+                    "description": "The new wording",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "item"
+                  ],
+                  "properties": {
+                    "item": {
+                      "description": "A versioned legal/disclaimer text",
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "description",
+                        "version",
+                        "text",
+                        "isBuiltIn",
+                        "history"
+                      ],
+                      "properties": {
+                        "key": {
+                          "examples": [
+                            "NOT_GUARANTEED"
+                          ],
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "description": "Active version; 0 = built-in default",
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "description": "Active version; 0 = built-in default",
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "text": {
+                          "description": "Active text",
+                          "type": "string"
+                        },
+                        "isBuiltIn": {
+                          "description": "True until an admin publishes the first edited version",
+                          "type": "boolean"
+                        },
+                        "history": {
+                          "description": "All stored versions, newest first",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "version",
+                              "text",
+                              "createdAt"
+                            ],
+                            "properties": {
+                              "version": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "format": "date-time",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state of the data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflicts with the current state of the data",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putAdminDisclaimersByKey"
+      }
+    },
+    "/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "Admin · Audit"
+        ],
+        "summary": "List audit log",
+        "description": "Every staff write: who, what, when, with before/after values (secrets are never stored). Newest first, cursor-paginated. Requires role ADMIN.",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "e.g. StaffUser, SiteSetting, Disclaimer",
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Id (or key) of the changed record",
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "description": "Staff member who made the change",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "e.g. staff.create, setting.update",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Page size (default 50)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 100,
+                  "description": "Page size (default 50)",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "description": "`nextCursor` from the previous page",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "at",
+                          "actorId",
+                          "actorEmail",
+                          "action",
+                          "entityType",
+                          "entityId",
+                          "before",
+                          "after"
+                        ],
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "at": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "actorId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actorEmail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "before": {
+                            "description": "Value before the change, null for creates"
+                          },
+                          "after": {
+                            "description": "Value after the change, null for deletes"
+                          }
+                        }
+                      }
+                    },
+                    "nextCursor": {
+                      "description": "Pass as `cursor` for the next page; null on the last page",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminAudit-logs"
       }
     }
-  },
-  "components": {
-    "schemas": {}
   }
 }

@@ -1,0 +1,64 @@
+// Phase 1: staff accounts, sessions and the audit trail (plan §4.1).
+
+enum StaffRole {
+  ADMIN
+  EDITOR
+  COUNSELLOR
+}
+
+model StaffUser {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  email              String      @unique // stored lower-case
+  name               String
+  passwordHash       String
+  role               StaffRole
+  isActive           Boolean     @default(true)
+  /// Set when an admin created the account or reset the password; cleared when the user picks their own.
+  mustChangePassword Boolean     @default(false)
+  failedLogins       Int         @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  sessions           StaffSession[]
+  auditLogs          AuditLog[]
+
+  @@map("staff_users")
+}
+
+model StaffSession {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  staffUserId String    @db.Uuid
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the opaque cookie token. The token itself is never stored.
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  lastUsedAt  DateTime  @default(now())
+  ipHash      String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([staffUserId])
+  @@index([expiresAt])
+  @@map("staff_sessions")
+}
+
+model AuditLog {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  actorId    String?    @db.Uuid
+  actor      StaffUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /// Snapshot so the log stays readable if the account is later renamed or removed.
+  actorEmail String?
+  action     String // e.g. "staff.create", "setting.update"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ipHash     String?
+  at         DateTime   @default(now())
+
+  @@index([entityType, entityId, at(sort: Desc)])
+  @@index([actorId, at(sort: Desc)])
+  @@index([at(sort: Desc)])
+  @@map("audit_logs")
+}

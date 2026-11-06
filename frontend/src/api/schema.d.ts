@@ -24,7 +24,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/jobs/example": {
+    "/site/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Site configuration
+         * @description Everything the frontend needs on every page, in one cacheable call: brand name, contact details (null until the owner adds them), the finder's free-results count, and the current disclaimer texts. Disclaimer `version` 0 means the built-in default is in use. Supports `ETag` / `If-None-Match` (answers 304 with an empty body when unchanged).
+         */
+        get: operations["getSiteConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -34,10 +54,238 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Enqueue an example background job
-         * @description Adds a job to the `example` BullMQ queue and returns immediately with 202 Accepted. The worker process (`bun run worker`) picks it up asynchronously.
+         * Log in
+         * @description Starts a staff session and sets the `bp_session` cookie (httpOnly, SameSite=Lax, Secure in production). Wrong email and wrong password give the same 401 message. After 5 wrong passwords the account is locked for 15 minutes (429). Limited to 10 attempts per minute per IP. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.
          */
-        post: operations["postJobsExample"];
+        post: operations["postAdminAuthLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current staff member
+         * @description Returns the logged-in staff member. The frontend calls this on load to learn the role and whether `mustChangePassword` is set.
+         */
+        get: operations["getAdminAuthMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Ends the current session and clears the cookie. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.
+         */
+        post: operations["postAdminAuthLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change own password
+         * @description Verifies the current password, sets the new one, clears `mustChangePassword`, and ends every OTHER session of this user. Cookie-authenticated writes must send the header `X-BP-Admin: 1` (CSRF protection); the browser also sends an `Origin` that must be on the allow-list.
+         */
+        post: operations["postAdminAuthChange-password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List staff
+         * @description All staff accounts, active first. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminUsers"];
+        put?: never;
+        /**
+         * Create staff member
+         * @description Creates an account with a temporary password and `mustChangePassword = true`. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get staff member
+         * @description One staff account. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminUsersById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update staff member
+         * @description Change name, role or active status. Role changes and deactivation end the user's sessions. An ADMIN cannot change their own role or active status. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminUsersById"];
+        trace?: never;
+    };
+    "/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a staff member's password
+         * @description Sets a temporary password, clears any lockout, forces a change at next login and ends all their sessions. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminUsersByIdReset-password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List site settings
+         * @description Every known setting with its current value and default. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a site setting
+         * @description Validates the value against that setting's rules, stores it, writes an audit entry and refreshes the public config cache. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminSettingsByKey"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/disclaimers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List disclaimers
+         * @description Each legal text with its active version and full history. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminDisclaimers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/disclaimers/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish a new disclaimer version
+         * @description Never edits in place: adds the next version so earlier wording is kept. 409 if the text is unchanged. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminDisclaimersByKey"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List audit log
+         * @description Every staff write: who, what, when, with before/after values (secrets are never stored). Newest first, cursor-paginated. Requires role ADMIN.
+         */
+        get: operations["getAdminAudit-logs"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -47,7 +295,26 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /** @description Standard error body returned by every non-2xx response */
+        ErrorEnvelope: {
+            error: {
+                /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                code: string;
+                /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                message: string;
+                /** @description Per-field problems. Present for validation errors. */
+                fields?: {
+                    /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                    path: string;
+                    /** @description Human-readable explanation, safe to show next to the field */
+                    message: string;
+                }[];
+                /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                requestId: string;
+            };
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -106,7 +373,82 @@ export interface operations {
             };
         };
     };
-    postJobsExample: {
+    getSiteConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public site configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        brand: {
+                            /** @description Brand name, null until decided. The UI shows a placeholder. */
+                            name: string | null;
+                        };
+                        contact: {
+                            /** @description Business phone (call + WhatsApp) */
+                            phone: string | null;
+                            /** @description WhatsApp number if different from phone */
+                            whatsapp: string | null;
+                            /** @description Business email */
+                            email: string | null;
+                            /** @description Office address */
+                            officeAddress: string | null;
+                            /** @description Counsellor call-back hours */
+                            callbackHours: string | null;
+                        };
+                        finder: {
+                            /** @description India and abroad results shown before the student leaves their details */
+                            freeResultsPerGroup: string | number;
+                        };
+                        /** @description Current disclaimer texts by key */
+                        disclaimers: {
+                            [key: string]: {
+                                /** @description 0 = built-in default */
+                                version: string | number;
+                                /** @description The wording to show, exactly as written */
+                                text: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminAuthLogin: {
         parameters: {
             query?: never;
             header?: never;
@@ -116,31 +458,1806 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Free-text payload handed to the worker */
-                    message: string;
+                    /**
+                     * Format: email
+                     * @description Staff email (case-insensitive)
+                     * @example priya@example.com
+                     */
+                    email: string;
+                    /** @description Account password */
+                    password: string;
                 };
                 "application/x-www-form-urlencoded": {
-                    /** @description Free-text payload handed to the worker */
-                    message: string;
+                    /**
+                     * Format: email
+                     * @description Staff email (case-insensitive)
+                     * @example priya@example.com
+                     */
+                    email: string;
+                    /** @description Account password */
+                    password: string;
                 };
                 "multipart/form-data": {
-                    /** @description Free-text payload handed to the worker */
-                    message: string;
+                    /**
+                     * Format: email
+                     * @description Staff email (case-insensitive)
+                     * @example priya@example.com
+                     */
+                    email: string;
+                    /** @description Account password */
+                    password: string;
                 };
             };
         };
         responses: {
-            /** @description Job accepted for processing */
-            202: {
+            /** @description Logged in; session cookie set */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        /** @description BullMQ job id */
-                        jobId: string;
-                        /** @description Queue the job was added to */
-                        queue: string;
+                        /** @description A staff member who can use the admin API */
+                        user: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminAuthMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A staff member who can use the admin API */
+                        user: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminAuthLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "postAdminAuthChange-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The password you use now */
+                    currentPassword: string;
+                    /** @description At least 12 characters, not containing your email, different from the current one */
+                    newPassword: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description The password you use now */
+                    currentPassword: string;
+                    /** @description At least 12 characters, not containing your email, different from the current one */
+                    newPassword: string;
+                };
+                "multipart/form-data": {
+                    /** @description The password you use now */
+                    currentPassword: string;
+                    /** @description At least 12 characters, not containing your email, different from the current one */
+                    newPassword: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: email
+                     * @description Login email (stored lower-case)
+                     */
+                    email: string;
+                    /** @description Display name */
+                    name: string;
+                    /** @enum {string} */
+                    role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * Format: email
+                     * @description Login email (stored lower-case)
+                     */
+                    email: string;
+                    /** @description Display name */
+                    name: string;
+                    /** @enum {string} */
+                    role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+                "multipart/form-data": {
+                    /**
+                     * Format: email
+                     * @description Login email (stored lower-case)
+                     */
+                    email: string;
+                    /** @description Display name */
+                    name: string;
+                    /** @enum {string} */
+                    role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A staff member who can use the admin API */
+                        user: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminUsersById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A staff member who can use the admin API */
+                        user: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminUsersById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** @enum {string} */
+                    role?: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description false deactivates the account and ends its sessions */
+                    isActive?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    name?: string;
+                    /** @enum {string} */
+                    role?: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description false deactivates the account and ends its sessions */
+                    isActive?: boolean;
+                };
+                "multipart/form-data": {
+                    name?: string;
+                    /** @enum {string} */
+                    role?: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                    /** @description false deactivates the account and ends its sessions */
+                    isActive?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A staff member who can use the admin API */
+                        user: {
+                            /**
+                             * Format: uuid
+                             * @description Staff user id
+                             */
+                            id: string;
+                            /**
+                             * Format: email
+                             * @description Login email, always lower-case
+                             */
+                            email: string;
+                            /** @description Display name */
+                            name: string;
+                            /** @enum {string} */
+                            role: "ADMIN" | "EDITOR" | "COUNSELLOR";
+                            /** @description Inactive users cannot log in and their sessions are revoked */
+                            isActive: boolean;
+                            /** @description True after an admin created the account or reset the password. Only change-password, me and logout work until it is cleared. */
+                            mustChangePassword: boolean;
+                            /**
+                             * Format: date-time
+                             * @description Last successful login
+                             */
+                            lastLoginAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "postAdminUsersByIdReset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+                "multipart/form-data": {
+                    /** @description Temporary password, at least 12 characters. The user must change it at first login. */
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /**
+                             * @description Setting key, e.g. `contact.phone`
+                             * @example finder.freeResultsPerGroup
+                             */
+                            key: string;
+                            description: string;
+                            /** @description Exposed through the public GET /site/config */
+                            isPublic: boolean;
+                            /** @description Current effective value */
+                            value: unknown;
+                            /** @description Value used when no override is stored */
+                            default: unknown;
+                            /** @description True when no override is stored */
+                            isDefault: boolean;
+                            /** Format: date-time */
+                            updatedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminSettingsByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description New value; its type depends on the key (string, number or list). Use null to clear a text setting. */
+                    value: unknown;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description New value; its type depends on the key (string, number or list). Use null to clear a text setting. */
+                    value: unknown;
+                };
+                "multipart/form-data": {
+                    /** @description New value; its type depends on the key (string, number or list). Use null to clear a text setting. */
+                    value: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A site setting */
+                        item: {
+                            /**
+                             * @description Setting key, e.g. `contact.phone`
+                             * @example finder.freeResultsPerGroup
+                             */
+                            key: string;
+                            description: string;
+                            /** @description Exposed through the public GET /site/config */
+                            isPublic: boolean;
+                            /** @description Current effective value */
+                            value: unknown;
+                            /** @description Value used when no override is stored */
+                            default: unknown;
+                            /** @description True when no override is stored */
+                            isDefault: boolean;
+                            /** Format: date-time */
+                            updatedAt: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminDisclaimers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @example NOT_GUARANTEED */
+                            key: string;
+                            description: string;
+                            /** @description Active version; 0 = built-in default */
+                            version: string | number;
+                            /** @description Active text */
+                            text: string;
+                            /** @description True until an admin publishes the first edited version */
+                            isBuiltIn: boolean;
+                            /** @description All stored versions, newest first */
+                            history: {
+                                version: string | number;
+                                text: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminDisclaimersByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The new wording */
+                    text: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description The new wording */
+                    text: string;
+                };
+                "multipart/form-data": {
+                    /** @description The new wording */
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description A versioned legal/disclaimer text */
+                        item: {
+                            /** @example NOT_GUARANTEED */
+                            key: string;
+                            description: string;
+                            /** @description Active version; 0 = built-in default */
+                            version: string | number;
+                            /** @description Active text */
+                            text: string;
+                            /** @description True until an admin publishes the first edited version */
+                            isBuiltIn: boolean;
+                            /** @description All stored versions, newest first */
+                            history: {
+                                version: string | number;
+                                text: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "getAdminAudit-logs": {
+        parameters: {
+            query?: {
+                entityType?: string;
+                entityId?: string;
+                actorId?: string;
+                action?: string;
+                limit?: string | number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            at: string;
+                            actorId: string | null;
+                            actorEmail: string | null;
+                            action: string;
+                            entityType: string;
+                            entityId: string;
+                            /** @description Value before the change, null for creates */
+                            before: unknown;
+                            /** @description Value after the change, null for deletes */
+                            after: unknown;
+                        }[];
+                        /** @description Pass as `cursor` for the next page; null on the last page */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
                     };
                 };
             };

@@ -8,7 +8,15 @@ export const logger = pino(
   {
     level: env.LOG_LEVEL,
     base: { service: "brightpath-backend" },
-    redact: ["req.headers.authorization", "req.headers.cookie", "*.password", "*.token"],
+    // PII and secrets never reach the logs (plan §3.3 rule 10). Paths cover top-level and one level deep.
+    redact: {
+      paths: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        ...["password", "passwordHash", "token", "name", "email", "phone", "phoneE164", "city"].flatMap((k) => [k, `*.${k}`]),
+      ],
+      censor: "[redacted]",
+    },
   },
   isProduction
     ? undefined

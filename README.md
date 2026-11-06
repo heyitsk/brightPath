@@ -50,3 +50,22 @@ Console only, via pino. Pretty output in development, JSON lines when `NODE_ENV=
 ## Secrets
 
 `.env` files are git-ignored at the root, in `backend/` and in `frontend/`. Commit only the `.env.example` templates.
+
+## Backend conventions (see `backendPlan.md` and `history.md`)
+
+- Code is organised in feature modules under `backend/src/modules/<feature>/`; shared plumbing is in `src/lib` and `src/plugins`.
+- Every non-2xx response uses `{ error: { code, message, fields?, requestId } }`. Throw `AppError` from services; never build error bodies by hand.
+- The Prisma schema is a folder (`backend/prisma/schema/*.prisma`), one file per domain.
+- Tests: copy `backend/.env.test.example` to `backend/.env.test`, then `cd backend && bun run test`. It creates and migrates a separate `*_test` database; it refuses to touch any other.
+- CI (`.github/workflows/ci.yml`) runs typecheck, tests and fails if `docs/openapi.json` or the generated frontend types are stale.
+
+## Staff admin API (Phase 1)
+
+First admin (one time, after `bun run infra:up` and `cd backend && bunx prisma migrate deploy`):
+
+```bash
+cd backend
+ADMIN_BOOTSTRAP_EMAIL=you@example.com ADMIN_BOOTSTRAP_PASSWORD='a-long-temporary-passphrase' bun run admin:bootstrap
+```
+
+Log in via `POST /admin/auth/login`; you must change the temporary password before anything else works. Frontend rules: send `credentials: "include"` and the header `X-BP-Admin: 1` on every non-GET `/admin/*` request. Set `IP_HASH_SALT` to a long random value in production.

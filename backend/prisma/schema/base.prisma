@@ -1,0 +1,12 @@
+// Prisma multi-file schema (see history.md D-009).
+// This file holds the generator + datasource only. Models live in one file per domain
+// next to it (staff.prisma, college.prisma, ...), added phase by phase.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

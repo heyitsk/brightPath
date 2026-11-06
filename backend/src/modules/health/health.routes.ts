@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
-import { prisma } from "../lib/prisma";
-import { redis } from "../lib/redis";
+import { prisma } from "../../lib/prisma";
+import { redis } from "../../lib/redis";
 
 const ServiceStatus = t.Union([t.Literal("up"), t.Literal("down")], {
   description: "Whether the dependency answered its health probe",
