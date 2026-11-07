@@ -1,4 +1,4 @@
-import { Form, Outlet, redirect } from 'react-router'
+import { Form, NavLink, Outlet, redirect } from 'react-router'
 import { adminApi } from '../../api/client.browser'
 import { handleApiError, safeCall } from '../../api/errors'
 import { sectionsFor } from '../../components/admin/sections'
@@ -43,9 +43,15 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         </p>
         <nav aria-label="Admin sections">
           <ul className="adm-nav">
-            {sections.map((label) => (
+            {sections.map(({ label, href }) => (
               <li key={label}>
-                {label} <span className="soon">(coming soon)</span>
+                {href ? (
+                  <NavLink to={href}>{label}</NavLink>
+                ) : (
+                  <>
+                    {label} <span className="soon">(coming soon)</span>
+                  </>
+                )}
               </li>
             ))}
             {!user.mustChangePassword && sections.length === 0 && (

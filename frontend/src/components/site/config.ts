@@ -1,10 +1,10 @@
 import { useRouteLoaderData } from 'react-router'
-import type { loader as rootLoader } from '../../root'
+import type { PublicRootData } from '../../root'
 
 /** Root loader data: site config and navigation. Available on every page. */
 export function useRootData() {
-  const data = useRouteLoaderData<typeof rootLoader>('root')
-  if (!data) throw new Error('Root loader data is missing.')
+  const data = useRouteLoaderData('root') as PublicRootData | { admin: true } | undefined
+  if (!data || data.admin) throw new Error('Site data is not loaded on admin pages.')
   return data
 }
 

@@ -6,6 +6,15 @@
 .adm-who strong{color:var(--cover-ink);display:block}
 .adm-nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .adm-nav li{padding:10px 12px;border-radius:var(--r);color:var(--cover-ink)}
+.adm-nav li:has(a){padding:0}
+.adm-nav a{display:block;padding:10px 12px;border-radius:var(--r);color:var(--cover-ink);text-decoration:none}
+.adm-nav a:hover{background:var(--cover-2)}
+.adm-nav a.active{background:var(--cover-2);font-weight:700}
+.adm-nav a:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+.adm-form{max-width:560px}
+.adm-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:16px}
+.adm-filters .field{margin:0;min-width:180px}
+.adm-pager{display:flex;gap:20px;margin-top:16px}
 .adm-nav .soon{color:var(--cover-muted);font-size:.875rem}
 .adm-main{padding:28px var(--gut);max-width:var(--max)}
 .adm-card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;max-width:460px}
