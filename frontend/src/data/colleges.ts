@@ -358,6 +358,7 @@ const KFU: AbroadCollegeDetail = {
     ...baseCollege,
     id: 1,
     slug: 'kazan-federal-university',
+    shortName: 'Kazan Federal University',
     kind: 'ABROAD',
     name: 'Kazan Federal University, Institute of Fundamental Medicine and Biology',
     city: 'Kazan, Republic of Tatarstan',
@@ -651,6 +652,8 @@ export async function getCollege(slug: string): Promise<CollegeDetail | null> {
 export type AbroadCollegeRow = {
   slug: string
   name: string
+  /** Shorter name for menus; null = use name. */
+  shortName: string | null
   city: string
   ownership: Ownership
   wdomsListed: CollegeAbroadProfile['wdomsListed']
@@ -685,6 +688,7 @@ export async function listCollegesByCountry(countrySlug: string): Promise<Abroad
     .map((d) => ({
       slug: d.college.slug,
       name: d.college.name,
+      shortName: d.college.shortName,
       city: d.college.city,
       ownership: d.college.ownership,
       wdomsListed: d.abroadProfile.wdomsListed,

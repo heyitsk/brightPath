@@ -10,7 +10,7 @@
   to a page that does not exist yet.
 */
 
-import { countCollegesByCountry, countCollegesByState, SAMPLE_COLLEGE_SLUGS } from './colleges'
+import { countCollegesByCountry, countCollegesByState, listCollegesByCountry, SAMPLE_COLLEGE_SLUGS } from './colleges'
 import { SAMPLE_COUNTRY_SLUGS } from './countries'
 import { SAMPLE_STATE_SLUGS } from './states'
 
@@ -419,12 +419,21 @@ const SAMPLE_NAVIGATION: Navigation = {
 /** Menu, footer and tab bar data. SAMPLE until GET /navigation/explore exists. */
 export async function getNavigation(): Promise<Navigation> {
   const { explore } = SAMPLE_NAVIGATION
-  // Counts come from the same sample colleges the pages show, so the menu and the pages agree.
+  // Counts (and, for countries with a page, the college list) come from the same sample
+  // colleges the pages show, so the menu and the pages agree.
   // Countries and states without a page yet keep a null count and show a [placeholder].
   const countries = await Promise.all(
     explore.countries.map(async (c) => {
       const slug = c.href.replace('/mbbs-abroad/', '')
-      return SAMPLE_COUNTRY_SLUGS.includes(slug) ? { ...c, total: await countCollegesByCountry(slug) } : c
+      if (!SAMPLE_COUNTRY_SLUGS.includes(slug)) return c
+      // A country with a page lists only the colleges that have a page, from colleges.ts.
+      const colleges = (await listCollegesByCountry(slug)).map((row) => college(row.shortName ?? row.name, row.slug))
+      return {
+        ...c,
+        total: await countCollegesByCountry(slug),
+        colleges,
+        mobileColleges: colleges.slice(0, c.mobileColleges.length),
+      }
     }),
   )
   const states = await Promise.all(
