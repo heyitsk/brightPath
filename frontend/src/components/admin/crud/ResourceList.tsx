@@ -68,7 +68,9 @@ export function ResourceList(props: {
       )}
 
       {items.length === 0 ? (
-        <p style={{ marginTop: 24 }}>No {cfg.title.toLowerCase()} found.</p>
+        <p style={{ marginTop: 24 }}>
+          {keep.size > 0 ? 'No rows match these filters.' : `No ${/^[A-Z]{2}/.test(cfg.title) ? cfg.title : cfg.title.toLowerCase()} yet. Add the first one.`}
+        </p>
       ) : (
         <div className="tbl-wrap" style={{ marginTop: 16 }}>
           <table>

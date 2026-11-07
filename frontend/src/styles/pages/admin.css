@@ -23,3 +23,9 @@
   .adm-shell{grid-template-columns:260px 1fr}
   .adm-main{padding:36px var(--gut)}
 }
+.adm-badge{display:inline-block;font-size:.8125rem;font-weight:700;border:1.5px solid var(--line);border-radius:var(--r);padding:1px 8px;white-space:nowrap}
+.adm-badge.on{border-color:var(--green);color:var(--green)}
+.adm-badge.off{border-color:var(--red);color:var(--red)}
+.adm-badge.pub{border-color:var(--violet);color:var(--violet)}
+.adm-actions{display:flex;gap:12px;flex-wrap:wrap}
+.adm-wide{max-width:760px}

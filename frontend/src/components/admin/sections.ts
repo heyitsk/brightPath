@@ -12,7 +12,10 @@ const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'Countries', href: '/admin/countries', roles: ['EDITOR'] },
   { label: 'Sources', href: '/admin/sources', roles: ['EDITOR'] },
   { label: 'NMC notices', href: '/admin/nmc-notices', roles: ['EDITOR'] },
-  { label: 'Staff', roles: [] },
+  { label: 'Staff', href: '/admin/users', roles: [] },
+  { label: 'Settings', href: '/admin/settings', roles: [] },
+  { label: 'Disclaimers', href: '/admin/disclaimers', roles: [] },
+  { label: 'Audit log', href: '/admin/audit-logs', roles: [] },
 ]
 
 export function sectionsFor(role: Role): AdminSection[] {

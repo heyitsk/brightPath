@@ -11,6 +11,17 @@ export default [
   route('admin', 'routes/admin/layout.tsx', [
     index('routes/admin/home.tsx'),
     route('change-password', 'routes/admin/change-password.tsx'),
+    // ADMIN-only sections. Static paths rank above ':section' below.
+    route('users', 'routes/admin/users.tsx'),
+    route('users/new', 'routes/admin/users-new.tsx'),
+    route('users/:id', 'routes/admin/users-edit.tsx'),
+    route('users/:id/status', 'routes/admin/users-status.tsx'),
+    route('users/:id/reset-password', 'routes/admin/users-reset.tsx'),
+    route('settings', 'routes/admin/settings.tsx'),
+    route('settings/:key', 'routes/admin/settings-edit.tsx'),
+    route('disclaimers', 'routes/admin/disclaimers.tsx'),
+    route('disclaimers/:key', 'routes/admin/disclaimers-edit.tsx'),
+    route('audit-logs', 'routes/admin/audit-logs.tsx'),
     // One set of pages for every CRUD section (states, countries, sources, nmc-notices).
     route(':section', 'routes/admin/section-list.tsx'),
     route(':section/new', 'routes/admin/section-new.tsx'),
