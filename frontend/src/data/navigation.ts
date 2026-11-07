@@ -11,6 +11,8 @@
 */
 
 import { SAMPLE_COLLEGE_SLUGS } from './colleges'
+import { SAMPLE_COUNTRY_SLUGS } from './countries'
+import { SAMPLE_STATE_SLUGS } from './states'
 
 export type NavItem = {
   label: string
@@ -66,7 +68,15 @@ export type Navigation = {
 }
 
 /* Pages that exist in the app today. Everything else stays unpublished. */
-const LIVE = new Set<string>(['/', ...SAMPLE_COLLEGE_SLUGS.map((slug) => `/colleges/${slug}`)])
+const LIVE = new Set<string>([
+  '/',
+  ...SAMPLE_COLLEGE_SLUGS.map((slug) => `/colleges/${slug}`),
+  ...SAMPLE_COUNTRY_SLUGS.map((slug) => `/mbbs-abroad/${slug}`),
+  ...SAMPLE_STATE_SLUGS.map((slug) => `/neet-counselling/${slug}`),
+])
+
+/** True when the page at this path exists, so links to it may be followed. */
+export const isLive = (href: string) => LIVE.has(href)
 
 function slugify(label: string) {
   return label
@@ -80,7 +90,7 @@ function item(label: string, href: string): NavItem {
   return { label, href, published: LIVE.has(href) }
 }
 const college = (label: string, slug = slugify(label)) => item(label, `/colleges/${slug}`)
-const country = (name: string) => item(`MBBS in ${name}`, `/mbbs-in-${slugify(name.replace(/^the /, ''))}`)
+const country = (name: string) => item(`MBBS in ${name}`, `/mbbs-abroad/${slugify(name.replace(/^the /, ''))}`)
 const state = (name: string) => item(name, `/neet-counselling/${slugify(name)}`)
 const guide = (label: string, slug = slugify(label)) => item(label, `/neet/${slug}`)
 
