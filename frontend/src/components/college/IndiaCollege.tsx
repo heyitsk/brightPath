@@ -14,7 +14,7 @@ import { checkedOn, formatDate, formatInr, formatLakh, NO_DATE, slot } from './f
 const OWNERSHIP = { GOVERNMENT: 'Government', PRIVATE: 'Private', DEEMED: 'Deemed university', TRUST: 'Trust' } as const
 
 const QUOTA_LABEL: Record<ClosingRank['quota'], string> = {
-  STATE: 'State quota',
+  STATE: 'State quota (85%)',
   ALL_INDIA: 'All India Quota',
   MANAGEMENT: 'Management quota',
   NRI: 'NRI quota',
@@ -25,6 +25,8 @@ const CATEGORY_ORDER: ClosingRank['category'][] = ['GENERAL', 'EWS', 'OBC', 'SC'
 const CATEGORY_LABEL: Record<ClosingRank['category'], string> = { GENERAL: 'General', EWS: 'EWS', OBC: 'OBC', SC: 'SC', ST: 'ST' }
 const ROUNDS: ClosingRank['round'][] = [1, 2, 3, 'STRAY']
 const roundLabel = (r: ClosingRank['round']) => (r === 'STRAY' ? 'Stray round' : `Round ${r}`)
+
+const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
 const number = (n: number) => formatInr(n).replace(/^₹ /, '')
 
@@ -250,7 +252,7 @@ function ClosingRanks({ detail }: { detail: IndiaCollegeDetail }) {
             ))}
           </tbody>
           <caption>
-            Source: {source ? `${source.publisher}, ${source.title}` : 'source not recorded'}. {checkedOn(checked)}. Candidates without a PwD
+            Source: {source ? `${source.publisher}, ${source.title}` : 'source not recorded'}. {capitalize(checkedOn(checked))}. Candidates without a PwD
             certificate.
           </caption>
         </table>
@@ -271,7 +273,8 @@ function Fees({ detail }: { detail: IndiaCollegeDetail }) {
     )
   }
   const first = lines[0]
-  const sameEveryYear = lines.every((l) => l.tuition === first.tuition && l.hostel === first.hostel && l.other === first.other)
+  // Full years are identical; the last line may be a half year, so it is left out of the comparison.
+  const sameEveryYear = lines.slice(0, -1).every((l) => l.tuition === first.tuition && l.hostel === first.hostel && l.other === first.other)
   const sum = (key: 'tuition' | 'hostel' | 'other') => lines.reduce((s, l: CollegeFeeLine) => s + l[key], 0)
   const rows = [
     ['Tuition', 'tuition'],
@@ -314,7 +317,7 @@ function Fees({ detail }: { detail: IndiaCollegeDetail }) {
             </tr>
           </tbody>
           <caption>
-            Source: {src?.title ?? 'college fee notice'}, {checkedOn(checked)}. Whole course adds all {lines.length} years.
+            Source: {src?.title ?? 'college fee notice'}, {checkedOn(checked)}. Whole course adds {lines.length - 1 + (lines.at(-1)!.academicYear.includes('half') ? 0.5 : 1)} years.
           </caption>
         </table>
       </div>

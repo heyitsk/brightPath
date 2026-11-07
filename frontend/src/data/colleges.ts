@@ -300,12 +300,20 @@ function abroadFee(
   }
 }
 
-function indiaFee(collegeId: number, yearNumber: number, [tuition, hostel, other]: [number, number, number], sourceId: number): CollegeFeeLine {
+/** Indian MBBS is 4.5 years of study: years 1 to 4 are full years and year 5 is a half year (pass 0.5). */
+function indiaFee(
+  collegeId: number,
+  yearNumber: number,
+  [fullTuition, fullHostel, fullOther]: [number, number, number],
+  sourceId: number,
+  share = 1,
+): CollegeFeeLine {
+  const [tuition, hostel, other] = [fullTuition * share, fullHostel * share, fullOther * share]
   return {
     collegeId,
     scope: 'PER_YEAR',
     yearNumber,
-    academicYear: `Year ${yearNumber}`,
+    academicYear: share === 1 ? `Year ${yearNumber}` : `Year ${yearNumber} (half year)`,
     tuition,
     hostel,
     other,
@@ -550,7 +558,7 @@ const GOV: IndiaCollegeDetail = {
   countryCode: 'IND',
   stateName: 'Uttar Pradesh',
   stateSlug: 'uttar-pradesh',
-  feeLines: [1, 2, 3, 4, 5].map((y) => indiaFee(3, y, [36_000, 12_000, 5_000], 7)),
+  feeLines: [1, 2, 3, 4, 5].map((y) => indiaFee(3, y, [36_000, 12_000, 5_000], 7, y === 5 ? 0.5 : 1)),
   sources: SOURCES,
   sourceLinks: [link(3, 5, 'SEAT_LIST', CHECKED_INDIA), link(3, 9, 'NMC_RECOGNITION', CHECKED_INDIA), link(3, 6, 'COUNSELLING', CHECKED_INDIA), link(3, 7, 'FEE_NOTICE', CHECKED_INDIA)],
   faqs: [],
@@ -598,7 +606,7 @@ const PRIVATE: IndiaCollegeDetail = {
   countryCode: 'IND',
   stateName: 'Uttar Pradesh',
   stateSlug: 'uttar-pradesh',
-  feeLines: [1, 2, 3, 4, 5].map((y) => indiaFee(4, y, [1_200_000, 150_000, 60_000], 8)),
+  feeLines: [1, 2, 3, 4, 5].map((y) => indiaFee(4, y, [1_200_000, 150_000, 60_000], 8, y === 5 ? 0.5 : 1)),
   sources: SOURCES,
   sourceLinks: [link(4, 5, 'SEAT_LIST', CHECKED_INDIA), link(4, 8, 'FEE_NOTICE', CHECKED_INDIA)],
   faqs: [],
