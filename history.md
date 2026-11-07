@@ -78,6 +78,21 @@ Format: **ID — decision.** *Why.* Status.
 - **D-052 — `aliases` (lower-case text array) added to State and Country now.** The plain-words search (D-005) needs "up", "kyrgyz", etc.; adding the column later would cost another migration. Seeded conservatively. Parsing logic itself is Phase 5. *Done.*
 - **D-053 — Uniqueness (slug/code/ISO code) is checked in the service first and reported as a field error (422), not left to a database error.** Matches the "fix 1 thing below" form contract (D-020). The unique indexes remain as the safety net. *Done.*
 
+### Phase 3 build decisions (2026-11-08)
+- **D-054 — Phase 3 was built before any NTA file exists, on a generic score-count CSV (owner chose "build now, load data later").** Upload format is `group,score_from,score_to,candidates` (template: `docs/neet-score-counts-template.csv`). Real NTA files must be converted to it; if their shape surprises us only a small converter is needed, not an engine change. Everything is tested on hand-checkable synthetic fixtures, not real data. Golden-row tests against the real files are still to do (Q-1). *Done; data pending.*
+- **D-055 — The rank table is rebuilt from the counts on every upload (no separate "build" step), and `basis` is derived from the data, not typed in.** The table depends only on the counts, so it can never be stale; a year is `BAND_INTERPOLATION` as soon as any count covers a mark range. Supports mixed files (some single scores, some ranges). `?dryRun=true` shows the report without saving. *Done.*
+- **D-056 — Mark-range estimates are deliberately honest.** Students in a range are spread evenly over its scores (rounded, deterministic), the estimate is clamped inside the range's rank span, and the response flags `approximate: true` with `possibleRankSpan` (the whole range). Exact years return the exact tied range. A score nobody got returns the single rank it would have taken. *Done.*
+- **D-057 — Data is split into groups OVERALL, GENERAL, EWS, OBC, SC, ST, PWD; `categoryRank` and `pwdRank` are `null` unless the year's file has that group (never guessed).** A PwD student qualifies at the lower of their category cut-off and the PwD cut-off. *Done.*
+- **D-058 — A score below the qualifying cut-off returns `outcome: "BELOW_CUTOFF"` with all rank fields `null`.** Showing a rank to a non-qualifying score could mislead; the explanation says why. Cut-offs are required to publish, so "unknown" (`qualified: null`) only appears if a category has none. *Proposed; owner may prefer to show the rank anyway.*
+- **D-059 — Replaced the plan's `compare=2026|2025|both` parameter with `year` (default newest published) plus an always-present `otherYears[]`.** Works for any number of published years without code changes. *Done; plan §5.1 superseded.*
+- **D-060 — NEET admin routes use the year number in the path (`/admin/neet/years/2024`), not a UUID, and a published year is locked.** While published only `checkedAt` and `methodNote` can change; counts, cut-offs, key figures and deletion need an unpublish first (409 otherwise). Prevents live numbers changing without the publish gate. *Done.*
+- **D-061 — The score-count file is sent as JSON text (`{csv}`), not stored; its SHA-256, file name and upload time are recorded on the year.** Real file storage and `ImportBatch` (D-016) come in Phase 4. *Done.*
+- **D-062 — `tableVersion` = `<year>-<first 12 hex of the SHA-256 of the derived rank table>`.** Same data in, same version out, and every answer carries it. Old tables are not kept: to reproduce an old answer, re-upload the file (its hash is recorded). *Done.*
+- **D-063 — Publish gate: the OVERALL counts plus qualifying cut-offs for GENERAL, EWS, OBC, SC and ST (PWD optional).** Cross-checks (counts vs `appeared`, category sums vs overall, topper score) are warnings shown on the year, never blockers: the official files can legitimately disagree. *Done.*
+- **D-064 — The first foreign key to `sources` now exists (`NeetExamYear.sourceId`, Restrict), so deleting a cited source returns 409; tested.** Closes the follow-up from D-048. *Done.*
+- **D-065 — Public rank answers are cached in Redis (1 hour ceiling, namespace bumped on publish/unpublish/metadata edit) and sent with `ETag` and `max-age=60`.** The disclaimer is attached fresh on every call so a wording change shows at once. Anonymous usage counters (D-010) are not built yet because nothing reads them. *Done.*
+- API version 0.5.0: 11 new routes (`GET /neet/rank`, `GET /neet/data-sources`, 9 under `/admin/neet/`). Migration `20261107191841_phase3_neet_rank_data` (additive, 4 tables, 3 enums).
+
 ## Discussions and findings
 ### 2026-11-06 — Planning session
 - Read `MBBS-Website-What-We-Build-First.pdf` (4 pages, text) and `MBBS-Previews-v3-Passport.pdf` (18 pages, images only). For the UI PDF I viewed the screens for the menus, rank predictor, college finder, compare, abroad and India college pages, state counselling and enquiry form to extract the data fields. I only skimmed the home, country, guide, about and contact sheets, so their data needs are inferred and should be checked.
@@ -96,7 +111,7 @@ Format: **ID — decision.** *Why.* Status.
 ## Open questions
 | # | Question | Needed by | Current assumption |
 |---|----------|-----------|--------------------|
-| Q-1 | What exactly did NTA publish for 2025 and 2026 (per-score counts, mark-range counts, only totals)? Does any file have category-wise data? | Phase 3 | Method decided only after seeing the files; `categoryRank` null if not supported |
+| Q-1 | What exactly did NTA publish for 2024, 2025 and 2026 (per-score counts, mark-range counts, only totals)? Does any file have category-wise data? | Loading real data into Phase 3 | The engine handles both exact and mark-range counts (D-054..D-056); owner supplies the files, then they are converted to the CSV template and golden-row tests are added. `categoryRank` null if not supported |
 | Q-2 | Final brand domain for Resend, and whether Turnstile is wanted | Phase 6 | Sandbox sender; Turnstile off |
 | Q-3 | Enquiry retention period and who owns deleting rows from the Google Sheet | Phase 6/8 | 24 months, manual Sheet cleanup documented |
 | Q-4 | Is a second-person approval needed before publishing college data? | Phase 4 | No, editors publish; audit log covers accountability |
@@ -110,7 +125,7 @@ Format: **ID — decision.** *Why.* Status.
 | 0 Foundation | **Done** (2026-11-06) | Uncommitted. 16 tests pass; spec 0.2.0 exported; CI workflow written but not yet run on GitHub |
 | 1 Staff auth, audit, settings | **Done** (2026-11-06) | Uncommitted. 49 tests pass; spec 0.3.0 (16 routes); verified live (bootstrap → login → forced password change → settings → `/site/config`) against the test DB |
 | 2 Reference data | **Done** (2026-11-07) | Uncommitted, on branch `feat/backend-phase-2`. 73 tests pass (20 new); spec 0.4.0 (18 new admin routes); migration `20261106193139_phase2_reference_data`; seed verified idempotent against the dev DB |
-| 3 NEET Rank Predictor | Not started | Needs NTA files |
+| 3 NEET Rank Predictor | **Built, awaiting real data** (2026-11-08) | Uncommitted, on branch `feat/backend-phase-3`. 125 tests pass (52 new, synthetic fixtures); spec 0.5.0; migration `20261107191841_phase3_neet_rank_data`. Real NTA files still to load and golden-checked (Q-1) |
 | 4 College catalogue + imports | Not started | |
 | 5 Finder, closing ranks, compare | Not started | |
 | 6 Enquiries (Sheets + Resend) | Not started | Needs Resend + Google credentials |

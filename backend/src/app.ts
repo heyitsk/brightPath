@@ -14,11 +14,13 @@ import { authRoutes } from "./modules/auth/auth.routes";
 import { geographyAdminRoutes } from "./modules/reference/geography.admin.routes";
 import { provenanceAdminRoutes } from "./modules/reference/provenance.admin.routes";
 import { healthRoutes } from "./modules/health/health.routes";
+import { neetAdminRoutes } from "./modules/neet/neet.admin.routes";
+import { neetRoutes } from "./modules/neet/neet.routes";
 import { siteAdminRoutes } from "./modules/site/site.admin.routes";
 import { siteRoutes } from "./modules/site/site.routes";
 import { staffAdminRoutes } from "./modules/staff/staff.admin.routes";
 
-export const API_VERSION = "0.4.0";
+export const API_VERSION = "0.5.0";
 
 // The app is built here and started in index.ts, so scripts (e.g. OpenAPI export) and tests
 // can import it without opening a port.
@@ -57,17 +59,19 @@ export const app = new Elysia()
             "**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n" +
             "**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. " +
             "Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n" +
-            "**Changelog.** 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
+            "**Changelog.** 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
             "0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
         },
         tags: [
           { name: "Health", description: "Service and dependency health" },
           { name: "Site", description: "Public site-wide configuration" },
+          { name: "NEET", description: "NEET (UG) rank predictor and the data it uses" },
           { name: "Admin · Auth", description: "Staff login, logout, current user, change password" },
           { name: "Admin · Staff", description: "Staff accounts and roles (ADMIN only)" },
           { name: "Admin · Site", description: "Site settings and disclaimer texts (ADMIN only)" },
           { name: "Admin · Audit", description: "Audit log of staff changes (ADMIN only)" },
           { name: "Admin · Reference", description: "States, countries, official sources and NMC notices (EDITOR or ADMIN)" },
+          { name: "Admin · NEET", description: "NEET years, cut-offs, score-count upload, preview and publish (EDITOR or ADMIN)" },
         ],
         components: { schemas: { ErrorEnvelope } },
       },
@@ -77,11 +81,13 @@ export const app = new Elysia()
   .use(rateLimit({ name: "default", limit: env.RATE_LIMIT_DEFAULT_PER_MIN, windowSec: 60, scope: "global" }))
   // ---- feature modules: one `.use(...)` per phase, below the default rate limit ----
   .use(siteRoutes)
+  .use(neetRoutes)
   .use(authRoutes)
   .use(staffAdminRoutes)
   .use(siteAdminRoutes)
   .use(auditAdminRoutes)
   .use(geographyAdminRoutes)
-  .use(provenanceAdminRoutes);
+  .use(provenanceAdminRoutes)
+  .use(neetAdminRoutes);
 
 export type App = typeof app;

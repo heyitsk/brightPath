@@ -44,6 +44,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/neet/rank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Predict NEET (UG) rank from a score
+         * @description Turns a NEET (UG) score into an All-India rank **range** using the official NTA result data. The same score always gives the same answer (`tableVersion` identifies the exact table used). Ranks are ranges because tied students share a band of ranks.
+         *
+         *     - `result.outcome` is `BELOW_CUTOFF` when the score is under the qualifying cut-off; rank fields are then null.
+         *     - `result.approximate` is true when the year's data only has counts per mark range; show the estimate as approximate and mention `possibleRankSpan`.
+         *     - `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).
+         *     - `otherYears` gives the same score in every other published year (for "same score in the other year").
+         *     - `meta.disclaimer` must be shown with the answer.
+         *
+         *     Supports `ETag` / `If-None-Match`. 404 until a year is published; 422 for an unavailable `year` or a score outside -180..720.
+         */
+        get: operations["getNeetRank"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/neet/data-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * NEET data we use
+         * @description One row per published exam year for the "Data we use" table: official source, check date, how ranks were derived (`basis`, `approximate`), which lists exist (`groups`) and the qualifying cut-offs. Newest year first. Supports `ETag` / `If-None-Match`.
+         */
+        get: operations["getNeetData-sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/auth/login": {
         parameters: {
             query?: never;
@@ -492,6 +540,158 @@ export interface paths {
         patch: operations["patchAdminNmc-noticesById"];
         trace?: never;
     };
+    "/admin/neet/years": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List NEET years
+         * @description Every NEET (UG) exam year, newest first, draft or published. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNeetYears"];
+        put?: never;
+        /**
+         * Create a NEET year
+         * @description Starts a DRAFT year. Next: upload the score counts, set the qualifying cut-offs, check with the preview, then publish. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNeetYears"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/neet/years/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a NEET year
+         * @description One year with what its uploaded file contains (`groups`), data cross-check `warnings`, and `publishProblems` (what still blocks publishing). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNeetYearsByYear"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a NEET year
+         * @description Deletes a DRAFT year with its counts, cut-offs and rank table. 409 if published. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminNeetYearsByYear"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a NEET year
+         * @description Send only the fields to change. While the year is published only `checkedAt` and `methodNote` can change (409 otherwise); unpublish first for the rest. To re-confirm the figures are still correct, send a new `checkedAt`. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminNeetYearsByYear"];
+        trace?: never;
+    };
+    "/admin/neet/years/{year}/cutoffs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set qualifying cut-offs
+         * @description Replaces the year's qualifying cut-offs. A PwD student qualifies at the lower of their category cut-off and the PWD one. DRAFT years only (409 if published). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminNeetYearsByYearCutoffs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/neet/years/{year}/distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload score counts
+         * @description Replaces the year's counts and rebuilds the rank table from them in one step (the table is never edited by hand). Use `dryRun: true` first to see the report. Errors list each bad line (422). The report's `basis` is EXACT_TIES when every count is for a single score, otherwise BAND_INTERPOLATION. `warnings` are cross-checks; they do not block. DRAFT years only (409 if published). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminNeetYearsByYearDistribution"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/neet/years/{year}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview a rank
+         * @description The same answer the public `GET /neet/rank` would give, but for any year (including a draft). Use it to check known scores against the official file before publishing. `otherYears` is empty. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNeetYearsByYearPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/neet/years/{year}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a NEET year
+         * @description Makes the year available to `GET /neet/rank`. Needs the score counts (with the OVERALL list) and cut-offs for GENERAL, EWS, OBC, SC, ST; otherwise 422 lists what is missing. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNeetYearsByYearPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/neet/years/{year}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish a NEET year
+         * @description Takes the year off the public API and makes it editable again. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNeetYearsByYearUnpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -615,6 +815,294 @@ export interface operations {
                                 /** @description 0 = built-in default */
                                 version: string | number;
                                 /** @description The wording to show, exactly as written */
+                                text: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getNeetRank: {
+        parameters: {
+            query: {
+                score: string | number;
+                category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
+                pwd?: boolean;
+                year?: string | number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The rank answer for one exam year */
+                        result: {
+                            /** @description NEET (UG) exam year the answer is based on */
+                            year: string | number;
+                            /** @enum {string} */
+                            outcome: "OK" | "BELOW_CUTOFF";
+                            score: string | number;
+                            /** @enum {string} */
+                            category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
+                            pwd: boolean;
+                            /** @description Whether the score reaches the qualifying cut-off */
+                            qualification: {
+                                /** @description null when this year has no cut-off loaded for the category, so we cannot say */
+                                qualified: boolean | null;
+                                /** @description Minimum marks that qualify */
+                                cutoffScore: (string | number) | null;
+                                cutoffPercentile: number | null;
+                                /**
+                                 * @description Which cut-off decided it (the category, or PWD when that is lower)
+                                 * @enum {string|null}
+                                 */
+                                appliedGroup: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD" | null;
+                            };
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            allIndiaRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            possibleRankSpan: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            categoryRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            pwdRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description Percent of students who scored the same or lower (NTA's definition) */
+                            percentile: number | null;
+                            studentsAhead: (string | number) | null;
+                            studentsAppeared: string | number;
+                            /** @description null when `approximate` */
+                            studentsWithSameScore: (string | number) | null;
+                            /** @description true when the rank is estimated from a published mark range. Tell the student. */
+                            approximate: boolean;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /** @description Plain-words bullets explaining the answer, ready to show */
+                            explanation: string[];
+                            /** @description The official document the numbers come from */
+                            source: {
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /**
+                             * @description Identifies the exact rank table used. Same score + same version = same answer.
+                             * @example 2026-3f9a1c0b7d2e
+                             */
+                            tableVersion: string;
+                        };
+                        otherYears: {
+                            year: string | number;
+                            /** @enum {string} */
+                            outcome: "OK" | "BELOW_CUTOFF";
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            allIndiaRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            approximate: boolean;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                        }[];
+                        /** @description Wording that must be shown with the answer */
+                        meta: {
+                            disclaimer: {
+                                key: string;
+                                version: string | number;
+                                /** @description Show next to the result, exactly as written */
+                                text: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "getNeetData-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Newest first */
+                        years: {
+                            year: string | number;
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /** @description true when this year's ranks are estimated from mark ranges */
+                            approximate: boolean;
+                            methodNote: string | null;
+                            /** @description Which lists the year has data for. Category and PwD ranks exist only for the groups listed. */
+                            groups: ("OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD")[];
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** @description The official document the numbers come from */
+                            source: {
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            tableVersion: string;
+                        }[];
+                        /** @description Wording that must be shown with the answer */
+                        meta: {
+                            disclaimer: {
+                                key: string;
+                                version: string | number;
+                                /** @description Show next to the result, exactly as written */
                                 text: string;
                             };
                         };
@@ -5312,6 +5800,2109 @@ export interface operations {
             };
             /** @description Not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNeetYears: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNeetYears: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example 2026 */
+                    year: string | number;
+                    /** @description Official number of students who appeared */
+                    appeared: string | number;
+                    /** @description Official number who qualified, if published */
+                    qualified?: (string | number) | null;
+                    /** @description Highest score, if published (used as a cross-check) */
+                    topperScore?: (string | number) | null;
+                    /** @description Date NTA declared the result */
+                    resultDate?: (string) | null;
+                    /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
+                    methodNote?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description The official NTA document (create it under Admin · Reference › Sources first)
+                     */
+                    sourceId: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @example 2026 */
+                    year: string | number;
+                    /** @description Official number of students who appeared */
+                    appeared: string | number;
+                    /** @description Official number who qualified, if published */
+                    qualified?: (string | number) | null;
+                    /** @description Highest score, if published (used as a cross-check) */
+                    topperScore?: (string | number) | null;
+                    /** @description Date NTA declared the result */
+                    resultDate?: (string) | null;
+                    /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
+                    methodNote?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description The official NTA document (create it under Admin · Reference › Sources first)
+                     */
+                    sourceId: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+                "multipart/form-data": {
+                    /** @example 2026 */
+                    year: string | number;
+                    /** @description Official number of students who appeared */
+                    appeared: string | number;
+                    /** @description Official number who qualified, if published */
+                    qualified?: (string | number) | null;
+                    /** @description Highest score, if published (used as a cross-check) */
+                    topperScore?: (string | number) | null;
+                    /** @description Date NTA declared the result */
+                    resultDate?: (string) | null;
+                    /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
+                    methodNote?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description The official NTA document (create it under Admin · Reference › Sources first)
+                     */
+                    sourceId: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNeetYearsByYear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminNeetYearsByYear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminNeetYearsByYear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appeared?: string | number;
+                    /** @description null clears it */
+                    qualified?: (string | number) | null;
+                    /** @description null clears it */
+                    topperScore?: (string | number) | null;
+                    /** @description null clears it */
+                    resultDate?: (string) | null;
+                    /** @description null or empty clears it */
+                    methodNote?: string | null;
+                    /** Format: uuid */
+                    sourceId?: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    appeared?: string | number;
+                    /** @description null clears it */
+                    qualified?: (string | number) | null;
+                    /** @description null clears it */
+                    topperScore?: (string | number) | null;
+                    /** @description null clears it */
+                    resultDate?: (string) | null;
+                    /** @description null or empty clears it */
+                    methodNote?: string | null;
+                    /** Format: uuid */
+                    sourceId?: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+                "multipart/form-data": {
+                    appeared?: string | number;
+                    /** @description null clears it */
+                    qualified?: (string | number) | null;
+                    /** @description null clears it */
+                    topperScore?: (string | number) | null;
+                    /** @description null clears it */
+                    resultDate?: (string) | null;
+                    /** @description null or empty clears it */
+                    methodNote?: string | null;
+                    /** Format: uuid */
+                    sourceId?: string;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminNeetYearsByYearCutoffs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Replaces all cut-offs for the year. Publishing needs GENERAL, EWS, OBC, SC and ST; PWD is optional. */
+                    cutoffs: {
+                        /** @enum {string} */
+                        group: "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                        /** @example 50 */
+                        percentile: number;
+                        /** @example 144 */
+                        minScore: string | number;
+                    }[];
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description Replaces all cut-offs for the year. Publishing needs GENERAL, EWS, OBC, SC and ST; PWD is optional. */
+                    cutoffs: {
+                        /** @enum {string} */
+                        group: "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                        /** @example 50 */
+                        percentile: number;
+                        /** @example 144 */
+                        minScore: string | number;
+                    }[];
+                };
+                "multipart/form-data": {
+                    /** @description Replaces all cut-offs for the year. Publishing needs GENERAL, EWS, OBC, SC and ST; PWD is optional. */
+                    cutoffs: {
+                        /** @enum {string} */
+                        group: "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                        /** @example 50 */
+                        percentile: number;
+                        /** @example 144 */
+                        minScore: string | number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminNeetYearsByYearDistribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The score counts as CSV text. First line exactly `group,score_from,score_to,candidates`. group is OVERALL, GENERAL, EWS, OBC, SC, ST or PWD; score_to may be blank for a single score; candidates is a plain whole number. Scores run -180..720 and must not overlap within a group.
+                     * @example group,score_from,score_to,candidates
+                     *     OVERALL,720,720,3
+                     *     OVERALL,715,715,11
+                     *     OBC,600,609,5120
+                     */
+                    csv: string;
+                    /** @description Name of the official file this came from (for the record) */
+                    fileName?: string | null;
+                    /** @description true = check the file and show the report, save nothing */
+                    dryRun?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * @description The score counts as CSV text. First line exactly `group,score_from,score_to,candidates`. group is OVERALL, GENERAL, EWS, OBC, SC, ST or PWD; score_to may be blank for a single score; candidates is a plain whole number. Scores run -180..720 and must not overlap within a group.
+                     * @example group,score_from,score_to,candidates
+                     *     OVERALL,720,720,3
+                     *     OVERALL,715,715,11
+                     *     OBC,600,609,5120
+                     */
+                    csv: string;
+                    /** @description Name of the official file this came from (for the record) */
+                    fileName?: string | null;
+                    /** @description true = check the file and show the report, save nothing */
+                    dryRun?: boolean;
+                };
+                "multipart/form-data": {
+                    /**
+                     * @description The score counts as CSV text. First line exactly `group,score_from,score_to,candidates`. group is OVERALL, GENERAL, EWS, OBC, SC, ST or PWD; score_to may be blank for a single score; candidates is a plain whole number. Scores run -180..720 and must not overlap within a group.
+                     * @example group,score_from,score_to,candidates
+                     *     OVERALL,720,720,3
+                     *     OVERALL,715,715,11
+                     *     OBC,600,609,5120
+                     */
+                    csv: string;
+                    /** @description Name of the official file this came from (for the record) */
+                    fileName?: string | null;
+                    /** @description true = check the file and show the report, save nothing */
+                    dryRun?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description What the uploaded file contains and what was built from it */
+                        report: {
+                            /** @description true = nothing was saved */
+                            dryRun: boolean;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            warnings: string[];
+                            /** @description Rows in the derived rank table (one per integer score per group) */
+                            rankRowsBuilt: string | number;
+                            tableVersion: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNeetYearsByYearPreview: {
+        parameters: {
+            query: {
+                score: string | number;
+                category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
+                pwd?: boolean;
+            };
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The rank answer for one exam year */
+                        result: {
+                            /** @description NEET (UG) exam year the answer is based on */
+                            year: string | number;
+                            /** @enum {string} */
+                            outcome: "OK" | "BELOW_CUTOFF";
+                            score: string | number;
+                            /** @enum {string} */
+                            category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
+                            pwd: boolean;
+                            /** @description Whether the score reaches the qualifying cut-off */
+                            qualification: {
+                                /** @description null when this year has no cut-off loaded for the category, so we cannot say */
+                                qualified: boolean | null;
+                                /** @description Minimum marks that qualify */
+                                cutoffScore: (string | number) | null;
+                                cutoffPercentile: number | null;
+                                /**
+                                 * @description Which cut-off decided it (the category, or PWD when that is lower)
+                                 * @enum {string|null}
+                                 */
+                                appliedGroup: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD" | null;
+                            };
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            allIndiaRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            possibleRankSpan: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            categoryRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            pwdRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            /** @description Percent of students who scored the same or lower (NTA's definition) */
+                            percentile: number | null;
+                            studentsAhead: (string | number) | null;
+                            studentsAppeared: string | number;
+                            /** @description null when `approximate` */
+                            studentsWithSameScore: (string | number) | null;
+                            /** @description true when the rank is estimated from a published mark range. Tell the student. */
+                            approximate: boolean;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /** @description Plain-words bullets explaining the answer, ready to show */
+                            explanation: string[];
+                            /** @description The official document the numbers come from */
+                            source: {
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /**
+                             * @description Identifies the exact rank table used. Same score + same version = same answer.
+                             * @example 2026-3f9a1c0b7d2e
+                             */
+                            tableVersion: string;
+                        };
+                        otherYears: {
+                            year: string | number;
+                            /** @enum {string} */
+                            outcome: "OK" | "BELOW_CUTOFF";
+                            /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
+                            allIndiaRank: {
+                                /** @description Best (lowest-numbered) rank this score could have */
+                                from: string | number;
+                                /** @description Worst (highest-numbered) rank this score could have */
+                                to: string | number;
+                            } | null;
+                            approximate: boolean;
+                            /** @enum {string} */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                        }[];
+                        /** @description Wording that must be shown with the answer */
+                        meta: {
+                            disclaimer: {
+                                key: string;
+                                version: string | number;
+                                /** @description Show next to the result, exactly as written */
+                                text: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNeetYearsByYearPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNeetYearsByYearUnpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examYear: {
+                            /** Format: uuid */
+                            id: string;
+                            year: string | number;
+                            /** @enum {string} */
+                            status: "DRAFT" | "PUBLISHED";
+                            appeared: string | number;
+                            qualified: (string | number) | null;
+                            topperScore: (string | number) | null;
+                            /** Format: date */
+                            resultDate: string | null;
+                            /**
+                             * @description null until a score-count file has been uploaded
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
+                            methodNote: string | null;
+                            source: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                            };
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description The last uploaded score-count file; null before the first upload */
+                            distribution: {
+                                fileName: string | null;
+                                sha256: string;
+                                /** Format: date-time */
+                                uploadedAt: string;
+                            } | null;
+                            tableVersion: string | null;
+                            cutoffs: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                percentile: number;
+                                minScore: string | number;
+                            }[];
+                            /** Format: date-time */
+                            publishedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** @description What the uploaded file contains */
+                            groups: {
+                                /** @enum {string} */
+                                group: "OVERALL" | "GENERAL" | "EWS" | "OBC" | "SC" | "ST" | "PWD";
+                                /** @description Rows uploaded for this group */
+                                rows: string | number;
+                                /** @description Rows that cover more than one score */
+                                bands: string | number;
+                                /** @description Total candidates in the group */
+                                candidates: string | number;
+                                /** @description Lowest score with at least one candidate */
+                                lowestScore: (string | number) | null;
+                                /** @description Highest score with at least one candidate */
+                                highestScore: (string | number) | null;
+                            }[];
+                            /** @description Cross-check hints about the data. They never block publishing; read them. */
+                            warnings: string[];
+                            /** @description What still blocks publishing. Empty = ready to publish. */
+                            publishProblems: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
