@@ -1,0 +1,16 @@
+/* Admin area. Only v3 tokens and existing component classes; no new design. */
+.adm-shell{display:grid;grid-template-columns:1fr;min-height:100vh;background:var(--paper)}
+.adm-side{background:var(--cover);color:var(--cover-ink);padding:20px var(--gut);display:flex;flex-direction:column;gap:20px}
+.adm-brand{font-weight:700;font-size:1.125rem}
+.adm-who{font-size:.9375rem;color:var(--cover-muted);margin:0}
+.adm-who strong{color:var(--cover-ink);display:block}
+.adm-nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.adm-nav li{padding:10px 12px;border-radius:var(--r);color:var(--cover-ink)}
+.adm-nav .soon{color:var(--cover-muted);font-size:.875rem}
+.adm-main{padding:28px var(--gut);max-width:var(--max)}
+.adm-card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;max-width:460px}
+.adm-center{min-height:100vh;display:grid;place-items:center;padding:var(--gut);background:var(--paper)}
+@media (min-width:900px){
+  .adm-shell{grid-template-columns:260px 1fr}
+  .adm-main{padding:36px var(--gut)}
+}

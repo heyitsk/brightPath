@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useMatches,
 } from 'react-router'
 import type { Route } from './+types/root'
 import { api, unwrap } from './api/client.server'
@@ -69,6 +70,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Admin routes (handle.admin) render without the public header, footer and tab bar.
+  const isAdmin = useMatches().some((m) => (m.handle as { admin?: boolean } | undefined)?.admin)
+  if (isAdmin) return <Outlet />
   return (
     <>
       <a className="skip" href="#main">
