@@ -1,0 +1,112 @@
+// Phase 3: NEET (UG) rank data (plan §4.3). Staff load the official NTA score counts per exam
+// year; the derived rank table (one row per integer score) is built from them by code and is
+// never edited by hand. Public reads are single-row primary-key lookups.
+
+enum NeetYearStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// How ranks were derived for a year. Disclosed to students on the "Data we use" table.
+enum NeetRankBasis {
+  /// NTA data has a count for every individual score: ranks are exact ranges of tied students.
+  EXACT_TIES
+  /// Some counts cover a mark range: students are spread evenly inside each range (approximate).
+  BAND_INTERPOLATION
+}
+
+/// A candidate group the data is split by. OVERALL = the All-India list; PWD = the PwD list.
+enum NeetGroup {
+  OVERALL
+  GENERAL
+  EWS
+  OBC
+  SC
+  ST
+  PWD
+}
+
+model NeetExamYear {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  year        Int            @unique
+  status      NeetYearStatus @default(DRAFT)
+  /// Official number of students who appeared.
+  appeared    Int
+  /// Official number who qualified, if published.
+  qualified   Int?
+  topperScore Int?
+  resultDate  DateTime?      @db.Date
+  /// Set by the distribution upload (derived from the data, never typed in).
+  basis       NeetRankBasis?
+  /// Plain-words note on how the data was published / any caveats. Shown on "Data we use".
+  methodNote  String?
+  sourceId    String         @db.Uuid
+  source      Source         @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  /// When staff last confirmed the figures against the official document (plan §3.3 rule 3).
+  checkedAt   DateTime
+
+  /// Provenance of the uploaded score-count file (the file itself is not stored; D-016 is Phase 4).
+  distributionFileName   String?
+  distributionSha256     String?
+  distributionUploadedAt DateTime?
+  /// Hash of the derived rank table: same data in, same hash out. Returned as `tableVersion`.
+  tableHash              String?
+
+  publishedAt DateTime?
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  cutoffs      NeetQualifyingCutoff[]
+  distribution NeetScoreDistribution[]
+  rankRows     NeetRankRow[]
+
+  @@index([status, year])
+  @@map("neet_exam_years")
+}
+
+/// Minimum score to qualify, per group, for one year.
+model NeetQualifyingCutoff {
+  examYearId String       @db.Uuid
+  examYear   NeetExamYear @relation(fields: [examYearId], references: [id], onDelete: Cascade)
+  /// Never OVERALL.
+  group      NeetGroup
+  percentile Float
+  minScore   Int
+
+  @@id([examYearId, group])
+  @@map("neet_qualifying_cutoffs")
+}
+
+/// Raw import: how many candidates scored in [scoreFrom, scoreTo] (equal for a single score).
+model NeetScoreDistribution {
+  examYearId String       @db.Uuid
+  examYear   NeetExamYear @relation(fields: [examYearId], references: [id], onDelete: Cascade)
+  group      NeetGroup
+  scoreFrom  Int
+  scoreTo    Int
+  candidates Int
+
+  @@id([examYearId, group, scoreFrom])
+  @@map("neet_score_distribution")
+}
+
+/// Derived, one row per integer score in -180..720 per group. Rebuilt on every distribution upload.
+model NeetRankRow {
+  examYearId        String       @db.Uuid
+  examYear          NeetExamYear @relation(fields: [examYearId], references: [id], onDelete: Cascade)
+  group             NeetGroup
+  score             Int
+  rankFrom          Int
+  rankTo            Int
+  /// Widest rank span the score could really have (the whole mark range). Equals rankFrom/rankTo when exact.
+  spanFrom          Int
+  spanTo            Int
+  /// Percent of the group's candidates who scored the same or lower.
+  percentile        Float
+  /// Candidates at exactly this score (an estimate when the year is band-based).
+  candidatesAtScore Int
+
+  @@id([examYearId, group, score])
+  @@map("neet_rank_rows")
+}

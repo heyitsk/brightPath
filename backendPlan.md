@@ -1,6 +1,6 @@
 # BrightPath Backend Plan
 
-Status: **Phases 0, 1 and 2 are built (0–1 on 2026-11-06, 2 on 2026-11-07). Phases 3–8 are planned only.** Work starts on a phase only when the owner says so. Where the build differs from this plan, `history.md` (D-030 to D-053) is authoritative.
+Status: **Phases 0, 1 and 2 are built (0–1 on 2026-11-06, 2 on 2026-11-07). Phase 3 (rank predictor) is built on test data on 2026-11-08 and waits for the real NTA files. Phases 4–8 are planned only.** Work starts on a phase only when the owner says so. Where the build differs from this plan, `history.md` (D-030 to D-065) is authoritative.
 Sources: `MBBS-Website-What-We-Build-First.pdf` (scope, 4 pages) and `MBBS-Previews-v3-Passport.pdf` (UI sheets 00a–12; data fields below are read from the screens).
 Companion file: [`history.md`](history.md) records every decision and its reason (IDs like `D-012` are referenced here).
 

@@ -79,6 +79,8 @@ model Source {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  neetExamYears NeetExamYear[]
+
   @@index([kind])
   @@map("sources")
 }

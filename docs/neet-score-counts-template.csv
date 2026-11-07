@@ -1,0 +1,17 @@
+# Template for PUT /admin/neet/years/{year}/distribution  (send this text as the "csv" field)
+#
+# One row = how many candidates scored in a score range.
+#   group       OVERALL (the All-India list, required), GENERAL, EWS, OBC, SC, ST, or PWD
+#   score_from  lowest score in the row (whole number, -180 to 720)
+#   score_to    highest score in the row. Leave blank for a single score.
+#   candidates  number of candidates, plain digits (no commas)
+# Rows in one group must not overlap. Lines starting with # are ignored.
+# Only the groups the official files really contain should be included; a missing
+# category simply means no category rank is shown for it (nothing is guessed).
+#
+# EXAMPLE ONLY, not real NTA data:
+group,score_from,score_to,candidates
+OVERALL,720,720,3
+OVERALL,715,715,11
+OVERALL,700,714,2480
+OBC,700,714,610
