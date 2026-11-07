@@ -358,6 +358,7 @@ const KFU: AbroadCollegeDetail = {
     ...baseCollege,
     id: 1,
     slug: 'kazan-federal-university',
+    shortName: 'Kazan Federal University',
     kind: 'ABROAD',
     name: 'Kazan Federal University, Institute of Fundamental Medicine and Biology',
     city: 'Kazan, Republic of Tatarstan',
@@ -643,4 +644,106 @@ export async function getCollege(slug: string): Promise<CollegeDetail | null> {
     (d) => ({ slug: d.college.slug, name: d.college.name, city: d.college.city, totalCourseFeeInr: d.totalCourseFeeInr }),
   )
   return { ...found, related }
+}
+
+/* ---------- Lists for the country and state pages ---------- */
+
+/** One college as a row on a country page. Built from the same records as the college page. */
+export type AbroadCollegeRow = {
+  slug: string
+  name: string
+  /** Shorter name for menus; null = use name. */
+  shortName: string | null
+  city: string
+  ownership: Ownership
+  wdomsListed: CollegeAbroadProfile['wdomsListed']
+  nmc2021Status: Nmc2021Status
+  nmcAlertStatus: 'ALERT' | 'NONE'
+  totalCourseFeeInr: number | null
+  courseLengthMonths: number
+  lastCheckedAt: string | null
+}
+
+/** One college as a row on a state counselling page. */
+export type IndiaCollegeRow = {
+  slug: string
+  name: string
+  ownership: Ownership
+  mbbsSeats: number
+  /** Total of the first year's fee line, in rupees. */
+  firstYearFeeInr: number | null
+  /** State quota closing ranks, non-PwD, for the given year and round. null = not recorded. */
+  generalClosingRank: number | null
+  obcClosingRank: number | null
+  closingRankCheckedAt: string | null
+  closingRankSourceId: number | null
+}
+
+const published = (d: CollegeDetail) => d.college.status === 'PUBLISHED'
+
+/** Published abroad colleges in a country. SAMPLE today; the API returns this with GET /countries/{slug}. */
+export async function listCollegesByCountry(countrySlug: string): Promise<AbroadCollegeRow[]> {
+  return SAMPLE_COLLEGES.filter(isAbroad)
+    .filter((d) => published(d) && d.countrySlug === countrySlug)
+    .map((d) => ({
+      slug: d.college.slug,
+      name: d.college.name,
+      shortName: d.college.shortName,
+      city: d.college.city,
+      ownership: d.college.ownership,
+      wdomsListed: d.abroadProfile.wdomsListed,
+      nmc2021Status: d.abroadProfile.nmc2021Status,
+      nmcAlertStatus: d.nmcAlertStatus,
+      totalCourseFeeInr: d.totalCourseFeeInr,
+      courseLengthMonths: d.abroadProfile.courseLengthMonths,
+      lastCheckedAt: d.college.lastCheckedAt,
+    }))
+}
+
+/**
+ * Published Indian colleges in a state, with the closing ranks for one year and round.
+ * SAMPLE today; the API returns this with GET /counselling/states/{slug}.
+ */
+export async function listCollegesByState(
+  stateSlug: string,
+  year: number,
+  round: ClosingRank['round'],
+): Promise<IndiaCollegeRow[]> {
+  return SAMPLE_COLLEGES.filter(isIndia)
+    .filter((d) => published(d) && d.stateSlug === stateSlug)
+    .map((d) => {
+      const rank = (category: ClosingRank['category']) =>
+        d.closingRanks.find(
+          (r) => r.year === year && r.round === round && r.quota === 'STATE' && r.category === category && !r.isPwd,
+        ) ?? null
+      const general = rank('GENERAL')
+      const obc = rank('OBC')
+      const first = [...d.feeLines].sort((a, b) => (a.yearNumber ?? 99) - (b.yearNumber ?? 99))[0]
+      return {
+        slug: d.college.slug,
+        name: d.college.name,
+        ownership: d.college.ownership,
+        mbbsSeats: d.indiaProfile.mbbsSeats,
+        firstYearFeeInr: first?.totalInr ?? null,
+        generalClosingRank: general?.closingRank ?? null,
+        obcClosingRank: obc?.closingRank ?? null,
+        closingRankCheckedAt: general?.checkedAt ?? obc?.checkedAt ?? null,
+        closingRankSourceId: general?.sourceId ?? obc?.sourceId ?? null,
+      }
+    })
+}
+
+/** Number of published abroad colleges in a country, for the menus. */
+export async function countCollegesByCountry(countrySlug: string): Promise<number> {
+  return SAMPLE_COLLEGES.filter((d) => isAbroad(d) && published(d) && d.countrySlug === countrySlug).length
+}
+
+/** Number of published Indian colleges in a state, for the menus. */
+export async function countCollegesByState(stateSlug: string): Promise<number> {
+  return SAMPLE_COLLEGES.filter((d) => isIndia(d) && published(d) && d.stateSlug === stateSlug).length
+}
+
+/** A source record by id, for captions on list pages. */
+export async function getSource(id: number): Promise<Source | null> {
+  return SOURCES.find((s) => s.id === id) ?? null
 }

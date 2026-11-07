@@ -23,6 +23,9 @@ function groupIndian(n: number): string {
 
 export const NBSP = '\u00a0'
 
+/** "13950" -> "13,950", Indian grouping, no currency sign. */
+export const formatNumber = (n: number) => (n < 0 ? '-' : '') + groupIndian(n)
+
 /** "₹ 5,25,000" with a non-breaking space. */
 export function formatInr(n: number): string {
   return `₹${NBSP}${groupIndian(n)}`
@@ -33,6 +36,17 @@ export function formatLakh(n: number): string {
   const lakh = Math.round((n / 100_000) * 10) / 10
   return `₹${NBSP}${lakh} lakh`
 }
+
+const lakhValue = (n: number) => Math.round((n / 100_000) * 10) / 10
+
+/** "₹ 22 – 55 lakh", or "₹ 0.5 lakh" when both ends are the same. */
+export function formatLakhRange(min: number, max: number): string {
+  const [a, b] = [lakhValue(min), lakhValue(max)]
+  return a === b ? `₹${NBSP}${a} lakh` : `₹${NBSP}${a} – ${b} lakh`
+}
+
+/** Rupees below one lakh in full ("₹ 53,000"), from one lakh up in lakh ("₹ 13.5 lakh"). */
+export const formatInrShort = (n: number) => (n >= 100_000 ? formatLakh(n) : formatInr(n))
 
 /** "[number]" style slot for a fact we do not have yet. */
 export const slot = (label: string) => `[${label}]`

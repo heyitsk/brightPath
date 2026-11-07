@@ -1,15 +1,16 @@
 import { useState } from 'react'
+import { isLive } from '../../data/navigation'
 import type { ClosingRank, CollegeFeeLine, IndiaCollegeDetail } from '../../data/colleges'
 import { Icon } from '../Icon'
 import { MenuLink } from '../site/MenuLink'
 import { TalkToCounsellor } from '../site/TalkToCounsellor'
-import { Crumbs } from './Crumbs'
-import { HOME } from './home'
-import { Estimate } from './Estimate'
-import { FaqList } from './FaqList'
+import { Crumbs } from '../shared/Crumbs'
+import { HOME } from '../shared/home'
+import { Estimate } from '../shared/Estimate'
+import { FaqList } from '../shared/FaqList'
 import { About } from './AbroadCollege'
 import { SourcesList } from './SourcesList'
-import { checkedOn, formatDate, formatInr, formatLakh, NO_DATE, slot } from './format'
+import { checkedOn, formatDate, formatInr, formatLakh, NO_DATE, slot } from '../shared/format'
 
 const OWNERSHIP = { GOVERNMENT: 'Government', PRIVATE: 'Private', DEEMED: 'Deemed university', TRUST: 'Trust' } as const
 
@@ -32,10 +33,11 @@ const number = (n: number) => formatInr(n).replace(/^₹ /, '')
 
 export function IndiaCollege({ detail }: { detail: IndiaCollegeDetail }) {
   const { college } = detail
+  const counsellingHref = `/neet-counselling/${detail.stateSlug ?? ''}`
   const counselling = {
     label: `NEET counselling: ${detail.stateName ?? detail.countryName}`,
-    href: `/neet-counselling/${detail.stateSlug ?? ''}`,
-    published: false,
+    href: counsellingHref,
+    published: isLive(counsellingHref),
   }
   return (
     <>
@@ -356,7 +358,8 @@ function HospitalAndTraining({ detail }: { detail: IndiaCollegeDetail }) {
 function SeatRoute({ detail }: { detail: IndiaCollegeDetail }) {
   const { indiaProfile: p, sourceLinks } = detail
   const checked = sourceLinks.find((l) => l.purpose === 'COUNSELLING')?.checkedAt ?? null
-  const guide = { label: `How ${detail.stateName ?? 'state'} counselling works`, href: '/neet-counselling', published: false }
+  const guideHref = `/neet-counselling/${detail.stateSlug ?? ''}`
+  const guide = { label: `How ${detail.stateName ?? 'state'} counselling works`, href: guideHref, published: isLive(guideHref) }
   return (
     <>
       <h2>How to get a seat here</h2>

@@ -1,16 +1,17 @@
 import type { CSSProperties } from 'react'
+import { isLive } from '../../data/navigation'
 import type { AbroadCollegeDetail, CollegeFeeLine, CollegeSourceLink } from '../../data/colleges'
 import { Icon } from '../Icon'
 import { MenuLink } from '../site/MenuLink'
 import { TalkToCounsellor } from '../site/TalkToCounsellor'
 import { useDisclaimer } from '../site/config'
 import { MissingDisclaimer } from '../site/MissingDisclaimer'
-import { Crumbs } from './Crumbs'
-import { HOME } from './home'
-import { Estimate } from './Estimate'
-import { FaqList } from './FaqList'
+import { Crumbs } from '../shared/Crumbs'
+import { HOME } from '../shared/home'
+import { Estimate } from '../shared/Estimate'
+import { FaqList } from '../shared/FaqList'
 import { SourcesList } from './SourcesList'
-import { checkedOn, courseLength, currencyName, formatDate, formatInr, formatLakh, formatRate, NO_DATE, slot } from './format'
+import { checkedOn, courseLength, currencyName, formatDate, formatInr, formatLakh, formatRate, NO_DATE, slot } from '../shared/format'
 
 const linkDate = (links: CollegeSourceLink[], purpose: CollegeSourceLink['purpose']) =>
   links.find((l) => l.purpose === purpose)?.checkedAt ?? null
@@ -22,7 +23,8 @@ const inr = (amount: number, line: CollegeFeeLine) => Math.round(amount * line.f
 
 export function AbroadCollege({ detail }: { detail: AbroadCollegeDetail }) {
   const { college } = detail
-  const country = { label: `MBBS in ${detail.countryName}`, href: `/mbbs-in-${detail.countrySlug}`, published: false }
+  const countryHref = `/mbbs-abroad/${detail.countrySlug}`
+  const country = { label: `MBBS in ${detail.countryName}`, href: countryHref, published: isLive(countryHref) }
   const asideTitle = detail.related.every((r) => r.city === college.city) ? college.city : detail.countryName
   return (
     <>

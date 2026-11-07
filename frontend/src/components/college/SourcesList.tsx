@@ -1,6 +1,6 @@
 import { Icon } from '../Icon'
 import type { CollegeDetail } from '../../data/colleges'
-import { formatDate, NO_DATE } from './format'
+import { formatDate, NO_DATE } from '../shared/format'
 
 const PURPOSE_TITLE: Record<string, string> = {
   WDOMS: 'WDOMS entry',
