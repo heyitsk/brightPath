@@ -66,24 +66,25 @@ export default function EditDisclaimer({ loaderData, actionData }: Route.Compone
         Earlier versions are kept, but visitors see only the newest.
       </p>
 
-      <h2>Live now ({Number(item.version) === 0 ? 'built-in' : `version ${item.version}`})</h2>
-      <blockquote className="adm-wide" style={{ margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
-        {item.text}
-      </blockquote>
+      <p className="hint">
+        Live now: {Number(item.version) === 0 ? 'built-in text' : `version ${item.version}`}. The box below starts with
+        that text; edit it and publish.
+      </p>
 
       <Form method="post" className="adm-form adm-wide" noValidate>
         <FormError message={error ? undefined : actionData?.formError} />
         <div className={error ? 'field err' : 'field'}>
-          <label htmlFor="text">New wording (replaces the text above)</label>
+          <label htmlFor="text">Text</label>
           <textarea
             className="input"
             id="text"
             name="text"
             rows={8}
+            defaultValue={item.text}
             maxLength={2000}
             aria-invalid={error ? true : undefined}
           />
-          <p className="hint">10 to 2000 characters. You write the full text; nothing is suggested.</p>
+          <p className="hint">10 to 2000 characters.</p>
           {error && <p className="err-msg">{error}</p>}
         </div>
         <div className="adm-actions">
