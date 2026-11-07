@@ -10,6 +10,8 @@
   to a page that does not exist yet.
 */
 
+import { SAMPLE_COLLEGE_SLUGS } from './colleges'
+
 export type NavItem = {
   label: string
   href: string
@@ -64,7 +66,7 @@ export type Navigation = {
 }
 
 /* Pages that exist in the app today. Everything else stays unpublished. */
-const LIVE = new Set<string>(['/'])
+const LIVE = new Set<string>(['/', ...SAMPLE_COLLEGE_SLUGS.map((slug) => `/colleges/${slug}`)])
 
 function slugify(label: string) {
   return label
