@@ -234,7 +234,7 @@ function ExploreMenu({ explore, ...props }: MenuProps & { explore: Navigation['e
                     ))}
                   </ul>
                   <MenuLink className="mega-all" item={c}>
-                    All {c.total} colleges in {c.label.replace(/^MBBS in /, '')} <Icon name="arrow" size={14} />
+                    All {c.total ?? '[xx]'} colleges in {c.label.replace(/^MBBS in /, '')} <Icon name="arrow" size={14} />
                   </MenuLink>
                 </div>
               ))}

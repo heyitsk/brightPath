@@ -729,6 +729,16 @@ export async function listCollegesByState(
     })
 }
 
+/** Number of published abroad colleges in a country, for the menus. */
+export async function countCollegesByCountry(countrySlug: string): Promise<number> {
+  return SAMPLE_COLLEGES.filter((d) => isAbroad(d) && published(d) && d.countrySlug === countrySlug).length
+}
+
+/** Number of published Indian colleges in a state, for the menus. */
+export async function countCollegesByState(stateSlug: string): Promise<number> {
+  return SAMPLE_COLLEGES.filter((d) => isIndia(d) && published(d) && d.stateSlug === stateSlug).length
+}
+
 /** A source record by id, for captions on list pages. */
 export async function getSource(id: number): Promise<Source | null> {
   return SOURCES.find((s) => s.id === id) ?? null

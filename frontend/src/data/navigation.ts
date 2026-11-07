@@ -10,7 +10,7 @@
   to a page that does not exist yet.
 */
 
-import { SAMPLE_COLLEGE_SLUGS } from './colleges'
+import { countCollegesByCountry, countCollegesByState, SAMPLE_COLLEGE_SLUGS } from './colleges'
 import { SAMPLE_COUNTRY_SLUGS } from './countries'
 import { SAMPLE_STATE_SLUGS } from './states'
 
@@ -21,8 +21,8 @@ export type NavItem = {
 }
 
 export type ExploreCountry = NavItem & {
-  /** Number of published colleges in the country. */
-  total: number
+  /** Number of published colleges in the country; null shows a placeholder slot. */
+  total: number | null
   /** Short alert text, shown as a red mark (e.g. NMC alert on some colleges). */
   alert?: { menu: string; mobile: string }
   /** Colleges shown in the desktop mega menu. */
@@ -103,14 +103,14 @@ const contact = item('Contact', '/contact')
 
 function exploreCountry(
   name: string,
-  total: number,
   colleges: NavItem[],
   mobileCount: number,
   alert?: ExploreCountry['alert'],
 ): ExploreCountry {
   return {
     ...country(name),
-    total,
+    // Filled in by getNavigation() from the sample colleges.
+    total: null,
     alert,
     colleges,
     mobileColleges: colleges.slice(0, mobileCount),
@@ -123,7 +123,6 @@ const SAMPLE_NAVIGATION: Navigation = {
     countries: [
       exploreCountry(
         'Russia',
-        11,
         [
           college('Sechenov University, Moscow', 'sechenov-university'),
           college('Pirogov Russian National Research Medical University'),
@@ -136,7 +135,6 @@ const SAMPLE_NAVIGATION: Navigation = {
       ),
       exploreCountry(
         'Georgia',
-        9,
         [
           college('Tbilisi State Medical University'),
           college('David Tvildiani Medical University'),
@@ -148,7 +146,6 @@ const SAMPLE_NAVIGATION: Navigation = {
       ),
       exploreCountry(
         'Kazakhstan',
-        8,
         [
           college('Asfendiyarov Kazakh National Medical University'),
           college('Astana Medical University'),
@@ -160,7 +157,6 @@ const SAMPLE_NAVIGATION: Navigation = {
       ),
       exploreCountry(
         'Kyrgyzstan',
-        8,
         [
           college('Kyrgyz State Medical Academy'),
           college('Osh State University'),
@@ -172,7 +168,6 @@ const SAMPLE_NAVIGATION: Navigation = {
       ),
       exploreCountry(
         'Uzbekistan',
-        5,
         [
           college('Tashkent State Medical University'),
           college('Samarkand State Medical University'),
@@ -186,7 +181,7 @@ const SAMPLE_NAVIGATION: Navigation = {
     nextCountries: ['Philippines', 'Nepal', 'Bangladesh'],
     indiaNote: 'Fees and closing ranks',
     states: [
-      { ...state('Uttar Pradesh'), count: '[68]' },
+      { ...state('Uttar Pradesh'), count: null },
       { ...state('Maharashtra'), count: null },
       { ...state('Rajasthan'), count: null },
       { ...state('Bihar'), count: null },
@@ -423,5 +418,20 @@ const SAMPLE_NAVIGATION: Navigation = {
 
 /** Menu, footer and tab bar data. SAMPLE until GET /navigation/explore exists. */
 export async function getNavigation(): Promise<Navigation> {
-  return SAMPLE_NAVIGATION
+  const { explore } = SAMPLE_NAVIGATION
+  // Counts come from the same sample colleges the pages show, so the menu and the pages agree.
+  // Countries and states without a page yet keep a null count and show a [placeholder].
+  const countries = await Promise.all(
+    explore.countries.map(async (c) => {
+      const slug = c.href.replace('/mbbs-abroad/', '')
+      return SAMPLE_COUNTRY_SLUGS.includes(slug) ? { ...c, total: await countCollegesByCountry(slug) } : c
+    }),
+  )
+  const states = await Promise.all(
+    explore.states.map(async (s) => {
+      const slug = s.href.replace('/neet-counselling/', '')
+      return SAMPLE_STATE_SLUGS.includes(slug) ? { ...s, count: String(await countCollegesByState(slug)) } : s
+    }),
+  )
+  return { ...SAMPLE_NAVIGATION, explore: { ...explore, countries, states } }
 }
