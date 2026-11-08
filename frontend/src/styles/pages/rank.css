@@ -1,0 +1,18 @@
+/* Rank Predictor page styles, copied verbatim from _reference/design/design-handoff-v3/src/pages/02-rank-predictor.html (page css). */
+@layer components {
+.tool{display:grid;gap:24px}@media(min-width:960px){.tool{grid-template-columns:400px minmax(0,1fr);gap:40px;align-items:start}}.res-grid{display:grid;gap:20px}.explain{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}.explain h3{margin-bottom:8px}.explain ul{margin:0;padding-left:20px}.explain li{margin:6px 0;color:var(--ink-2)}.src-row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:.9375rem;margin-top:6px}.datapage .stamp{position:absolute;right:18px;top:18px;--rot:5deg}@media(max-width:520px){.datapage .stamp{position:static;margin-bottom:12px}}.method{display:grid;gap:28px}@media(min-width:960px){.method{grid-template-columns:1fr 1fr;gap:56px}}
+}
+
+/* States the v3 preview does not draw (loading, lists inside the data page). Built from existing tokens only. */
+@layer components {
+.res-grid[aria-busy="true"]>:not(.res-status){opacity:.45;transition:opacity .15s}
+.res-status{margin:0;font-weight:600}
+.datapage ul{margin:12px 0 0;padding-left:20px}
+.datapage li{margin:6px 0}
+.datapage .note{color:var(--cover-muted);font-size:.9375rem;margin:8px 0 0}
+.datapage dd{overflow-wrap:anywhere}
+.explain .other-years{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.explain .other-years li{margin:0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.other-years .r{font-variant-numeric:tabular-nums;font-weight:600}
+.cutoffs{list-style:none;margin:0;padding:0;white-space:nowrap}
+}

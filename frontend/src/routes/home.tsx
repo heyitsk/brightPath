@@ -1,5 +1,8 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
+import { api } from '../api/client.server'
+import { safeCall } from '../api/errors'
 import { Icon } from '../components/Icon'
+import { isValidScore, num, PATH } from '../components/rank/labels'
 import { MenuLink } from '../components/site/MenuLink'
 import { useRootData } from '../components/site/config'
 import { TalkToCounsellor } from '../components/site/TalkToCounsellor'
@@ -25,12 +28,19 @@ export const meta: Route.MetaFunction = () => [
   },
 ]
 
+/** Published NEET years for the hero form's year choice. Empty when none, or when the API fails. */
+export async function loader() {
+  const res = await safeCall(api.GET('/neet/data-sources'))
+  const years = 'data' in res && res.data ? res.data.years.map((y) => String(num(y.year))) : []
+  return { years }
+}
+
 const rot = (deg: string) => ({ '--rot': deg }) as CSSProperties
 
-export default function Home() {
+export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <>
-      <Hero />
+      <Hero years={loaderData.years} />
       <hr className="perf" />
       <StampExplainer />
       <RouteSteps />
@@ -41,15 +51,13 @@ export default function Home() {
   )
 }
 
-function Hero() {
+function Hero({ years }: { years: string[] }) {
   const [scoreError, setScoreError] = useState(false)
 
   // Check the score before handing off to the rank predictor; without JS the browser submits as is.
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     const input = e.currentTarget.elements.namedItem('score') as HTMLInputElement
-    const v = input.value.trim()
-    const s = Number(v)
-    const ok = v !== '' && Number.isInteger(s) && s >= 0 && s <= 720
+    const ok = isValidScore(input.value)
     setScoreError(!ok)
     if (!ok) {
       e.preventDefault()
@@ -100,7 +108,7 @@ function Hero() {
             className="visa security"
             id="rank-form"
             method="get"
-            action="/neet-rank-predictor"
+            action={PATH}
             noValidate
             onSubmit={onSubmit}
           >
@@ -114,7 +122,6 @@ function Hero() {
                 id="score"
                 name="score"
                 inputMode="numeric"
-                pattern="[0-9]*"
                 placeholder="e.g. 585"
                 autoComplete="off"
                 aria-describedby="score-err"
@@ -123,10 +130,10 @@ function Hero() {
               />
               <p className="err-msg" id="score-err" hidden={!scoreError}>
                 <Icon name="alert" size={18} />
-                <span>Enter a score from 0 to 720.</span>
+                <span>Enter a whole number from -180 to 720.</span>
               </p>
             </div>
-            <div className="row-2 hero-row">
+            <div className={years.length ? 'row-2 hero-row' : undefined}>
               <div className="field">
                 <label htmlFor="cat">Category</label>
                 <select className="select" id="cat" name="category" defaultValue="OBC">
@@ -137,13 +144,19 @@ function Hero() {
                   <option value="ST">ST</option>
                 </select>
               </div>
-              <div className="field">
-                <label htmlFor="year">Compare with</label>
-                <select className="select" id="year" name="year" defaultValue="2026">
-                  <option value="2026">NEET 2026</option>
-                  <option value="2025">NEET 2025</option>
-                </select>
-              </div>
+              {/* No published year yet: leave the choice out and let the predictor use its default. */}
+              {years.length > 0 && (
+                <div className="field">
+                  <label htmlFor="year">Compare with</label>
+                  <select className="select" id="year" name="year" defaultValue={years[0]}>
+                    {years.map((y) => (
+                      <option key={y} value={y}>
+                        NEET {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <label className="check" style={{ marginBottom: 16 }}>
               <input type="checkbox" id="pwd" name="pwd" value="1" />
