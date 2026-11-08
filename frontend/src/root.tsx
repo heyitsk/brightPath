@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useMatches,
 } from 'react-router'
 import type { Route } from './+types/root'
 import { api, unwrap } from './api/client.server'
@@ -29,7 +30,11 @@ export const links: Route.LinksFunction = () => [
  * for every page. Disclaimer and regulator wording must come from /site/config, never be
  * typed into the frontend. Navigation is SAMPLE data until GET /navigation/explore exists.
  */
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  // The admin area is client-only and must keep working when the site API is down.
+  const year = new Date().getFullYear()
+  if (new URL(request.url).pathname.startsWith('/admin')) return { admin: true as const, year }
+
   let result
   const navigation = getNavigation()
   try {
@@ -41,14 +46,17 @@ export async function loader() {
     )
   }
   return {
+    admin: false as const,
     siteConfig: unwrap(result),
     navigation: await navigation,
     // Year for the footer copyright line, fixed on the server so hydration matches.
-    year: new Date().getFullYear(),
+    year,
   }
 }
 
-export type SiteConfig = Awaited<ReturnType<typeof loader>>['siteConfig']
+/** What public pages get from the root loader (admin URLs get only `{ admin: true, year }`). */
+export type PublicRootData = Extract<Awaited<ReturnType<typeof loader>>, { admin: false }>
+export type SiteConfig = PublicRootData['siteConfig']
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -69,6 +77,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Admin routes (handle.admin) render without the public header, footer and tab bar.
+  const isAdmin = useMatches().some((m) => (m.handle as { admin?: boolean } | undefined)?.admin)
+  if (isAdmin) return <Outlet />
   return (
     <>
       <a className="skip" href="#main">
