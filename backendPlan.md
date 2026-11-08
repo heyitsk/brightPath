@@ -1,6 +1,6 @@
 # BrightPath Backend Plan
 
-Status: **Phases 0, 1 and 2 are built (0–1 on 2026-11-06, 2 on 2026-11-07). Phase 3 (rank predictor) is built and the real 2024-2026 NEET figures are loaded as drafts (2026-11-09); publishing waits for the owner. Phases 4–8 are planned only.** Work starts on a phase only when the owner says so. Where the build differs from this plan, `history.md` (D-030 to D-072) is authoritative.
+Status: **Phases 0, 1 and 2 are built (0–1 on 2026-11-06, 2 on 2026-11-07). Phase 3 (rank predictor) is built and the real 2024-2026 NEET figures are loaded as drafts (2026-11-09); publishing waits for the owner. Phases 4–8 are planned only.** Work starts on a phase only when the owner says so. Where the build differs from this plan, `history.md` (D-030 to D-074) is authoritative.
 Sources: `MBBS-Website-What-We-Build-First.pdf` (scope, 4 pages) and `MBBS-Previews-v3-Passport.pdf` (UI sheets 00a–12; data fields below are read from the screens).
 Companion file: [`history.md`](history.md) records every decision and its reason (IDs like `D-012` are referenced here).
 

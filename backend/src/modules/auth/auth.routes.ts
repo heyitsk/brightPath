@@ -37,8 +37,8 @@ const publicAuth = new Elysia({ prefix: "/admin/auth", tags: [TAG] })
         summary: "Log in",
         description:
           "Starts a staff session and sets the `bp_session` cookie (httpOnly, SameSite=Lax, Secure in production). " +
-          "Wrong email and wrong password give the same 401 message. After 5 wrong passwords the account is locked for 15 minutes (429). " +
-          "Limited to 10 attempts per minute per IP." +
+          "Wrong email and wrong password give the same 401 message. After 5 wrong passwords the account is locked for 15 minutes: further attempts, even with the right password, answer 429 with error code `ACCOUNT_LOCKED` and a `Retry-After` header. " +
+          "Separately, more than 10 attempts per minute from one IP answer 429 with code `RATE_LIMITED`." +
           csrfNote,
       },
       response: {

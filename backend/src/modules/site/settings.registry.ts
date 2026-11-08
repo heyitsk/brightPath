@@ -14,12 +14,14 @@ export interface SettingDef {
   isPublic: boolean;
   schema: TSchema;
   default: unknown;
+  /** Plain-words description of a valid value, e.g. "a phone number of 7 to 20 characters". Needed only where the schema alone cannot say (patterns). */
+  valueHint?: string;
 }
 
 export const SETTINGS: SettingDef[] = [
   { key: "brand.name", description: "Brand name shown across the site. Null until decided.", isPublic: true, schema: nullableText(80), default: null },
-  { key: "contact.phone", description: "Business phone number (call + WhatsApp). Null until added.", isPublic: true, schema: nullableText(20, { pattern: "^\\+?[0-9 ()-]{7,20}$" }), default: null },
-  { key: "contact.whatsapp", description: "WhatsApp number if different from the phone. Null = use the phone.", isPublic: true, schema: nullableText(20, { pattern: "^\\+?[0-9 ()-]{7,20}$" }), default: null },
+  { key: "contact.phone", description: "Business phone number (call + WhatsApp). Null until added.", isPublic: true, schema: nullableText(20, { pattern: "^\\+?[0-9 ()-]{7,20}$" }), default: null, valueHint: "a phone number of 7 to 20 characters, using digits, spaces, + ( ) or -" },
+  { key: "contact.whatsapp", description: "WhatsApp number if different from the phone. Null = use the phone.", isPublic: true, schema: nullableText(20, { pattern: "^\\+?[0-9 ()-]{7,20}$" }), default: null, valueHint: "a phone number of 7 to 20 characters, using digits, spaces, + ( ) or -" },
   { key: "contact.email", description: "Business email address. Null until added.", isPublic: true, schema: t.Union([t.String({ format: "email", maxLength: 254 }), t.Null()]), default: null },
   { key: "contact.officeAddress", description: "Office address for the footer and contact page.", isPublic: true, schema: nullableText(300), default: null },
   { key: "contact.callbackHours", description: 'When counsellors call back, e.g. "10am to 7pm, Monday to Saturday".', isPublic: true, schema: nullableText(120), default: null },
@@ -29,5 +31,51 @@ export const SETTINGS: SettingDef[] = [
   { key: "enquiry.retentionMonths", description: "Enquiries older than this many months are anonymised.", isPublic: false, schema: t.Integer({ minimum: 1, maximum: 120 }), default: 24 },
   { key: "verification.stalenessDays", description: "A college fact not re-checked within this many days is flagged as stale for editors.", isPublic: false, schema: t.Integer({ minimum: 7, maximum: 730 }), default: 90 },
 ];
+
+// ---- plain-words validation messages ---------------------------------------------------
+
+interface Json {
+  type?: string;
+  anyOf?: Json[];
+  minimum?: number;
+  maximum?: number;
+  maxLength?: number;
+  maxItems?: number;
+  format?: string;
+  items?: Json;
+}
+
+/** Describes what a schema accepts, as a phrase that follows "Enter ". */
+function phrase(schema: Json): string {
+  if (schema.anyOf) {
+    const real = schema.anyOf.filter((b) => b.type !== "null");
+    // Elysia's t.Integer is "a whole number or a numeric string" with the range on the outer schema.
+    const whole = real.find((b) => b.type === "integer");
+    if (whole) return phrase({ ...whole, minimum: whole.minimum ?? schema.minimum, maximum: whole.maximum ?? schema.maximum });
+    return real.length === 1 ? phrase(real[0]!) : "a valid value";
+  }
+  switch (schema.type) {
+    case "integer":
+      return schema.minimum !== undefined && schema.maximum !== undefined ? `a whole number from ${schema.minimum} to ${schema.maximum}` : "a whole number";
+    case "string":
+      if (schema.format === "email") return "a valid email address";
+      return schema.maxLength !== undefined ? `text of up to ${schema.maxLength} characters` : "text";
+    case "array": {
+      const each = schema.items ? `, each ${phrase(schema.items)}` : "";
+      return schema.maxItems !== undefined ? `a list of up to ${schema.maxItems} entries${each}` : `a list${each}`;
+    }
+    default:
+      return "a valid value";
+  }
+}
+
+/**
+ * The message shown when a setting value is refused, e.g. "Enter a whole number from 0 to 20."
+ * It replaces the validator's own wording ("Expected union value"), which means nothing to staff.
+ */
+export function describeExpectedValue(def: SettingDef): string {
+  const nullable = (def.schema as Json).anyOf?.some((b) => b.type === "null") ?? false;
+  return `Enter ${def.valueHint ?? phrase(def.schema as Json)}.${nullable ? " Leave it empty to clear it." : ""}`;
+}
 
 export const SETTINGS_BY_KEY = new Map(SETTINGS.map((s) => [s.key, s]));

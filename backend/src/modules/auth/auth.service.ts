@@ -42,7 +42,7 @@ export async function login(emailInput: string, password: string, client: Client
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     const minutes = Math.max(1, Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000));
-    throw new AppError(429, "RATE_LIMITED", `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, undefined, {
+    throw new AppError(429, "ACCOUNT_LOCKED", `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, undefined, {
       "retry-after": String(minutes * 60),
     });
   }

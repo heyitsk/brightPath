@@ -34,7 +34,7 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
   const failure = handleApiError(result, { keep401: true })
   if (failure.status === 401) failure.formError = 'Wrong email or password.'
   else if (failure.status === 429) {
-    const locked = failure.formError.startsWith('Too many failed attempts')
+    const locked = failure.code === 'ACCOUNT_LOCKED'
     failure.formError = locked
       ? `This account is locked. ${failure.formError.replace('Too many failed attempts. ', '')}`
       : 'Too many login attempts. Please wait a minute and try again.'

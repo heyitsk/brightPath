@@ -102,6 +102,10 @@ Format: **ID — decision.** *Why.* Status.
 - **D-071 — The explanation no longer claims the data is "published by NTA"; it points to the "Data we use" table. Percentile is shown to two decimals in the text (the field keeps NTA's seven).** *Done.*
 - **D-072 — `scripts/load-neet-data.ts <folder>` loads the three years as DRAFTS through the admin service functions (audited, re-runnable, never touches a published year).** All three are drafts in the dev database; publishing is a separate go-ahead. *Done.*
 
+### Error-code and message fixes (2026-11-09)
+- **D-073 — A locked staff account now answers 429 with code `ACCOUNT_LOCKED` instead of `RATE_LIMITED`.** HTTP status (429), message text and `Retry-After` are unchanged, so existing clients keep working. The per-IP login limiter still answers `RATE_LIMITED`. The frontend login page now switches on the code instead of matching the message text. *Done.*
+- **D-074 — A refused setting value returns a plain-words message built from the setting's own schema ("Enter a whole number from 0 to 20.", "Enter a valid email address. Leave it empty to clear it."), not the validator's "Expected union value".** Phone settings carry an explicit `valueHint` because a pattern cannot be described automatically; a test fails if any setting falls back to a generic message. Spec 0.5.1. *Done.*
+
 ## Discussions and findings
 ### 2026-11-06 — Planning session
 - Read `MBBS-Website-What-We-Build-First.pdf` (4 pages, text) and `MBBS-Previews-v3-Passport.pdf` (18 pages, images only). For the UI PDF I viewed the screens for the menus, rank predictor, college finder, compare, abroad and India college pages, state counselling and enquiry form to extract the data fields. I only skimmed the home, country, guide, about and contact sheets, so their data needs are inferred and should be checked.

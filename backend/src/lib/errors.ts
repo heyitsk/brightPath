@@ -11,6 +11,7 @@ export type ErrorCode =
   | "CONFLICT"
   | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
+  | "ACCOUNT_LOCKED"
   | "INTERNAL_ERROR"
   | "SERVICE_UNAVAILABLE";
 
@@ -65,7 +66,7 @@ export const FieldErrorSchema = t.Object(
 export const ErrorEnvelope = t.Object(
   {
     error: t.Object({
-      code: t.String({ description: "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`" }),
+      code: t.String({ description: "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`" }),
       message: t.String({ description: "Human-readable summary, e.g. `Please fix 2 things below.`" }),
       fields: t.Optional(
         t.Array(FieldErrorSchema, { description: "Per-field problems. Present for validation errors." }),

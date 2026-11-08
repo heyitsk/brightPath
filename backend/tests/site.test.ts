@@ -74,6 +74,28 @@ describe("settings admin", () => {
     expect((await call("/admin/settings/finder.freeResultsPerGroup", { method: "PUT", headers: h, json: {} })).status).toBe(422);
   });
 
+  test("a refused value gets a plain-words message that says what is allowed, never the validator's wording", async () => {
+    const h = await adminHeaders();
+    const message = async (key: string, value: unknown) => {
+      const res = await call(`/admin/settings/${key}`, { method: "PUT", headers: h, json: { value } });
+      expect(res.status).toBe(422);
+      return (res.body as any).error.fields[0].message as string;
+    };
+    expect(await message("finder.freeResultsPerGroup", 99)).toBe("Enter a whole number from 0 to 20.");
+    expect(await message("finder.freeResultsPerGroup", -1)).toBe("Enter a whole number from 0 to 20.");
+    expect(await message("finder.freeResultsPerGroup", 2.5)).toBe("Enter a whole number from 0 to 20.");
+    expect(await message("finder.freeResultsPerGroup", "lots")).toBe("Enter a whole number from 0 to 20.");
+    expect(await message("verification.stalenessDays", 3)).toBe("Enter a whole number from 7 to 730.");
+    expect(await message("contact.email", "not-an-email")).toBe("Enter a valid email address. Leave it empty to clear it.");
+    expect(await message("brand.name", "x".repeat(81))).toBe("Enter text of up to 80 characters. Leave it empty to clear it.");
+    expect(await message("contact.phone", "call me")).toBe("Enter a phone number of 7 to 20 characters, using digits, spaces, + ( ) or -. Leave it empty to clear it.");
+    expect(await message("enquiry.alertEmails", ["fine@example.com", "nope"])).toBe("Enter a list of up to 20 entries, each a valid email address.");
+    expect(await message("enquiry.alertEmails", "fine@example.com")).toBe("Enter a list of up to 20 entries, each a valid email address.");
+    // Every setting has a message that is not the generic fallback
+    const { SETTINGS, describeExpectedValue } = await import("../src/modules/site/settings.registry");
+    for (const def of SETTINGS) expect(describeExpectedValue(def)).not.toContain("a valid value");
+  });
+
   test("null clears a text setting; list shows isDefault; update is audited with before/after", async () => {
     const h = await adminHeaders();
     await call("/admin/settings/brand.name", { method: "PUT", headers: h, json: { value: "BrightPath" } });

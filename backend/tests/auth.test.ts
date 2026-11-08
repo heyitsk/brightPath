@@ -53,6 +53,7 @@ describe("login", () => {
     }
     const locked = await call("/admin/auth/login", { method: "POST", headers: WRITE, json: { email, password } });
     expect(locked.status).toBe(429);
+    expect((locked.body as any).error.code).toBe("ACCOUNT_LOCKED"); // not RATE_LIMITED: the frontend can tell the two apart
     expect((locked.body as any).error.message).toContain("Try again in");
     expect(locked.headers.get("retry-after")).toBeTruthy();
   });

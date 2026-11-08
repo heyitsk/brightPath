@@ -4,7 +4,7 @@ import { cached, invalidate } from "../../lib/cache";
 import { AppError } from "../../lib/errors";
 import { prisma } from "../../lib/prisma";
 import { DISCLAIMER_DEFS, DISCLAIMER_DEFS_BY_KEY } from "./disclaimers";
-import { SETTINGS, SETTINGS_BY_KEY } from "./settings.registry";
+import { SETTINGS, SETTINGS_BY_KEY, describeExpectedValue } from "./settings.registry";
 
 const NS = "site";
 
@@ -39,8 +39,7 @@ export async function updateSetting(actor: AuditActor, key: string, value: unkno
   const def = SETTINGS_BY_KEY.get(key);
   if (!def) throw AppError.notFound(`There is no setting called "${key}".`);
   if (!Value.Check(def.schema, value)) {
-    const first = [...Value.Errors(def.schema, value)][0];
-    throw AppError.invalid("Please fix 1 thing below.", [{ path: "value", message: first?.message ?? "Invalid value for this setting." }]);
+    throw AppError.invalid("Please fix 1 thing below.", [{ path: "value", message: describeExpectedValue(def) }]);
   }
   const before = await prisma.siteSetting.findUnique({ where: { key } });
   await prisma.$transaction(async (tx) => {
