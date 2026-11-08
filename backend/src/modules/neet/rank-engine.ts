@@ -150,9 +150,11 @@ export interface RankRows {
   pwd: RankRowData | undefined;
 }
 
+export type RankOutcome = "OK" | "BELOW_CUTOFF" | "NOT_PUBLISHED_BY_NTA";
+
 export interface RankResult {
   year: number;
-  outcome: "OK" | "BELOW_CUTOFF";
+  outcome: RankOutcome;
   score: number;
   category: Category;
   pwd: boolean;
@@ -166,13 +168,51 @@ export interface RankResult {
   studentsAppeared: number;
   studentsWithSameScore: number | null;
   approximate: boolean;
-  basis: NeetRankBasis;
+  /** null when NTA published no score counts for the year. */
+  basis: NeetRankBasis | null;
   explanation: string[];
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN").format(n);
 const range = (r: RankRange) => (r.from === r.to ? fmt(r.from) : `${fmt(r.from)} to ${fmt(r.to)}`);
+/** Percentile for display: two decimals, no trailing zeros. */
+const pct = (n: number) => String(Math.round(n * 100) / 100);
 const toRange = (r: RankRowData): RankRange => ({ from: r.rankFrom, to: r.rankTo });
+
+/**
+ * A year where NTA published only totals and cut-offs: no rank can be worked out, but we can still
+ * say whether the score qualifies. Never an estimate.
+ */
+export function buildNoRankDataResult(input: RankInput, year: { year: number; appeared: number; cutoffs: ReadonlyMap<NeetGroup, Cutoff> }): RankResult {
+  const { score, category, pwd } = input;
+  const qualification = qualify(score, category, pwd, year.cutoffs);
+  const explanation = [`NTA did not publish how many students got each score in NEET (UG) ${year.year}. It published only totals and the qualifying cut-offs, so we cannot work out a rank from a score for this year.`];
+  if (qualification.qualified !== null) {
+    const who = qualification.appliedGroup === "PWD" ? "PwD students" : `${CATEGORY_LABEL[category]} students`;
+    explanation.push(
+      `The ${year.year} qualifying cut-off for ${who} was ${fmt(qualification.cutoffScore!)} marks (${qualification.cutoffPercentile} percentile). Your score is ${qualification.qualified ? "at or above" : "below"} it.`,
+    );
+  }
+  return {
+    year: year.year,
+    outcome: "NOT_PUBLISHED_BY_NTA",
+    score,
+    category,
+    pwd,
+    qualification,
+    allIndiaRank: null,
+    possibleRankSpan: null,
+    categoryRank: null,
+    pwdRank: null,
+    percentile: null,
+    studentsAhead: null,
+    studentsAppeared: year.appeared,
+    studentsWithSameScore: null,
+    approximate: false,
+    basis: null,
+    explanation,
+  };
+}
 
 /** Turns the loaded rows into the answer a student sees, with plain-words explanation bullets. */
 export function buildRankResult(input: RankInput, year: YearFacts, rows: RankRows): RankResult {
@@ -182,7 +222,7 @@ export function buildRankResult(input: RankInput, year: YearFacts, rows: RankRow
   const base = { year: year.year, score, category, pwd, qualification, studentsAppeared: year.appeared, basis: year.basis };
   const catLabel = CATEGORY_LABEL[category];
 
-  const explanation: string[] = [`We worked out your rank from the official NEET (UG) ${year.year} result data published by NTA.`];
+  const explanation: string[] = [`We worked out your rank from NEET (UG) ${year.year} score data. The "Data we use" table shows where it comes from and how it was built.`];
   if (qualification.qualified !== null) {
     const cut = `The ${year.year} qualifying cut-off for ${qualification.appliedGroup === "PWD" ? "PwD students" : `${catLabel} students`} was ${fmt(qualification.cutoffScore!)} marks (${qualification.cutoffPercentile} percentile).`;
     explanation.push(qualification.qualified ? `${cut} Your score is at or above it.` : `${cut} Your score is below it, so this score does not qualify and we do not show a rank.`);
@@ -228,7 +268,7 @@ export function buildRankResult(input: RankInput, year: YearFacts, rows: RankRow
   const ahead = allIndiaRank.from - 1;
   explanation.push(
     `${approximate ? "About " : ""}${fmt(ahead)} students scored higher than this, out of ${fmt(year.appeared)} who appeared.`,
-    `Your percentile is ${o.percentile}: about ${o.percentile}% of students scored the same or lower.`,
+    `Your percentile is ${pct(o.percentile)}: about ${pct(o.percentile)}% of students scored the same or lower.`,
   );
   if (categoryRank) explanation.push(`Among ${catLabel} students, your rank is ${range(categoryRank)}.`);
   else explanation.push(`Category-wise data is not available for ${year.year}, so we do not show a ${catLabel} rank.`);

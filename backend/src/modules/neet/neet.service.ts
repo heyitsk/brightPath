@@ -16,7 +16,7 @@ import {
   summariseGroups,
   type GroupSummary,
 } from "./distribution";
-import { basisOf, buildGroupRows, buildRankResult, type Category, type Cutoff, type RankInput, type RankResult, type RankRowData } from "./rank-engine";
+import { basisOf, buildGroupRows, buildNoRankDataResult, buildRankResult, type Category, type Cutoff, type RankInput, type RankResult, type RankRowData } from "./rank-engine";
 
 // NEET (UG) rank data: staff-side year management plus the public rank lookup.
 // Public answers come only from PUBLISHED years; the derived rank table is rebuilt by code on
@@ -43,6 +43,7 @@ export function toYearDto(y: YearRow) {
     appeared: y.appeared,
     qualified: y.qualified,
     topperScore: y.topperScore,
+    rankData: y.rankData,
     resultDate: dateOnly(y.resultDate),
     basis: y.basis,
     methodNote: y.methodNote,
@@ -70,7 +71,8 @@ async function loadBands(examYearId: string) {
 
 function publishProblems(y: YearRow, groups: readonly GroupSummary[]): string[] {
   const problems: string[] = [];
-  if (!y.distributionSha256 || !groups.some((g) => g.group === "OVERALL")) problems.push("Upload the score-count file (it must include the OVERALL list).");
+  // A year marked "NTA published no score counts" is published without a distribution on purpose.
+  if (y.rankData && (!y.distributionSha256 || !groups.some((g) => g.group === "OVERALL"))) problems.push("Upload the score-count file (it must include the OVERALL list).");
   const have = new Set(y.cutoffs.map((c) => c.group));
   const missing = REQUIRED_CUTOFF_GROUPS.filter((g) => !have.has(g));
   if (missing.length > 0) problems.push(`Add the qualifying cut-off for: ${missing.join(", ")}.`);
@@ -121,7 +123,7 @@ async function assertSourceExists(sourceId: string) {
 
 export async function createYear(
   actor: AuditActor,
-  input: { year: number; appeared: number; qualified?: number | null; topperScore?: number | null; resultDate?: string | null; methodNote?: string | null; sourceId: string; checkedAt: string },
+  input: { year: number; appeared: number; qualified?: number | null; topperScore?: number | null; rankData?: boolean; resultDate?: string | null; methodNote?: string | null; sourceId: string; checkedAt: string },
 ) {
   if (await prisma.neetExamYear.findUnique({ where: { year: input.year }, select: { id: true } })) {
     throw AppError.invalid("Please fix 1 thing below.", [{ path: "year", message: `NEET (UG) ${input.year} already exists.` }]);
@@ -135,6 +137,7 @@ export async function createYear(
         appeared: input.appeared,
         qualified: input.qualified ?? null,
         topperScore: input.topperScore ?? null,
+        rankData: input.rankData ?? true,
         resultDate: input.resultDate ? parsePastDate("resultDate", input.resultDate) : null,
         methodNote: optionalText(input.methodNote) ?? null,
         sourceId: input.sourceId,
@@ -154,13 +157,16 @@ const LIVE_EDITABLE = new Set(["checkedAt", "methodNote"]);
 export async function updateYear(
   actor: AuditActor,
   year: number,
-  input: { appeared?: number; qualified?: number | null; topperScore?: number | null; resultDate?: string | null; methodNote?: string | null; sourceId?: string; checkedAt?: string },
+  input: { appeared?: number; qualified?: number | null; topperScore?: number | null; rankData?: boolean; resultDate?: string | null; methodNote?: string | null; sourceId?: string; checkedAt?: string },
 ) {
   const before = await findYear(year);
   const touched = Object.entries(input).filter(([, v]) => v !== undefined).map(([k]) => k);
   const locked = touched.filter((k) => !LIVE_EDITABLE.has(k));
   if (before.status === "PUBLISHED" && locked.length > 0) {
     throw AppError.conflict(`NEET (UG) ${year} is published. Unpublish it to change: ${locked.join(", ")}. (Only checkedAt and methodNote can change while published.)`);
+  }
+  if (input.rankData === false && before.distributionSha256) {
+    throw AppError.invalid("Please fix 1 thing below.", [{ path: "rankData", message: `NEET (UG) ${year} already has score counts uploaded. Delete the year and start again to mark it as having none.` }]);
   }
   checkYearNumbers({ appeared: input.appeared ?? before.appeared, qualified: input.qualified === undefined ? before.qualified : input.qualified });
   if (input.sourceId !== undefined) await assertSourceExists(input.sourceId);
@@ -173,6 +179,7 @@ export async function updateYear(
         ...(input.appeared !== undefined ? { appeared: input.appeared } : {}),
         ...(input.qualified !== undefined ? { qualified: input.qualified } : {}),
         ...(input.topperScore !== undefined ? { topperScore: input.topperScore } : {}),
+        ...(input.rankData !== undefined ? { rankData: input.rankData } : {}),
         ...(input.resultDate !== undefined ? { resultDate: input.resultDate ? parsePastDate("resultDate", input.resultDate) : null } : {}),
         ...(input.methodNote !== undefined ? { methodNote: optionalText(input.methodNote) } : {}),
         ...(input.sourceId !== undefined ? { sourceId: input.sourceId } : {}),
@@ -242,6 +249,7 @@ async function createInChunks<T>(rows: T[], size: number, insert: (chunk: T[]) =
 export async function uploadDistribution(actor: AuditActor, year: number, input: { csv: string; fileName?: string | null; dryRun?: boolean }) {
   const y = await findYear(year);
   if (y.status === "PUBLISHED") throw AppError.conflict(`NEET (UG) ${year} is published. Unpublish it before replacing its data.`);
+  if (!y.rankData) throw AppError.conflict(`NEET (UG) ${year} is marked as having no score counts from NTA, so there is nothing to upload. Set rankData to true first if that is wrong.`);
 
   const rows = parseDistributionCsv(input.csv);
   const bands = groupBands(rows);
@@ -345,10 +353,11 @@ interface LoadedYear {
   qualified: number | null;
   topperScore: number | null;
   resultDate: string | null;
-  basis: NeetRankBasis;
+  rankData: boolean;
+  basis: NeetRankBasis | null;
   methodNote: string | null;
   checkedAt: string;
-  tableVersion: string;
+  tableVersion: string | null;
   source: { title: string; publisher: string | null; url: string | null };
   cutoffs: Array<{ group: NeetGroup; percentile: number; minScore: number }>;
   groups: NeetGroup[];
@@ -363,10 +372,11 @@ async function toLoaded(rows: YearRow[]): Promise<LoadedYear[]> {
     qualified: y.qualified,
     topperScore: y.topperScore,
     resultDate: dateOnly(y.resultDate),
-    basis: y.basis!,
+    rankData: y.rankData,
+    basis: y.basis,
     methodNote: y.methodNote,
     checkedAt: y.checkedAt.toISOString(),
-    tableVersion: versionOf(y.year, y.tableHash)!,
+    tableVersion: versionOf(y.year, y.tableHash),
     source: sourceRef(y.source),
     cutoffs: toYearDto(y).cutoffs,
     groups: present.filter((p) => p.examYearId === y.id).map((p) => p.group).sort((a, b) => groupOrder(a) - groupOrder(b)),
@@ -374,14 +384,17 @@ async function toLoaded(rows: YearRow[]): Promise<LoadedYear[]> {
 }
 
 const loadPublished = () =>
-  cached(NS, "years", CACHE_TTL_SEC, async () => toLoaded(await prisma.neetExamYear.findMany({ where: { status: "PUBLISHED", basis: { not: null } }, include, orderBy: { year: "desc" } })));
+  cached(NS, "years", CACHE_TTL_SEC, async () => toLoaded(await prisma.neetExamYear.findMany({ where: { status: "PUBLISHED", OR: [{ rankData: false }, { basis: { not: null } }] }, include, orderBy: { year: "desc" } })));
 
 /** One year's answer for one input: the engine result plus provenance. */
 async function resultFor(y: LoadedYear, input: RankInput) {
+  const cutoffs = new Map<NeetGroup, Cutoff>(y.cutoffs.map((c) => [c.group, { minScore: c.minScore, percentile: c.percentile }]));
+  if (!y.rankData || !y.basis) {
+    return { ...buildNoRankDataResult(input, { year: y.year, appeared: y.appeared, cutoffs }), source: y.source, checkedAt: y.checkedAt, tableVersion: y.tableVersion };
+  }
   const wanted: NeetGroup[] = ["OVERALL", input.category, ...(input.pwd ? (["PWD"] as const) : [])];
   const rows = await prisma.neetRankRow.findMany({ where: { examYearId: y.id, score: input.score, group: { in: wanted } } });
   const pick = (g: NeetGroup): RankRowData | undefined => rows.find((r) => r.group === g);
-  const cutoffs = new Map<NeetGroup, Cutoff>(y.cutoffs.map((c) => [c.group, { minScore: c.minScore, percentile: c.percentile }]));
   const result: RankResult = buildRankResult(input, { year: y.year, appeared: y.appeared, basis: y.basis, cutoffs }, { overall: pick("OVERALL"), category: pick(input.category), pwd: pick("PWD") });
   return { ...result, source: y.source, checkedAt: y.checkedAt, tableVersion: y.tableVersion };
 }
@@ -401,7 +414,8 @@ export interface RankQuery {
 export async function getRank(q: RankQuery) {
   const years = await loadPublished();
   if (years.length === 0) throw AppError.notFound("NEET rank data has not been published yet.");
-  const chosen = q.year === undefined ? years[0]! : years.find((y) => y.year === q.year);
+  // Default: the newest year we can actually give a rank for (else the newest year).
+  const chosen = q.year === undefined ? (years.find((y) => y.rankData) ?? years[0]!) : years.find((y) => y.year === q.year);
   if (!chosen) {
     throw AppError.invalid("Please fix 1 thing below.", [{ path: "year", message: `We do not have NEET (UG) ${q.year} data. Available years: ${years.map((y) => y.year).join(", ")}.` }]);
   }
@@ -421,7 +435,7 @@ export async function getRank(q: RankQuery) {
 /** Staff check of a draft year before publishing: same engine, no cache, any status. */
 export async function previewRank(year: number, q: Omit<RankQuery, "year">) {
   const y = await findYear(year);
-  if (!y.basis || !y.tableHash) throw AppError.conflict(`Upload the score-count file for NEET (UG) ${year} first.`);
+  if (y.rankData && (!y.basis || !y.tableHash)) throw AppError.conflict(`Upload the score-count file for NEET (UG) ${year} first.`);
   const [loaded] = await toLoaded([y]);
   const result = await resultFor(loaded!, { score: q.score, category: q.category, pwd: q.pwd ?? false });
   return { result, otherYears: [], meta: await metaFresh() };
@@ -435,6 +449,7 @@ export async function getDataSources() {
       qualified: y.qualified,
       topperScore: y.topperScore,
       resultDate: y.resultDate,
+      rankData: y.rankData,
       basis: y.basis,
       approximate: y.basis === "BAND_INTERPOLATION",
       methodNote: y.methodNote,

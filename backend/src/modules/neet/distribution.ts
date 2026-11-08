@@ -62,7 +62,9 @@ export function parseDistributionCsv(text: string): DistributionRow[] {
       continue;
     }
     const [groupRaw, fromRaw, toRaw, countRaw] = cells as [string, string, string, string];
-    const group = groupRaw.toUpperCase();
+    // "ALL" is accepted as another name for the All-India list (the owner's data files use it).
+    const upper = groupRaw.toUpperCase();
+    const group = upper === "ALL" ? "OVERALL" : upper;
     if (!GROUP_SET.has(group)) {
       bad(errors, `Line ${n}: group "${groupRaw}" is not one of ${GROUPS.join(", ")}.`);
       continue;

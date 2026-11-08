@@ -56,6 +56,7 @@ export interface paths {
          * @description Turns a NEET (UG) score into an All-India rank **range** using the official NTA result data. The same score always gives the same answer (`tableVersion` identifies the exact table used). Ranks are ranges because tied students share a band of ranks.
          *
          *     - `result.outcome` is `BELOW_CUTOFF` when the score is under the qualifying cut-off; rank fields are then null.
+         *     - `result.outcome` is `NOT_PUBLISHED_BY_NTA` when NTA published no score counts for that year (only totals and cut-offs); rank fields are null, `qualification` is still given, and the explanation says why. Show that message instead of a rank.
          *     - `result.approximate` is true when the year's data only has counts per mark range; show the estimate as approximate and mention `possibleRankSpan`.
          *     - `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).
          *     - `otherYears` gives the same score in every other published year (for "same score in the other year").
@@ -874,7 +875,7 @@ export interface operations {
                             /** @description NEET (UG) exam year the answer is based on */
                             year: string | number;
                             /** @enum {string} */
-                            outcome: "OK" | "BELOW_CUTOFF";
+                            outcome: "OK" | "BELOW_CUTOFF" | "NOT_PUBLISHED_BY_NTA";
                             score: string | number;
                             /** @enum {string} */
                             category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
@@ -928,8 +929,11 @@ export interface operations {
                             studentsWithSameScore: (string | number) | null;
                             /** @description true when the rank is estimated from a published mark range. Tell the student. */
                             approximate: boolean;
-                            /** @enum {string} */
-                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /**
+                             * @description null when NTA published no score counts for the year (outcome NOT_PUBLISHED_BY_NTA)
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
                             /** @description Plain-words bullets explaining the answer, ready to show */
                             explanation: string[];
                             /** @description The official document the numbers come from */
@@ -941,15 +945,15 @@ export interface operations {
                             /** Format: date-time */
                             checkedAt: string;
                             /**
-                             * @description Identifies the exact rank table used. Same score + same version = same answer.
+                             * @description Identifies the exact rank table used. Same score + same version = same answer. null when there is no rank table (NOT_PUBLISHED_BY_NTA).
                              * @example 2026-3f9a1c0b7d2e
                              */
-                            tableVersion: string;
+                            tableVersion: string | null;
                         };
                         otherYears: {
                             year: string | number;
                             /** @enum {string} */
-                            outcome: "OK" | "BELOW_CUTOFF";
+                            outcome: "OK" | "BELOW_CUTOFF" | "NOT_PUBLISHED_BY_NTA";
                             /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
                             allIndiaRank: {
                                 /** @description Best (lowest-numbered) rank this score could have */
@@ -958,8 +962,11 @@ export interface operations {
                                 to: string | number;
                             } | null;
                             approximate: boolean;
-                            /** @enum {string} */
-                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /**
+                             * @description null when NTA published no score counts for that year
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
                         }[];
                         /** @description Wording that must be shown with the answer */
                         meta: {
@@ -1074,8 +1081,13 @@ export interface operations {
                             topperScore: (string | number) | null;
                             /** Format: date */
                             resultDate: string | null;
-                            /** @enum {string} */
-                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /** @description false = NTA published no score counts for this year, so ranks cannot be shown (totals and cut-offs only) */
+                            rankData: boolean;
+                            /**
+                             * @description null when `rankData` is false
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
                             /** @description true when this year's ranks are estimated from mark ranges */
                             approximate: boolean;
                             methodNote: string | null;
@@ -1095,7 +1107,7 @@ export interface operations {
                             };
                             /** Format: date-time */
                             checkedAt: string;
-                            tableVersion: string;
+                            tableVersion: string | null;
                         }[];
                         /** @description Wording that must be shown with the answer */
                         meta: {
@@ -5875,10 +5887,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -5987,6 +6001,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description Highest score, if published (used as a cross-check) */
                     topperScore?: (string | number) | null;
+                    /** @description Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA. */
+                    rankData?: boolean;
                     /** @description Date NTA declared the result */
                     resultDate?: (string) | null;
                     /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
@@ -6008,6 +6024,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description Highest score, if published (used as a cross-check) */
                     topperScore?: (string | number) | null;
+                    /** @description Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA. */
+                    rankData?: boolean;
                     /** @description Date NTA declared the result */
                     resultDate?: (string) | null;
                     /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
@@ -6029,6 +6047,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description Highest score, if published (used as a cross-check) */
                     topperScore?: (string | number) | null;
+                    /** @description Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA. */
+                    rankData?: boolean;
                     /** @description Date NTA declared the result */
                     resultDate?: (string) | null;
                     /** @description Plain-words note on how this year's data was published. Shown on "Data we use". */
@@ -6060,10 +6080,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -6225,10 +6247,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -6555,6 +6579,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description null clears it */
                     topperScore?: (string | number) | null;
+                    /** @description false = NTA published no score counts for this year. 422 if counts are already uploaded. */
+                    rankData?: boolean;
                     /** @description null clears it */
                     resultDate?: (string) | null;
                     /** @description null or empty clears it */
@@ -6570,6 +6596,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description null clears it */
                     topperScore?: (string | number) | null;
+                    /** @description false = NTA published no score counts for this year. 422 if counts are already uploaded. */
+                    rankData?: boolean;
                     /** @description null clears it */
                     resultDate?: (string) | null;
                     /** @description null or empty clears it */
@@ -6585,6 +6613,8 @@ export interface operations {
                     qualified?: (string | number) | null;
                     /** @description null clears it */
                     topperScore?: (string | number) | null;
+                    /** @description false = NTA published no score counts for this year. 422 if counts are already uploaded. */
+                    rankData?: boolean;
                     /** @description null clears it */
                     resultDate?: (string) | null;
                     /** @description null or empty clears it */
@@ -6613,10 +6643,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -6864,10 +6896,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -7297,7 +7331,7 @@ export interface operations {
                             /** @description NEET (UG) exam year the answer is based on */
                             year: string | number;
                             /** @enum {string} */
-                            outcome: "OK" | "BELOW_CUTOFF";
+                            outcome: "OK" | "BELOW_CUTOFF" | "NOT_PUBLISHED_BY_NTA";
                             score: string | number;
                             /** @enum {string} */
                             category: "GENERAL" | "EWS" | "OBC" | "SC" | "ST";
@@ -7351,8 +7385,11 @@ export interface operations {
                             studentsWithSameScore: (string | number) | null;
                             /** @description true when the rank is estimated from a published mark range. Tell the student. */
                             approximate: boolean;
-                            /** @enum {string} */
-                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /**
+                             * @description null when NTA published no score counts for the year (outcome NOT_PUBLISHED_BY_NTA)
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
                             /** @description Plain-words bullets explaining the answer, ready to show */
                             explanation: string[];
                             /** @description The official document the numbers come from */
@@ -7364,15 +7401,15 @@ export interface operations {
                             /** Format: date-time */
                             checkedAt: string;
                             /**
-                             * @description Identifies the exact rank table used. Same score + same version = same answer.
+                             * @description Identifies the exact rank table used. Same score + same version = same answer. null when there is no rank table (NOT_PUBLISHED_BY_NTA).
                              * @example 2026-3f9a1c0b7d2e
                              */
-                            tableVersion: string;
+                            tableVersion: string | null;
                         };
                         otherYears: {
                             year: string | number;
                             /** @enum {string} */
-                            outcome: "OK" | "BELOW_CUTOFF";
+                            outcome: "OK" | "BELOW_CUTOFF" | "NOT_PUBLISHED_BY_NTA";
                             /** @description A rank range. Tied students share the range, so it is shown instead of a single rank. */
                             allIndiaRank: {
                                 /** @description Best (lowest-numbered) rank this score could have */
@@ -7381,8 +7418,11 @@ export interface operations {
                                 to: string | number;
                             } | null;
                             approximate: boolean;
-                            /** @enum {string} */
-                            basis: "EXACT_TIES" | "BAND_INTERPOLATION";
+                            /**
+                             * @description null when NTA published no score counts for that year
+                             * @enum {string|null}
+                             */
+                            basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
                         }[];
                         /** @description Wording that must be shown with the answer */
                         meta: {
@@ -7550,10 +7590,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;
@@ -7765,10 +7807,12 @@ export interface operations {
                             appeared: string | number;
                             qualified: (string | number) | null;
                             topperScore: (string | number) | null;
+                            /** @description false = NTA published no score counts for this year; it is published with totals and cut-offs only */
+                            rankData: boolean;
                             /** Format: date */
                             resultDate: string | null;
                             /**
-                             * @description null until a score-count file has been uploaded
+                             * @description null until a score-count file has been uploaded (and always null when `rankData` is false)
                              * @enum {string|null}
                              */
                             basis: "EXACT_TIES" | "BAND_INTERPOLATION" | null;

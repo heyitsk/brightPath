@@ -405,3 +405,95 @@ describe("GET /neet/data-sources", () => {
     expect(res.headers.get("etag")).toBeTruthy();
   });
 });
+
+describe("a year where NTA published no score counts (totals and cut-offs only)", () => {
+  async function noDataYear(h: Record<string, string>, source: { id: string }, year = 2025) {
+    const res = await call("/admin/neet/years", { method: "POST", headers: h, json: { year, appeared: 1000, qualified: 600, rankData: false, sourceId: source.id, checkedAt: iso(1), methodNote: "NTA gave totals only." } });
+    expect(res.status).toBe(201);
+    expect(body(res).examYear).toMatchObject({ rankData: false, basis: null, tableVersion: null });
+    return res;
+  }
+
+  test("is published without an upload, but still needs the cut-offs; an upload is refused", async () => {
+    const h = await as("EDITOR");
+    const source = await newSource();
+    await noDataYear(h, source);
+    expect(body(await call("/admin/neet/years/2025", { headers: h })).examYear.publishProblems).toEqual(["Add the qualifying cut-off for: GENERAL, EWS, OBC, SC, ST."]);
+    expect((await upload(h, 2025, EXACT_CSV)).status).toBe(409);
+    await cutoffs(h, 2025, BAND_CUTOFFS);
+    const res = await publish(h, 2025);
+    expect(res.status).toBe(200);
+    expect(body(res).examYear).toMatchObject({ status: "PUBLISHED", rankData: false, publishProblems: [] });
+  });
+
+  test("rankData cannot be switched off once counts are uploaded", async () => {
+    const h = await as("EDITOR");
+    await newYear(h);
+    await upload(h, 2024, EXACT_CSV);
+    const res = await call("/admin/neet/years/2024", { method: "PATCH", headers: h, json: { rankData: false } });
+    expect(res.status).toBe(422);
+    expect(body(res).error.fields[0].path).toBe("rankData");
+  });
+
+  test("asking for that year gives a typed NOT_PUBLISHED_BY_NTA answer, still saying whether the score qualifies", async () => {
+    const h = await as("EDITOR");
+    const source = await publishedYears(h);
+    await noDataYear(h, source);
+    await cutoffs(h, 2025, BAND_CUTOFFS);
+    await publish(h, 2025);
+
+    const res = await call("/neet/rank?score=600&category=GENERAL&year=2025");
+    expect(res.status).toBe(200);
+    const { result, otherYears } = body(res);
+    expect(result).toMatchObject({
+      year: 2025,
+      outcome: "NOT_PUBLISHED_BY_NTA",
+      allIndiaRank: null,
+      categoryRank: null,
+      percentile: null,
+      basis: null,
+      tableVersion: null,
+      approximate: false,
+      studentsAppeared: 1000,
+      qualification: { qualified: true, cutoffScore: 120 },
+    });
+    expect(result.explanation[0]).toContain("did not publish how many students got each score");
+    expect(otherYears).toEqual([{ year: 2024, outcome: "OK", allIndiaRank: { from: 16, to: 45 }, approximate: false, basis: "EXACT_TIES" }]);
+
+    const under = body(await call("/neet/rank?score=50&category=GENERAL&year=2025")).result;
+    expect(under).toMatchObject({ outcome: "NOT_PUBLISHED_BY_NTA", qualification: { qualified: false } });
+  });
+
+  test("the default year is the newest one that has rank data, and the other-years list shows the no-data year", async () => {
+    const h = await as("EDITOR");
+    const source = await publishedYears(h); // 2024 with data
+    await noDataYear(h, source, 2025);
+    await cutoffs(h, 2025, BAND_CUTOFFS);
+    await publish(h, 2025);
+    const res = body(await call("/neet/rank?score=600&category=GENERAL"));
+    expect(res.result).toMatchObject({ year: 2024, outcome: "OK" });
+    expect(res.otherYears).toEqual([{ year: 2025, outcome: "NOT_PUBLISHED_BY_NTA", allIndiaRank: null, approximate: false, basis: null }]);
+  });
+
+  test("data-sources lists it with rankData false and no groups", async () => {
+    const h = await as("EDITOR");
+    const source = await publishedYears(h);
+    await noDataYear(h, source);
+    await cutoffs(h, 2025, BAND_CUTOFFS);
+    await publish(h, 2025);
+    const years = body(await call("/neet/data-sources")).years;
+    expect(years.map((y: any) => y.year)).toEqual([2025, 2024]);
+    expect(years[0]).toMatchObject({ rankData: false, basis: null, approximate: false, groups: [], tableVersion: null, methodNote: "NTA gave totals only." });
+    expect(years[1]).toMatchObject({ rankData: true, basis: "EXACT_TIES" });
+  });
+
+  test("preview works for a no-data draft", async () => {
+    const h = await as("EDITOR");
+    const source = await newSource();
+    await noDataYear(h, source);
+    await cutoffs(h, 2025, BAND_CUTOFFS);
+    const res = await call("/admin/neet/years/2025/preview?score=600&category=GENERAL", { headers: h });
+    expect(res.status).toBe(200);
+    expect(body(res).result.outcome).toBe("NOT_PUBLISHED_BY_NTA");
+  });
+});

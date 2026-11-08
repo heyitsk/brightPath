@@ -35,6 +35,9 @@ model NeetExamYear {
   /// Official number who qualified, if published.
   qualified   Int?
   topperScore Int?
+  /// false = NTA published no score counts for this year (only totals and cut-offs), so no rank can
+  /// be worked out. Set on purpose by staff; such a year is published without a distribution.
+  rankData    Boolean        @default(true)
   resultDate  DateTime?      @db.Date
   /// Set by the distribution upload (derived from the data, never typed in).
   basis       NeetRankBasis?

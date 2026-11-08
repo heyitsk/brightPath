@@ -37,6 +37,12 @@ export const yearParam = t.Object({
   year: t.Integer({ minimum: 2013, maximum: 2100, description: "NEET (UG) exam year", examples: [2026] }),
 });
 
+export const OutcomeSchema = t.Union([t.Literal("OK"), t.Literal("BELOW_CUTOFF"), t.Literal("NOT_PUBLISHED_BY_NTA")], {
+  description:
+    "OK: rank fields are filled. BELOW_CUTOFF: the score is under the qualifying cut-off, rank fields are null. " +
+    "NOT_PUBLISHED_BY_NTA: NTA published no score counts for that year (only totals and cut-offs), so no rank can be worked out; rank fields are null.",
+});
+
 export const RankRangeSchema = t.Object(
   { from: t.Integer({ description: "Best (lowest-numbered) rank this score could have" }), to: t.Integer({ description: "Worst (highest-numbered) rank this score could have" }) },
   { description: "A rank range. Tied students share the range, so it is shown instead of a single rank." },
@@ -67,9 +73,7 @@ export const QualificationSchema = t.Object(
 export const RankResultSchema = t.Object(
   {
     year: t.Integer({ description: "NEET (UG) exam year the answer is based on" }),
-    outcome: t.Union([t.Literal("OK"), t.Literal("BELOW_CUTOFF")], {
-      description: "BELOW_CUTOFF: the score is under the qualifying cut-off, so no rank fields are returned (they are null)",
-    }),
+    outcome: OutcomeSchema,
     score: t.Integer(),
     category: CategorySchema,
     pwd: t.Boolean(),
@@ -85,11 +89,13 @@ export const RankResultSchema = t.Object(
     studentsAppeared: t.Integer(),
     studentsWithSameScore: t.Union([t.Integer(), t.Null()], { description: "null when `approximate`" }),
     approximate: t.Boolean({ description: "true when the rank is estimated from a published mark range. Tell the student." }),
-    basis: BasisSchema,
+    basis: t.Union([BasisSchema, t.Null()], { description: "null when NTA published no score counts for the year (outcome NOT_PUBLISHED_BY_NTA)" }),
     explanation: t.Array(t.String(), { description: "Plain-words bullets explaining the answer, ready to show" }),
     source: SourceRefSchema,
     checkedAt: iso,
-    tableVersion: t.String({ description: "Identifies the exact rank table used. Same score + same version = same answer.", examples: ["2026-3f9a1c0b7d2e"] }),
+    tableVersion: t.Union([t.String({ examples: ["2026-3f9a1c0b7d2e"] }), t.Null()], {
+      description: "Identifies the exact rank table used. Same score + same version = same answer. null when there is no rank table (NOT_PUBLISHED_BY_NTA).",
+    }),
   },
   { description: "The rank answer for one exam year" },
 );
@@ -97,10 +103,10 @@ export const RankResultSchema = t.Object(
 export const OtherYearSchema = t.Object(
   {
     year: t.Integer(),
-    outcome: t.Union([t.Literal("OK"), t.Literal("BELOW_CUTOFF")]),
+    outcome: OutcomeSchema,
     allIndiaRank: NullableRange,
     approximate: t.Boolean(),
-    basis: BasisSchema,
+    basis: t.Union([BasisSchema, t.Null()], { description: "null when NTA published no score counts for that year" }),
   },
   { description: "The same score looked up in another published year" },
 );
@@ -125,14 +131,15 @@ export const DataSourceYearSchema = t.Object(
     qualified: t.Union([t.Integer(), t.Null()]),
     topperScore: t.Union([t.Integer(), t.Null()]),
     resultDate: nullable(t.String({ format: "date" })),
-    basis: BasisSchema,
+    rankData: t.Boolean({ description: "false = NTA published no score counts for this year, so ranks cannot be shown (totals and cut-offs only)" }),
+    basis: t.Union([BasisSchema, t.Null()], { description: "null when `rankData` is false" }),
     approximate: t.Boolean({ description: "true when this year's ranks are estimated from mark ranges" }),
     methodNote: nullable(t.String()),
     groups: t.Array(GroupSchema, { description: "Which lists the year has data for. Category and PwD ranks exist only for the groups listed." }),
     cutoffs: t.Array(CutoffSchema),
     source: SourceRefSchema,
     checkedAt: iso,
-    tableVersion: t.String(),
+    tableVersion: nullable(t.String()),
   },
   { description: "One row of the \"Data we use\" table" },
 );
@@ -160,8 +167,9 @@ export const YearSchema = t.Object(
     appeared: t.Integer(),
     qualified: t.Union([t.Integer(), t.Null()]),
     topperScore: t.Union([t.Integer(), t.Null()]),
+    rankData: t.Boolean({ description: "false = NTA published no score counts for this year; it is published with totals and cut-offs only" }),
     resultDate: nullable(t.String({ format: "date" })),
-    basis: t.Union([BasisSchema, t.Null()], { description: "null until a score-count file has been uploaded" }),
+    basis: t.Union([BasisSchema, t.Null()], { description: "null until a score-count file has been uploaded (and always null when `rankData` is false)" }),
     methodNote: nullable(t.String()),
     source: SourceBriefSchema,
     checkedAt: iso,

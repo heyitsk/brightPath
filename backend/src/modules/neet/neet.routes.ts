@@ -24,6 +24,7 @@ export const neetRoutes = new Elysia({ prefix: "/neet", tags: ["NEET"] })
           "Turns a NEET (UG) score into an All-India rank **range** using the official NTA result data. The same score always gives the same answer " +
           "(`tableVersion` identifies the exact table used). Ranks are ranges because tied students share a band of ranks.\n\n" +
           "- `result.outcome` is `BELOW_CUTOFF` when the score is under the qualifying cut-off; rank fields are then null.\n" +
+          "- `result.outcome` is `NOT_PUBLISHED_BY_NTA` when NTA published no score counts for that year (only totals and cut-offs); rank fields are null, `qualification` is still given, and the explanation says why. Show that message instead of a rank.\n" +
           "- `result.approximate` is true when the year's data only has counts per mark range; show the estimate as approximate and mention `possibleRankSpan`.\n" +
           "- `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).\n" +
           "- `otherYears` gives the same score in every other published year (for \"same score in the other year\").\n" +

@@ -201,6 +201,13 @@ describe("parseDistributionCsv", () => {
     expect(rows).toEqual([{ group: "OVERALL", from: 600, to: 600, candidates: 5 }]);
   });
 
+  test("ALL is accepted as another name for the All-India list (OVERALL)", () => {
+    expect(parseDistributionCsv(wrap("ALL,600,600,5\nall,500,500,2\n"))).toEqual([
+      { group: "OVERALL", from: 600, to: 600, candidates: 5 },
+      { group: "OVERALL", from: 500, to: 500, candidates: 2 },
+    ]);
+  });
+
   test("rejects a wrong header, unknown group, bad numbers, thousands commas and out-of-range scores with line numbers", () => {
     expect(msgs(() => parseDistributionCsv("a,b,c\n"))[0]).toContain("first line must be exactly");
     const errs = msgs(() => parseDistributionCsv(wrap("OVERALL,600,600,5\nNOPE,1,1,1\nOVERALL,6x0,610,3\nOVERALL,500,500,1,200\nOVERALL,400,400,\"7\"\nOVERALL,800,800,1\nOVERALL,300,200,1\n")));

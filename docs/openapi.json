@@ -424,7 +424,7 @@
           "NEET"
         ],
         "summary": "Predict NEET (UG) rank from a score",
-        "description": "Turns a NEET (UG) score into an All-India rank **range** using the official NTA result data. The same score always gives the same answer (`tableVersion` identifies the exact table used). Ranks are ranges because tied students share a band of ranks.\n\n- `result.outcome` is `BELOW_CUTOFF` when the score is under the qualifying cut-off; rank fields are then null.\n- `result.approximate` is true when the year's data only has counts per mark range; show the estimate as approximate and mention `possibleRankSpan`.\n- `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).\n- `otherYears` gives the same score in every other published year (for \"same score in the other year\").\n- `meta.disclaimer` must be shown with the answer.\n\nSupports `ETag` / `If-None-Match`. 404 until a year is published; 422 for an unavailable `year` or a score outside -180..720.",
+        "description": "Turns a NEET (UG) score into an All-India rank **range** using the official NTA result data. The same score always gives the same answer (`tableVersion` identifies the exact table used). Ranks are ranges because tied students share a band of ranks.\n\n- `result.outcome` is `BELOW_CUTOFF` when the score is under the qualifying cut-off; rank fields are then null.\n- `result.outcome` is `NOT_PUBLISHED_BY_NTA` when NTA published no score counts for that year (only totals and cut-offs); rank fields are null, `qualification` is still given, and the explanation says why. Show that message instead of a rank.\n- `result.approximate` is true when the year's data only has counts per mark range; show the estimate as approximate and mention `possibleRankSpan`.\n- `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).\n- `otherYears` gives the same score in every other published year (for \"same score in the other year\").\n- `meta.disclaimer` must be shown with the answer.\n\nSupports `ETag` / `If-None-Match`. 404 until a year is published; 422 for an unavailable `year` or a score outside -180..720.",
         "parameters": [
           {
             "name": "score",
@@ -560,7 +560,8 @@
                           "type": "string",
                           "enum": [
                             "OK",
-                            "BELOW_CUTOFF"
+                            "BELOW_CUTOFF",
+                            "NOT_PUBLISHED_BY_NTA"
                           ]
                         },
                         "score": {
@@ -876,7 +877,11 @@
                           "type": "boolean"
                         },
                         "basis": {
-                          "type": "string",
+                          "description": "null when NTA published no score counts for the year (outcome NOT_PUBLISHED_BY_NTA)",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "enum": [
                             "EXACT_TIES",
                             "BAND_INTERPOLATION"
@@ -920,11 +925,14 @@
                           "type": "string"
                         },
                         "tableVersion": {
-                          "description": "Identifies the exact rank table used. Same score + same version = same answer.",
+                          "description": "Identifies the exact rank table used. Same score + same version = same answer. null when there is no rank table (NOT_PUBLISHED_BY_NTA).",
                           "examples": [
                             "2026-3f9a1c0b7d2e"
                           ],
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -957,7 +965,8 @@
                             "type": "string",
                             "enum": [
                               "OK",
-                              "BELOW_CUTOFF"
+                              "BELOW_CUTOFF",
+                              "NOT_PUBLISHED_BY_NTA"
                             ]
                           },
                           "allIndiaRank": {
@@ -1005,7 +1014,11 @@
                             "type": "boolean"
                           },
                           "basis": {
-                            "type": "string",
+                            "description": "null when NTA published no score counts for that year",
+                            "type": [
+                              "string",
+                              "null"
+                            ],
                             "enum": [
                               "EXACT_TIES",
                               "BAND_INTERPOLATION"
@@ -1272,6 +1285,7 @@
                           "qualified",
                           "topperScore",
                           "resultDate",
+                          "rankData",
                           "basis",
                           "approximate",
                           "methodNote",
@@ -1351,8 +1365,16 @@
                               "null"
                             ]
                           },
+                          "rankData": {
+                            "description": "false = NTA published no score counts for this year, so ranks cannot be shown (totals and cut-offs only)",
+                            "type": "boolean"
+                          },
                           "basis": {
-                            "type": "string",
+                            "description": "null when `rankData` is false",
+                            "type": [
+                              "string",
+                              "null"
+                            ],
                             "enum": [
                               "EXACT_TIES",
                               "BAND_INTERPOLATION"
@@ -1455,7 +1477,10 @@
                             "type": "string"
                           },
                           "tableVersion": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         }
                       }
@@ -13429,6 +13454,7 @@
                           "appeared",
                           "qualified",
                           "topperScore",
+                          "rankData",
                           "resultDate",
                           "basis",
                           "methodNote",
@@ -13515,6 +13541,10 @@
                               }
                             ]
                           },
+                          "rankData": {
+                            "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                            "type": "boolean"
+                          },
                           "resultDate": {
                             "format": "date",
                             "type": [
@@ -13523,7 +13553,7 @@
                             ]
                           },
                           "basis": {
-                            "description": "null until a score-count file has been uploaded",
+                            "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                             "type": [
                               "string",
                               "null"
@@ -13903,6 +13933,10 @@
                       }
                     ]
                   },
+                  "rankData": {
+                    "description": "Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA.",
+                    "type": "boolean"
+                  },
                   "resultDate": {
                     "description": "Date NTA declared the result",
                     "anyOf": [
@@ -14050,6 +14084,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "rankData": {
+                    "description": "Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA.",
+                    "type": "boolean"
                   },
                   "resultDate": {
                     "description": "Date NTA declared the result",
@@ -14199,6 +14237,10 @@
                       }
                     ]
                   },
+                  "rankData": {
+                    "description": "Default true. Send false when NTA published NO score counts for the year (only totals and cut-offs): the year is then published without an upload and the rank endpoint answers NOT_PUBLISHED_BY_NTA.",
+                    "type": "boolean"
+                  },
                   "resultDate": {
                     "description": "Date NTA declared the result",
                     "anyOf": [
@@ -14272,6 +14314,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -14361,6 +14404,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -14369,7 +14416,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
@@ -14885,6 +14932,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -14974,6 +15022,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -14982,7 +15034,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
@@ -15607,6 +15659,10 @@
                       }
                     ]
                   },
+                  "rankData": {
+                    "description": "false = NTA published no score counts for this year. 422 if counts are already uploaded.",
+                    "type": "boolean"
+                  },
                   "resultDate": {
                     "description": "null clears it",
                     "anyOf": [
@@ -15723,6 +15779,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "rankData": {
+                    "description": "false = NTA published no score counts for this year. 422 if counts are already uploaded.",
+                    "type": "boolean"
                   },
                   "resultDate": {
                     "description": "null clears it",
@@ -15841,6 +15901,10 @@
                       }
                     ]
                   },
+                  "rankData": {
+                    "description": "false = NTA published no score counts for this year. 422 if counts are already uploaded.",
+                    "type": "boolean"
+                  },
                   "resultDate": {
                     "description": "null clears it",
                     "anyOf": [
@@ -15912,6 +15976,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -16001,6 +16066,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -16009,7 +16078,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
@@ -17208,6 +17277,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -17297,6 +17367,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -17305,7 +17379,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
@@ -18644,7 +18718,8 @@
                           "type": "string",
                           "enum": [
                             "OK",
-                            "BELOW_CUTOFF"
+                            "BELOW_CUTOFF",
+                            "NOT_PUBLISHED_BY_NTA"
                           ]
                         },
                         "score": {
@@ -18960,7 +19035,11 @@
                           "type": "boolean"
                         },
                         "basis": {
-                          "type": "string",
+                          "description": "null when NTA published no score counts for the year (outcome NOT_PUBLISHED_BY_NTA)",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "enum": [
                             "EXACT_TIES",
                             "BAND_INTERPOLATION"
@@ -19004,11 +19083,14 @@
                           "type": "string"
                         },
                         "tableVersion": {
-                          "description": "Identifies the exact rank table used. Same score + same version = same answer.",
+                          "description": "Identifies the exact rank table used. Same score + same version = same answer. null when there is no rank table (NOT_PUBLISHED_BY_NTA).",
                           "examples": [
                             "2026-3f9a1c0b7d2e"
                           ],
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -19041,7 +19123,8 @@
                             "type": "string",
                             "enum": [
                               "OK",
-                              "BELOW_CUTOFF"
+                              "BELOW_CUTOFF",
+                              "NOT_PUBLISHED_BY_NTA"
                             ]
                           },
                           "allIndiaRank": {
@@ -19089,7 +19172,11 @@
                             "type": "boolean"
                           },
                           "basis": {
-                            "type": "string",
+                            "description": "null when NTA published no score counts for that year",
+                            "type": [
+                              "string",
+                              "null"
+                            ],
                             "enum": [
                               "EXACT_TIES",
                               "BAND_INTERPOLATION"
@@ -19503,6 +19590,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -19592,6 +19680,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -19600,7 +19692,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
@@ -20236,6 +20328,7 @@
                         "appeared",
                         "qualified",
                         "topperScore",
+                        "rankData",
                         "resultDate",
                         "basis",
                         "methodNote",
@@ -20325,6 +20418,10 @@
                             }
                           ]
                         },
+                        "rankData": {
+                          "description": "false = NTA published no score counts for this year; it is published with totals and cut-offs only",
+                          "type": "boolean"
+                        },
                         "resultDate": {
                           "format": "date",
                           "type": [
@@ -20333,7 +20430,7 @@
                           ]
                         },
                         "basis": {
-                          "description": "null until a score-count file has been uploaded",
+                          "description": "null until a score-count file has been uploaded (and always null when `rankData` is false)",
                           "type": [
                             "string",
                             "null"
