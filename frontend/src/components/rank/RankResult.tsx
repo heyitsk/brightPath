@@ -65,7 +65,8 @@ function DataPage({ result }: { result: RankResultData }) {
             Below the qualifying cut-off
           </p>
           <p className="note">
-            This score is below the {year} qualifying cut-off for {category}, so no rank is shown.
+            This score is below the {year} qualifying cut-off for {category}
+            {result.pwd ? ' (PwD)' : ''}, so no rank is shown.
           </p>
         </>
       )}

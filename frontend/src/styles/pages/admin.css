@@ -28,4 +28,7 @@
 .adm-badge.off{border-color:var(--red);color:var(--red)}
 .adm-badge.pub{border-color:var(--violet);color:var(--violet)}
 .adm-actions{display:flex;gap:12px;flex-wrap:wrap}
+/* Year tabs sit on light paper: ink outline for every tab, filled ink for the current one.
+   (.btn-light is the on-cover variant: near-white text, unreadable here.) */
+.adm-tabs .btn[aria-current="page"]{background:var(--ink);color:#fff}
 .adm-wide{max-width:760px}

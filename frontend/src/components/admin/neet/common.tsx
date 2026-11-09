@@ -59,11 +59,11 @@ export function YearNav({ year, current }: { year: string | number; current: str
         <Link to="/admin/neet">← NEET data</Link>
       </p>
       <h1 style={{ marginTop: 0 }}>NEET {year}</h1>
-      <nav aria-label="This year" className="adm-actions" style={{ margin: '0 0 20px' }}>
+      <nav aria-label="This year" className="adm-actions adm-tabs" style={{ margin: '0 0 20px' }}>
         {tabs.map((t) => (
           <Link
             key={t.key}
-            className={t.key === current ? 'btn btn-secondary' : 'btn btn-light'}
+            className="btn btn-secondary"
             to={t.to}
             aria-current={t.key === current ? 'page' : undefined}
           >
