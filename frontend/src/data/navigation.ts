@@ -70,6 +70,7 @@ export type Navigation = {
 /* Pages that exist in the app today. Everything else stays unpublished. */
 const LIVE = new Set<string>([
   '/',
+  '/neet-rank-predictor',
   ...SAMPLE_COLLEGE_SLUGS.map((slug) => `/colleges/${slug}`),
   ...SAMPLE_COUNTRY_SLUGS.map((slug) => `/mbbs-abroad/${slug}`),
   ...SAMPLE_STATE_SLUGS.map((slug) => `/neet-counselling/${slug}`),
