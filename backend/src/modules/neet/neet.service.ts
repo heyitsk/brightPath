@@ -413,7 +413,7 @@ export interface RankQuery {
 
 export async function getRank(q: RankQuery) {
   const years = await loadPublished();
-  if (years.length === 0) throw AppError.notFound("NEET rank data has not been published yet.");
+  if (years.length === 0) throw AppError.notPublishedYet("NEET rank data has not been published yet.");
   // Default: the newest year we can actually give a rank for (else the newest year).
   const chosen = q.year === undefined ? (years.find((y) => y.rankData) ?? years[0]!) : years.find((y) => y.year === q.year);
   if (!chosen) {

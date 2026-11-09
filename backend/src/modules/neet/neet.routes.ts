@@ -29,7 +29,8 @@ export const neetRoutes = new Elysia({ prefix: "/neet", tags: ["NEET"] })
           "- `categoryRank` / `pwdRank` are null when the year's data does not support them (never guessed).\n" +
           "- `otherYears` gives the same score in every other published year (for \"same score in the other year\").\n" +
           "- `meta.disclaimer` must be shown with the answer.\n\n" +
-          "Supports `ETag` / `If-None-Match`. 404 until a year is published; 422 for an unavailable `year` or a score outside -180..720.",
+          "Supports `ETag` / `If-None-Match`. While no year is published at all the answer is 404 with error code `NOT_PUBLISHED_YET` (whatever `year` is sent; show \"rank predictor coming soon\"). " +
+          "Once a year is published, 422 with a `year` field error means that year is not available, and 422 on `score` means it is outside -180..720.",
       },
       response: { 200: RankResponseSchema, ...errorResponses(404, 422, 429) },
     },

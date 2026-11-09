@@ -4,7 +4,7 @@ import { Elysia } from "elysia";
 import { env } from "./config/env";
 import { ErrorEnvelope } from "./lib/errors";
 import { emptyQueryAsAbsent } from "./plugins/empty-query";
-import { errorHandler } from "./plugins/error-handler";
+import { errorHandler, provideRouteTable } from "./plugins/error-handler";
 import { rateLimit } from "./plugins/rate-limit";
 import { requestId } from "./plugins/request-id";
 import { requestLogger } from "./plugins/request-logger";
@@ -20,7 +20,7 @@ import { siteAdminRoutes } from "./modules/site/site.admin.routes";
 import { siteRoutes } from "./modules/site/site.routes";
 import { staffAdminRoutes } from "./modules/staff/staff.admin.routes";
 
-export const API_VERSION = "0.5.1";
+export const API_VERSION = "0.5.2";
 
 // The app is built here and started in index.ts, so scripts (e.g. OpenAPI export) and tests
 // can import it without opening a port.
@@ -59,7 +59,7 @@ export const app = new Elysia()
             "**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n" +
             "**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. " +
             "Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n" +
-            "**Changelog.** 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
+            "**Changelog.** 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
             "0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
         },
         tags: [
@@ -89,5 +89,7 @@ export const app = new Elysia()
   .use(geographyAdminRoutes)
   .use(provenanceAdminRoutes)
   .use(neetAdminRoutes);
+
+provideRouteTable(() => app.routes as never);
 
 export type App = typeof app;

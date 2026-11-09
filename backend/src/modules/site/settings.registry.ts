@@ -1,4 +1,5 @@
 import { t, type TSchema } from "elysia";
+import { describeSchema, type JsonSchema } from "../../lib/schema-words";
 
 // Every setting the backend knows about. Staff can change values at runtime (no deploy); the
 // registry says what is valid. Unknown keys are rejected. Add new settings here, with a default.
@@ -34,48 +35,13 @@ export const SETTINGS: SettingDef[] = [
 
 // ---- plain-words validation messages ---------------------------------------------------
 
-interface Json {
-  type?: string;
-  anyOf?: Json[];
-  minimum?: number;
-  maximum?: number;
-  maxLength?: number;
-  maxItems?: number;
-  format?: string;
-  items?: Json;
-}
-
-/** Describes what a schema accepts, as a phrase that follows "Enter ". */
-function phrase(schema: Json): string {
-  if (schema.anyOf) {
-    const real = schema.anyOf.filter((b) => b.type !== "null");
-    // Elysia's t.Integer is "a whole number or a numeric string" with the range on the outer schema.
-    const whole = real.find((b) => b.type === "integer");
-    if (whole) return phrase({ ...whole, minimum: whole.minimum ?? schema.minimum, maximum: whole.maximum ?? schema.maximum });
-    return real.length === 1 ? phrase(real[0]!) : "a valid value";
-  }
-  switch (schema.type) {
-    case "integer":
-      return schema.minimum !== undefined && schema.maximum !== undefined ? `a whole number from ${schema.minimum} to ${schema.maximum}` : "a whole number";
-    case "string":
-      if (schema.format === "email") return "a valid email address";
-      return schema.maxLength !== undefined ? `text of up to ${schema.maxLength} characters` : "text";
-    case "array": {
-      const each = schema.items ? `, each ${phrase(schema.items)}` : "";
-      return schema.maxItems !== undefined ? `a list of up to ${schema.maxItems} entries${each}` : `a list${each}`;
-    }
-    default:
-      return "a valid value";
-  }
-}
-
 /**
  * The message shown when a setting value is refused, e.g. "Enter a whole number from 0 to 20."
  * It replaces the validator's own wording ("Expected union value"), which means nothing to staff.
  */
 export function describeExpectedValue(def: SettingDef): string {
-  const nullable = (def.schema as Json).anyOf?.some((b) => b.type === "null") ?? false;
-  return `Enter ${def.valueHint ?? phrase(def.schema as Json)}.${nullable ? " Leave it empty to clear it." : ""}`;
+  const nullable = (def.schema as JsonSchema).anyOf?.some((b) => b.type === "null") ?? false;
+  return `Enter ${def.valueHint ?? describeSchema(def.schema as JsonSchema) ?? "a valid value"}.${nullable ? " Leave it empty to clear it." : ""}`;
 }
 
 export const SETTINGS_BY_KEY = new Map(SETTINGS.map((s) => [s.key, s]));

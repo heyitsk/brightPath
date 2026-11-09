@@ -8,6 +8,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "PASSWORD_CHANGE_REQUIRED"
   | "NOT_FOUND"
+  | "NOT_PUBLISHED_YET"
   | "CONFLICT"
   | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
@@ -35,6 +36,10 @@ export class AppError extends Error {
 
   static notFound(message = "We could not find that.") {
     return new AppError(404, "NOT_FOUND", message);
+  }
+  /** 404 for "this feature has no published data at all yet", so clients can tell it from a wrong id/year. */
+  static notPublishedYet(message: string) {
+    return new AppError(404, "NOT_PUBLISHED_YET", message);
   }
   static conflict(message: string) {
     return new AppError(409, "CONFLICT", message);
@@ -66,7 +71,7 @@ export const FieldErrorSchema = t.Object(
 export const ErrorEnvelope = t.Object(
   {
     error: t.Object({
-      code: t.String({ description: "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`" }),
+      code: t.String({ description: "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`" }),
       message: t.String({ description: "Human-readable summary, e.g. `Please fix 2 things below.`" }),
       fields: t.Optional(
         t.Array(FieldErrorSchema, { description: "Per-field problems. Present for validation errors." }),

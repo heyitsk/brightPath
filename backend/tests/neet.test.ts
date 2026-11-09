@@ -92,7 +92,11 @@ describe("nothing published yet", () => {
   test("the rank endpoint answers 404 and the data-sources table is empty", async () => {
     const rank = await call("/neet/rank?score=600&category=GENERAL");
     expect(rank.status).toBe(404);
-    expect(body(rank).error.code).toBe("NOT_FOUND");
+    expect(body(rank).error.code).toBe("NOT_PUBLISHED_YET");
+    // a year in the query does not change that: nothing is published, so it is not a "wrong year"
+    const withYear = await call("/neet/rank?score=600&category=GENERAL&year=2026");
+    expect(withYear.status).toBe(404);
+    expect(body(withYear).error.code).toBe("NOT_PUBLISHED_YET");
     const sources = await call("/neet/data-sources");
     expect(sources.status).toBe(200);
     expect(body(sources).years).toEqual([]);
@@ -359,6 +363,20 @@ describe("GET /neet/rank", () => {
       expect(res.status).toBe(422);
       expect(body(res).error.code).toBe("VALIDATION_FAILED");
     }
+    // every refusal names the field and says what is allowed (no "(body)", no "Expected union value")
+    const fieldError = async (q: string) => {
+      const res = await call(`/neet/rank?${q}`);
+      expect(res.status).toBe(422);
+      expect(body(res).error.fields).toHaveLength(1);
+      return body(res).error.fields[0] as { path: string; message: string };
+    };
+    expect(await fieldError("score=721&category=GENERAL")).toEqual({ path: "score", message: "Enter a whole number from -180 to 720." });
+    expect(await fieldError("score=-181&category=GENERAL")).toEqual({ path: "score", message: "Enter a whole number from -180 to 720." });
+    expect(await fieldError("score=abc&category=GENERAL")).toEqual({ path: "score", message: "Enter a whole number from -180 to 720." });
+    expect(await fieldError("category=GENERAL")).toEqual({ path: "score", message: "This is required." });
+    expect(await fieldError("score=600&category=OPEN")).toEqual({ path: "category", message: "Enter one of GENERAL, EWS, OBC, SC or ST." });
+    expect(await fieldError("score=600&category=GENERAL&pwd=maybe")).toEqual({ path: "pwd", message: "Enter true or false." });
+    expect(await fieldError("score=600&category=GENERAL&year=1999")).toEqual({ path: "year", message: "Enter a whole number from 2013 to 2100." });
     // the extremes are valid
     expect((await call("/neet/rank?score=720&category=GENERAL")).status).toBe(200);
     expect((await call("/neet/rank?score=-180&category=GENERAL")).status).toBe(200);
