@@ -321,6 +321,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/site/homepage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get homepage hero text and announcement strip
+         * @description The hero headline and text, and the announcement strip with its switch, link, optional start and end time, and `status` (is it showing right now?). `null` hero text means the site shows its built-in wording. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminSiteHomepage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit homepage hero text and announcement strip
+         * @description Send only what changes, under `hero` and/or `announcement`; empty text or `null` clears a field. All the changes are saved together or not at all, and take effect on the public site straight away (`GET /site/config`). Checks beyond each field: the strip cannot be switched on without text; a link needs both its text and its address; `showUntil` must be after `showFrom`. `linkUrl` is a full https:// address or a path on this site starting with a single `/`. Each changed field is audited. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminSiteHomepage"];
+        trace?: never;
+    };
     "/admin/disclaimers": {
         parameters: {
             query?: never;
@@ -1190,6 +1214,23 @@ export interface operations {
                             /** @description India and abroad results shown before the student leaves their details */
                             freeResultsPerGroup: string | number;
                         };
+                        /** @description Homepage hero text, editable by an admin */
+                        hero: {
+                            /** @description Homepage hero headline. null = use the site's built-in headline. */
+                            headline: string | null;
+                            /** @description Text under the hero headline. null = use the site's built-in text. */
+                            subtext: string | null;
+                        };
+                        /** @description The announcement strip to show right now, or null when there is none (off, scheduled, expired or empty) */
+                        announcement: {
+                            /** @description Changes whenever the wording or link changes. Use it to remember that a visitor dismissed THIS announcement. */
+                            id: string;
+                            text: string;
+                            /** @description Link text, null when the strip has no link */
+                            linkLabel: string | null;
+                            /** @description A full https:// address or a path on this site (starts with /); null when the strip has no link */
+                            linkUrl: string | null;
+                        } | null;
                         /** @description Current disclaimer texts by key */
                         disclaimers: {
                             [key: string]: {
@@ -3328,6 +3369,299 @@ export interface operations {
             };
             /** @description Not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminSiteHomepage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Homepage hero text and announcement strip, as set (not just what is live) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description null = the site shows its built-in text */
+                        hero: {
+                            headline: string | null;
+                            subtext: string | null;
+                        };
+                        /** @description The announcement strip */
+                        announcement: {
+                            text: string | null;
+                            linkLabel: string | null;
+                            linkUrl: string | null;
+                            /** @description The on/off switch */
+                            isActive: boolean;
+                            /** Format: date-time */
+                            showFrom: string | null;
+                            /** Format: date-time */
+                            showUntil: string | null;
+                            /** @enum {string} */
+                            status: "OFF" | "EMPTY" | "SCHEDULED" | "LIVE" | "EXPIRED";
+                            /** @description What visitors' dismiss-memory is keyed on; changes when the wording or link changes */
+                            id: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminSiteHomepage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hero?: {
+                        /** @description Up to 120 characters */
+                        headline?: string | null;
+                        /** @description Up to 300 characters */
+                        subtext?: string | null;
+                    };
+                    announcement?: {
+                        /** @description Up to 200 characters */
+                        text?: string | null;
+                        /** @description Up to 40 characters, e.g. "Know more" */
+                        linkLabel?: string | null;
+                        /** @description A full https:// address, or a path on this site starting with a single / */
+                        linkUrl?: string | null;
+                        isActive?: boolean;
+                        /**
+                         * Format: date-time
+                         * @description Hidden before this time. null = no start limit.
+                         */
+                        showFrom?: string | null;
+                        /**
+                         * Format: date-time
+                         * @description Disappears after this time. null = stays until switched off.
+                         */
+                        showUntil?: string | null;
+                    };
+                };
+                "application/x-www-form-urlencoded": {
+                    hero?: {
+                        /** @description Up to 120 characters */
+                        headline?: string | null;
+                        /** @description Up to 300 characters */
+                        subtext?: string | null;
+                    };
+                    announcement?: {
+                        /** @description Up to 200 characters */
+                        text?: string | null;
+                        /** @description Up to 40 characters, e.g. "Know more" */
+                        linkLabel?: string | null;
+                        /** @description A full https:// address, or a path on this site starting with a single / */
+                        linkUrl?: string | null;
+                        isActive?: boolean;
+                        /**
+                         * Format: date-time
+                         * @description Hidden before this time. null = no start limit.
+                         */
+                        showFrom?: string | null;
+                        /**
+                         * Format: date-time
+                         * @description Disappears after this time. null = stays until switched off.
+                         */
+                        showUntil?: string | null;
+                    };
+                };
+                "multipart/form-data": {
+                    hero?: {
+                        /** @description Up to 120 characters */
+                        headline?: string | null;
+                        /** @description Up to 300 characters */
+                        subtext?: string | null;
+                    };
+                    announcement?: {
+                        /** @description Up to 200 characters */
+                        text?: string | null;
+                        /** @description Up to 40 characters, e.g. "Know more" */
+                        linkLabel?: string | null;
+                        /** @description A full https:// address, or a path on this site starting with a single / */
+                        linkUrl?: string | null;
+                        isActive?: boolean;
+                        /**
+                         * Format: date-time
+                         * @description Hidden before this time. null = no start limit.
+                         */
+                        showFrom?: string | null;
+                        /**
+                         * Format: date-time
+                         * @description Disappears after this time. null = stays until switched off.
+                         */
+                        showUntil?: string | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Homepage hero text and announcement strip, as set (not just what is live) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description null = the site shows its built-in text */
+                        hero: {
+                            headline: string | null;
+                            subtext: string | null;
+                        };
+                        /** @description The announcement strip */
+                        announcement: {
+                            text: string | null;
+                            linkLabel: string | null;
+                            linkUrl: string | null;
+                            /** @description The on/off switch */
+                            isActive: boolean;
+                            /** Format: date-time */
+                            showFrom: string | null;
+                            /** Format: date-time */
+                            showUntil: string | null;
+                            /** @enum {string} */
+                            status: "OFF" | "EMPTY" | "SCHEDULED" | "LIVE" | "EXPIRED";
+                            /** @description What visitors' dismiss-memory is keyed on; changes when the wording or link changes */
+                            id: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

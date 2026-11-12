@@ -1,8 +1,8 @@
 {
   "info": {
     "title": "BrightPath API",
-    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.9.0: public college directory and pages (`GET /colleges`, `GET /colleges/{slug}`): ready colleges only (a foreign college once its country is live), with filters, sorting, paging and filter facets; one page shape with an India and an abroad variant. 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
-    "version": "0.9.0"
+    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.10.0: homepage hero text and announcement strip, editable by an admin (`GET`/`PATCH /admin/site/homepage`, also available as ordinary settings) and returned by `GET /site/config` as `hero` and `announcement` (the strip only while it is switched on and inside its optional start/end time). 0.9.0: public college directory and pages (`GET /colleges`, `GET /colleges/{slug}`): ready colleges only (a foreign college once its country is live), with filters, sorting, paging and filter facets; one page shape with an India and an abroad variant. 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
+    "version": "0.10.0"
   },
   "tags": [
     {
@@ -245,6 +245,8 @@
                     "brand",
                     "contact",
                     "finder",
+                    "hero",
+                    "announcement",
                     "disclaimers"
                   ],
                   "properties": {
@@ -328,6 +330,66 @@
                               "description": "India and abroad results shown before the student leaves their details",
                               "type": "integer"
                             }
+                          ]
+                        }
+                      }
+                    },
+                    "hero": {
+                      "description": "Homepage hero text, editable by an admin",
+                      "type": "object",
+                      "required": [
+                        "headline",
+                        "subtext"
+                      ],
+                      "properties": {
+                        "headline": {
+                          "description": "Homepage hero headline. null = use the site's built-in headline.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subtext": {
+                          "description": "Text under the hero headline. null = use the site's built-in text.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "announcement": {
+                      "description": "The announcement strip to show right now, or null when there is none (off, scheduled, expired or empty)",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "id",
+                        "text",
+                        "linkLabel",
+                        "linkUrl"
+                      ],
+                      "properties": {
+                        "id": {
+                          "description": "Changes whenever the wording or link changes. Use it to remember that a visitor dismissed THIS announcement.",
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "linkLabel": {
+                          "description": "Link text, null when the strip has no link",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "linkUrl": {
+                          "description": "A full https:// address or a path on this site (starts with /); null when the strip has no link",
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         }
                       }
@@ -6820,6 +6882,777 @@
           }
         },
         "operationId": "putAdminSettingsByKey"
+      }
+    },
+    "/admin/site/homepage": {
+      "get": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "Get homepage hero text and announcement strip",
+        "description": "The hero headline and text, and the announcement strip with its switch, link, optional start and end time, and `status` (is it showing right now?). `null` hero text means the site shows its built-in wording. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "responses": {
+          "200": {
+            "description": "Homepage hero text and announcement strip, as set (not just what is live)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Homepage hero text and announcement strip, as set (not just what is live)",
+                  "type": "object",
+                  "required": [
+                    "hero",
+                    "announcement"
+                  ],
+                  "properties": {
+                    "hero": {
+                      "description": "null = the site shows its built-in text",
+                      "type": "object",
+                      "required": [
+                        "headline",
+                        "subtext"
+                      ],
+                      "properties": {
+                        "headline": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subtext": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "announcement": {
+                      "description": "The announcement strip",
+                      "type": "object",
+                      "required": [
+                        "text",
+                        "linkLabel",
+                        "linkUrl",
+                        "isActive",
+                        "showFrom",
+                        "showUntil",
+                        "status",
+                        "id"
+                      ],
+                      "properties": {
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "linkLabel": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "linkUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "The on/off switch",
+                          "type": "boolean"
+                        },
+                        "showFrom": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "showUntil": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "OFF",
+                            "EMPTY",
+                            "SCHEDULED",
+                            "LIVE",
+                            "EXPIRED"
+                          ]
+                        },
+                        "id": {
+                          "description": "What visitors' dismiss-memory is keyed on; changes when the wording or link changes",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminSiteHomepage"
+      },
+      "patch": {
+        "tags": [
+          "Admin · Site"
+        ],
+        "summary": "Edit homepage hero text and announcement strip",
+        "description": "Send only what changes, under `hero` and/or `announcement`; empty text or `null` clears a field. All the changes are saved together or not at all, and take effect on the public site straight away (`GET /site/config`). Checks beyond each field: the strip cannot be switched on without text; a link needs both its text and its address; `showUntil` must be after `showFrom`. `linkUrl` is a full https:// address or a path on this site starting with a single `/`. Each changed field is audited. Requires role ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hero": {
+                    "type": "object",
+                    "properties": {
+                      "headline": {
+                        "description": "Up to 120 characters",
+                        "maxLength": 120,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "subtext": {
+                        "description": "Up to 300 characters",
+                        "maxLength": 300,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "announcement": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "description": "Up to 200 characters",
+                        "maxLength": 200,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkLabel": {
+                        "description": "Up to 40 characters, e.g. \"Know more\"",
+                        "maxLength": 40,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkUrl": {
+                        "description": "A full https:// address, or a path on this site starting with a single /",
+                        "maxLength": 500,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isActive": {
+                        "type": "boolean"
+                      },
+                      "showFrom": {
+                        "description": "Hidden before this time. null = no start limit.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "showUntil": {
+                        "description": "Disappears after this time. null = stays until switched off.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hero": {
+                    "type": "object",
+                    "properties": {
+                      "headline": {
+                        "description": "Up to 120 characters",
+                        "maxLength": 120,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "subtext": {
+                        "description": "Up to 300 characters",
+                        "maxLength": 300,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "announcement": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "description": "Up to 200 characters",
+                        "maxLength": 200,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkLabel": {
+                        "description": "Up to 40 characters, e.g. \"Know more\"",
+                        "maxLength": 40,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkUrl": {
+                        "description": "A full https:// address, or a path on this site starting with a single /",
+                        "maxLength": 500,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isActive": {
+                        "type": "boolean"
+                      },
+                      "showFrom": {
+                        "description": "Hidden before this time. null = no start limit.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "showUntil": {
+                        "description": "Disappears after this time. null = stays until switched off.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hero": {
+                    "type": "object",
+                    "properties": {
+                      "headline": {
+                        "description": "Up to 120 characters",
+                        "maxLength": 120,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "subtext": {
+                        "description": "Up to 300 characters",
+                        "maxLength": 300,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "announcement": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "description": "Up to 200 characters",
+                        "maxLength": 200,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkLabel": {
+                        "description": "Up to 40 characters, e.g. \"Know more\"",
+                        "maxLength": 40,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "linkUrl": {
+                        "description": "A full https:// address, or a path on this site starting with a single /",
+                        "maxLength": 500,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isActive": {
+                        "type": "boolean"
+                      },
+                      "showFrom": {
+                        "description": "Hidden before this time. null = no start limit.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "showUntil": {
+                        "description": "Disappears after this time. null = stays until switched off.",
+                        "format": "date-time",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Homepage hero text and announcement strip, as set (not just what is live)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Homepage hero text and announcement strip, as set (not just what is live)",
+                  "type": "object",
+                  "required": [
+                    "hero",
+                    "announcement"
+                  ],
+                  "properties": {
+                    "hero": {
+                      "description": "null = the site shows its built-in text",
+                      "type": "object",
+                      "required": [
+                        "headline",
+                        "subtext"
+                      ],
+                      "properties": {
+                        "headline": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "subtext": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "announcement": {
+                      "description": "The announcement strip",
+                      "type": "object",
+                      "required": [
+                        "text",
+                        "linkLabel",
+                        "linkUrl",
+                        "isActive",
+                        "showFrom",
+                        "showUntil",
+                        "status",
+                        "id"
+                      ],
+                      "properties": {
+                        "text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "linkLabel": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "linkUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "isActive": {
+                          "description": "The on/off switch",
+                          "type": "boolean"
+                        },
+                        "showFrom": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "showUntil": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "OFF",
+                            "EMPTY",
+                            "SCHEDULED",
+                            "LIVE",
+                            "EXPIRED"
+                          ]
+                        },
+                        "id": {
+                          "description": "What visitors' dismiss-memory is keyed on; changes when the wording or link changes",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "patchAdminSiteHomepage"
       }
     },
     "/admin/disclaimers": {

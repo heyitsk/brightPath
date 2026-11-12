@@ -1,9 +1,10 @@
 import { Value } from "@sinclair/typebox/value";
 import { audit, type AuditActor } from "../../lib/audit";
 import { cached, invalidate } from "../../lib/cache";
-import { AppError } from "../../lib/errors";
+import { AppError, type FieldError } from "../../lib/errors";
 import { prisma } from "../../lib/prisma";
 import { DISCLAIMER_DEFS, DISCLAIMER_DEFS_BY_KEY } from "./disclaimers";
+import { cleanText, publicAnnouncement, stripId, stripStatus, type StripValues } from "./site.homepage";
 import { SETTINGS, SETTINGS_BY_KEY, describeExpectedValue } from "./settings.registry";
 
 const NS = "site";
@@ -105,6 +106,86 @@ export async function publishDisclaimer(actor: AuditActor, key: string, text: st
   return (await getDisclaimerAdminView()).find((d) => d.key === key)!;
 }
 
+// ---- homepage: hero text and announcement strip ---------------------------------------------
+
+type SettingRow = Awaited<ReturnType<typeof getAllSettings>>[number];
+const val = <T>(rows: SettingRow[], key: string) => rows.find((r) => r.key === key)!.value as T;
+
+function stripFrom(rows: SettingRow[]): StripValues {
+  return {
+    text: val<string | null>(rows, "announcement.text"),
+    linkLabel: val<string | null>(rows, "announcement.linkLabel"),
+    linkUrl: val<string | null>(rows, "announcement.linkUrl"),
+    isActive: val<boolean>(rows, "announcement.isActive"),
+    showFrom: val<string | null>(rows, "announcement.showFrom"),
+    showUntil: val<string | null>(rows, "announcement.showUntil"),
+  };
+}
+
+export async function getHomepage() {
+  const rows = await getAllSettings();
+  const strip = stripFrom(rows);
+  return {
+    hero: { headline: val<string | null>(rows, "hero.headline"), subtext: val<string | null>(rows, "hero.subtext") },
+    announcement: { ...strip, status: stripStatus(strip, new Date()), id: stripId(strip) },
+  };
+}
+
+export interface HomepagePatch {
+  hero?: { headline?: string | null; subtext?: string | null };
+  announcement?: { text?: string | null; linkLabel?: string | null; linkUrl?: string | null; isActive?: boolean; showFrom?: string | null; showUntil?: string | null };
+}
+
+/**
+ * Edits the hero text and/or the announcement strip in one step: all or nothing. Send only what changes; `null` or empty text clears a field.
+ * Beyond each field's own rules it checks the rules between fields (a strip cannot be on without text, a link needs both its text and address,
+ * the end must be after the start). The cross-field checks apply only to the strip, and only when the strip is part of the request.
+ */
+export async function updateHomepage(actor: AuditActor, patch: HomepagePatch) {
+  const touched = Object.entries({ ...(patch.hero ?? {}), ...(patch.announcement ?? {}) }).some(([, v]) => v !== undefined);
+  if (!touched) throw AppError.invalid("Nothing to change. Send at least one field.");
+
+  const rows = await getAllSettings();
+  const wanted = new Map<string, unknown>();
+  const put = (key: string, raw: unknown) => { if (raw !== undefined) wanted.set(key, typeof raw === "string" ? cleanText(raw) : raw); };
+  put("hero.headline", patch.hero?.headline);
+  put("hero.subtext", patch.hero?.subtext);
+  for (const k of ["text", "linkLabel", "linkUrl", "isActive", "showFrom", "showUntil"] as const) put(`announcement.${k}`, patch.announcement?.[k]);
+
+  const errors: FieldError[] = [];
+  for (const [key, value] of wanted) {
+    const def = SETTINGS_BY_KEY.get(key)!;
+    if (!Value.Check(def.schema, value)) errors.push({ path: key, message: describeExpectedValue(def) });
+  }
+  if (errors.length) throw AppError.invalid(errors.length === 1 ? "Please fix 1 thing below." : `Please fix ${errors.length} things below.`, errors);
+
+  if (patch.announcement) {
+    const merged: StripValues = { ...stripFrom(rows) };
+    for (const k of ["text", "linkLabel", "linkUrl", "isActive", "showFrom", "showUntil"] as const) {
+      if (wanted.has(`announcement.${k}`)) (merged as unknown as Record<string, unknown>)[k] = wanted.get(`announcement.${k}`);
+    }
+    if (merged.isActive && !merged.text) errors.push({ path: "announcement.text", message: "Write the announcement text before turning the strip on." });
+    if (merged.linkUrl && !merged.linkLabel) errors.push({ path: "announcement.linkLabel", message: 'Add the link text (for example "Know more"), or remove the link address.' });
+    if (merged.linkLabel && !merged.linkUrl) errors.push({ path: "announcement.linkUrl", message: "Add where the link should go, or remove the link text." });
+    if (merged.showFrom && merged.showUntil && new Date(merged.showUntil).getTime() <= new Date(merged.showFrom).getTime()) {
+      errors.push({ path: "announcement.showUntil", message: "The end must be after the start." });
+    }
+    if (errors.length) throw AppError.invalid(errors.length === 1 ? "Please fix 1 thing below." : `Please fix ${errors.length} things below.`, errors);
+  }
+
+  const changes = [...wanted].filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(val(rows, key)));
+  if (changes.length) {
+    await prisma.$transaction(async (tx) => {
+      for (const [key, value] of changes) {
+        await tx.siteSetting.upsert({ where: { key }, create: { key, value: value as never, updatedById: actor.id }, update: { value: value as never, updatedById: actor.id } });
+        await audit(tx, { actor, action: "setting.update", entityType: "SiteSetting", entityId: key, before: { value: val(rows, key) }, after: { value } });
+      }
+    });
+    await invalidate(NS);
+  }
+  return getHomepage();
+}
+
 // ---- public config ---------------------------------------------------------------------
 
 export function getPublicSiteConfig() {
@@ -121,6 +202,8 @@ export function getPublicSiteConfig() {
         callbackHours: v("contact.callbackHours") as string | null,
       },
       finder: { freeResultsPerGroup: v("finder.freeResultsPerGroup") as number },
+      hero: { headline: v("hero.headline") as string | null, subtext: v("hero.subtext") as string | null },
+      announcement: publicAnnouncement(stripFrom(settings), new Date()),
       disclaimers: Object.fromEntries(Object.values(disclaimers).map((d) => [d.key, { version: d.version, text: d.text }])),
     };
   });
