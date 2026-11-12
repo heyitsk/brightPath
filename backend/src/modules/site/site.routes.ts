@@ -30,6 +30,25 @@ export const siteRoutes = new Elysia({ prefix: "/site", tags: ["Site"] }).get(
           finder: t.Object({
             freeResultsPerGroup: t.Integer({ description: "India and abroad results shown before the student leaves their details" }),
           }),
+          hero: t.Object(
+            {
+              headline: NullableText("Homepage hero headline. null = use the site's built-in headline."),
+              subtext: NullableText("Text under the hero headline. null = use the site's built-in text."),
+            },
+            { description: "Homepage hero text, editable by an admin" },
+          ),
+          announcement: t.Union(
+            [
+              t.Object({
+                id: t.String({ description: "Changes whenever the wording or link changes. Use it to remember that a visitor dismissed THIS announcement." }),
+                text: t.String(),
+                linkLabel: NullableText("Link text, null when the strip has no link"),
+                linkUrl: NullableText("A full https:// address or a path on this site (starts with /); null when the strip has no link"),
+              }),
+              t.Null(),
+            ],
+            { description: "The announcement strip to show right now, or null when there is none (off, scheduled, expired or empty)" },
+          ),
           disclaimers: t.Record(
             t.String({ description: "Disclaimer key: NOT_GUARANTEED, FOREIGN_COLLEGES_NMC, ENQUIRY_CONSENT" }),
             t.Object({

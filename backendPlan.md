@@ -110,8 +110,10 @@ Enums are Postgres enums via Prisma. `*At` = timestamptz. All tables have `id`, 
 - `ImportBatch` (shared, §4.8) records which files built which year's table.
 
 ### 4.4 Colleges (Phase 4)
+> **Superseded in part by history.md D-078..D-091 (2026-11-13):** status is `DRAFT|READY|ARCHIVED`; fee lines are one row per year with no FX snapshot (INR is computed from the single `FxRate` per currency); `courseLengthMonths` is on `College`; the ready gate is D-087. The schema as built is `backend/prisma/schema/college.prisma`.
+
 One `College` table, two kinds (D-007):
-- `College(slug unique, kind: INDIA|ABROAD, name, shortName?, city, stateId?, countryId, ownership: GOVERNMENT|PRIVATE|DEEMED|TRUST, establishedYear?, description (own words), heroImageUrl?, galleryJSON, status: DRAFT|IN_REVIEW|PUBLISHED|ARCHIVED, publishedAt, lastCheckedAt (derived), verification: UNVERIFIED|VERIFIED, importBatchId?)`
+- `College(slug unique, kind: INDIA|ABROAD, name, shortName?, city, stateId?, countryId, ownership: GOVERNMENT|PRIVATE|DEEMED|TRUST, establishedYear?, description (own words), heroImageUrl?, galleryJSON, status: DRAFT|READY|ARCHIVED (D-079), readyAt, lastCheckedAt (derived), verification: UNVERIFIED|VERIFIED, importBatchId?)`
 - `CollegeIndiaProfile(collegeId 1:1, nmcRecognised bool?, nmcRecognitionCheckedAt, mbbsSeats, hospitalName, hospitalBeds?, dailyOutpatients?, serviceBondYears?, serviceBondPenaltyInr?, stipendInr?, domicileRule text, counsellingBodyId)`
 - `CollegeAbroadProfile(collegeId 1:1, wdomsListed: LISTED|NOT_LISTED|UNKNOWN, wdomsId?, wdomsUrl?, courseLengthMonths, internshipMonths?, teachingLanguage, languageNote (e.g. "Russian from year 3"), intakeMonths[], seatsForIndians?, minNeet: QUALIFIED|…, eligibility JSON (age rule, class-12 PCB % by category), documents[], flightFromDelhi text?, nmc2021Status: MEETS|DOES_NOT_MEET|UNKNOWN (derived from the booleans below), nmcLengthOk, nmcEnglishOk, nmcInternshipOk)`
 - `CollegeFeeLine(collegeId, scope: PER_YEAR|ONE_TIME, yearNumber?, academicYear, tuition, hostel, other, currency, fxRateToInr, fxRateDate, totalInr, sourceId, checkedAt)` — drives "Fees, year by year" and the whole-course total; abroad lines originate in foreign currency.
@@ -207,6 +209,8 @@ Inputs: `scoreOrRank`, `category`, `pwd`, `homeStateId`, `budgetInr`, `scope: IN
 - First admin created by a one-time bootstrap script from env vars; no default password ever ships.
 
 ### 5.6 Publish workflow and verification (Phase 4+)
+> **Superseded by history.md D-079 and D-087:** `DRAFT → READY → ARCHIVED`, and "Mark ready" is refused until every required detail is filled (list in D-087). The text below is the original draft.
+
 `DRAFT → IN_REVIEW → PUBLISHED → ARCHIVED`. `publish` runs the validator:
 - India: name, state, ownership, NMC recognition status + checked date, seats, at least one `CollegeSourceLink`, fees with source.
 - Abroad: country, WDOMS status + checked date, NMC-2021 inputs, NMC-alert check date, fees with FX snapshot, intake, language, at least one source link, plus every source link has `checkedAt`.

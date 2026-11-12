@@ -127,11 +127,12 @@ async function assertCountryExists(countryId: string) {
   }
 }
 
-export async function listNotices(q: { scope?: NmcNotice["scope"]; countryId?: string; isActive?: boolean; limit?: number; cursor?: string }) {
+export async function listNotices(q: { scope?: NmcNotice["scope"]; countryId?: string; collegeId?: string; isActive?: boolean; limit?: number; cursor?: string }) {
   const limit = q.limit ?? 50;
   const where: Prisma.NmcNoticeWhereInput = {
     ...(q.scope ? { scope: q.scope } : {}),
     ...(q.countryId ? { countryId: q.countryId } : {}),
+    ...(q.collegeId ? { collegeId: q.collegeId } : {}),
     ...(q.isActive !== undefined ? { isActive: q.isActive } : {}),
     ...(q.cursor ? { id: { lt: q.cursor } } : {}),
   };
@@ -155,16 +156,22 @@ export async function createNotice(
     severity: NmcNotice["severity"];
     scope: NmcNotice["scope"];
     countryId?: string;
+    collegeId?: string;
     isActive?: boolean;
     checkedAt: string;
   },
 ) {
   if (input.scope === "COLLEGE") {
-    // College-level notices need the college table (Phase 4); refusing now avoids dangling ids.
-    throw AppError.invalid("Please fix 1 thing below.", [{ path: "scope", message: "College-level notices can be added once the college catalogue exists. Use COUNTRY for now." }]);
+    if (input.countryId) throw AppError.invalid("Please fix 1 thing below.", [{ path: "countryId", message: "A college-level notice has a college, not a country." }]);
+    if (!input.collegeId) throw AppError.invalid("Please fix 1 thing below.", [{ path: "collegeId", message: "Choose the college this notice is about." }]);
+    if (!(await prisma.college.findUnique({ where: { id: input.collegeId }, select: { id: true } }))) {
+      throw AppError.invalid("Please fix 1 thing below.", [{ path: "collegeId", message: "There is no college with this id." }]);
+    }
+  } else {
+    if (input.collegeId) throw AppError.invalid("Please fix 1 thing below.", [{ path: "collegeId", message: "A country-level notice has a country, not a college." }]);
+    if (!input.countryId) throw AppError.invalid("Please fix 1 thing below.", [{ path: "countryId", message: "Choose the country this notice is about." }]);
+    await assertCountryExists(input.countryId);
   }
-  if (!input.countryId) throw AppError.invalid("Please fix 1 thing below.", [{ path: "countryId", message: "Choose the country this notice is about." }]);
-  await assertCountryExists(input.countryId);
   const data = {
     title: requiredText("title", input.title),
     url: parseUrl("url", input.url),
@@ -172,7 +179,8 @@ export async function createNotice(
     checkedAt: parsePastDate("checkedAt", input.checkedAt),
     severity: input.severity,
     scope: input.scope,
-    countryId: input.countryId,
+    countryId: input.scope === "COUNTRY" ? input.countryId : null,
+    collegeId: input.scope === "COLLEGE" ? input.collegeId : null,
     isActive: input.isActive ?? true,
     createdById: actor.id,
   };

@@ -28,18 +28,19 @@ enum NmcNoticeScope {
 
 /// Indian states and union territories. Never deleted (colleges will reference them): hide with isLive.
 model State {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  slug      String   @unique // public URL part; immutable after creation
+  id        String    @id @default(uuid(7)) @db.Uuid
+  slug      String    @unique // public URL part; immutable after creation
   name      String
   /// Short postal-style code, e.g. "UP". Unique.
-  code      String   @unique
+  code      String    @unique
   /// Shown in menus / counselling pages once real data exists.
-  isLive    Boolean  @default(false)
-  sortOrder Int      @default(1000)
+  isLive    Boolean   @default(false)
+  sortOrder Int       @default(1000)
   /// Lower-case alternative spellings used by the plain-words search (e.g. "up").
   aliases   String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  colleges  College[]
 
   @@index([isLive, sortOrder])
   @@map("states")
@@ -62,6 +63,7 @@ model Country {
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
   nmcNotices             NmcNotice[]
+  colleges               College[]
 
   @@index([status, sortOrder])
   @@map("countries")
@@ -79,7 +81,9 @@ model Source {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  neetExamYears NeetExamYear[]
+  neetExamYears      NeetExamYear[]
+  collegeFeeLines    CollegeFeeLine[]
+  collegeSourceLinks CollegeSourceLink[]
 
   @@index([kind])
   @@map("sources")
@@ -96,8 +100,9 @@ model NmcNotice {
   /// Set when scope = COUNTRY.
   countryId   String?           @db.Uuid
   country     Country?          @relation(fields: [countryId], references: [id], onDelete: Restrict)
-  /// Set when scope = COLLEGE. Plain column for now: the foreign key is added with the college table (Phase 4).
+  /// Set when scope = COLLEGE.
   collegeId   String?           @db.Uuid
+  college     College?          @relation(fields: [collegeId], references: [id], onDelete: Restrict)
   isActive    Boolean           @default(true)
   /// When staff last confirmed the notice is still current (plan §3.3 rule 3).
   checkedAt   DateTime

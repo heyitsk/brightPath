@@ -1,4 +1,5 @@
 import { prisma } from "../../src/lib/prisma";
+import { slugify } from "../../src/lib/slug";
 
 // Starting reference data (plan §8 Phase 2). Inserts only what is missing: rows that exist
 // (matched by slug or code) are left exactly as staff last edited them, so re-running the
@@ -49,13 +50,6 @@ const STATES: StateSeed[] = [
 /** The eight states the first release starts with, in menu order (PDF scope). */
 const LIVE_STATE_CODES = ["UP", "MH", "RJ", "BR", "MP", "KA", "TN", "KL"];
 
-const slugify = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
 type CountrySeed = { name: string; isoCode: string; live: boolean; nearIndia?: boolean; aliases?: string[] };
 
 // First five are LIVE, the rest COMING_SOON (PDF scope). `nearIndia` is true only for land
@@ -70,6 +64,21 @@ const COUNTRIES: CountrySeed[] = [
   { name: "Philippines", isoCode: "PH", live: false, aliases: ["philippine", "the philippines"] },
   { name: "Nepal", isoCode: "NP", live: false, nearIndia: true },
   { name: "Bangladesh", isoCode: "BD", live: false, nearIndia: true },
+  // Added in Phase 4 with the starting college list (287 colleges, 21 countries). All COMING_SOON: their colleges stay
+  // hidden from the public until staff switch the country to LIVE.
+  { name: "China", isoCode: "CN", live: false, aliases: ["prc", "peoples republic of china"] },
+  { name: "Ukraine", isoCode: "UA", live: false },
+  { name: "Armenia", isoCode: "AM", live: false },
+  { name: "Vietnam", isoCode: "VN", live: false, aliases: ["viet nam"] },
+  { name: "Antigua and Barbuda", isoCode: "AG", live: false, aliases: ["antigua"] },
+  { name: "Barbados", isoCode: "BB", live: false },
+  { name: "Hungary", isoCode: "HU", live: false },
+  { name: "Poland", isoCode: "PL", live: false },
+  { name: "Romania", isoCode: "RO", live: false },
+  { name: "Slovakia", isoCode: "SK", live: false },
+  { name: "Curacao", isoCode: "CW", live: false, aliases: ["curaçao"] },
+  { name: "Guyana", isoCode: "GY", live: false },
+  { name: "Timor-Leste", isoCode: "TL", live: false, aliases: ["east timor"] },
 ];
 
 export async function seedReferenceData() {

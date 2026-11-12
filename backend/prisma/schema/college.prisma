@@ -1,0 +1,246 @@
+// Phase 4: college catalogue (plan §4.4, §4.8, decisions D-078 onwards in history.md).
+// One `colleges` row per college, two kinds (India / abroad). Kind-specific facts live in 1:1 profile tables.
+// Staff manage everything through /admin/colleges*; the public API only returns READY colleges.
+
+enum CollegeKind {
+  INDIA
+  ABROAD
+}
+
+/// DRAFT = being prepared, invisible to the public. READY = live on the site. ARCHIVED = taken down, kept for history.
+enum CollegeStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum CollegeOwnership {
+  GOVERNMENT
+  PRIVATE
+  DEEMED
+  TRUST
+}
+
+/// How the city of an imported college was confirmed (the "Verified" column of the starting list).
+enum LocationBasis {
+  WELL_KNOWN
+  IN_COLLEGE_NAME
+  CHECKED_ONLINE
+}
+
+enum WdomsStatus {
+  LISTED
+  NOT_LISTED
+  UNKNOWN
+}
+
+enum CollegeSourcePurpose {
+  WDOMS
+  FEE_NOTICE
+  NMC_NOTICES
+  NMC_RECOGNITION
+  SEAT_LIST
+  COUNSELLING
+  COLLEGE_WEBSITE
+  OTHER
+}
+
+enum ImportKind {
+  COLLEGES
+  FEES
+  /// Mock rows created by `scripts/load-mock-colleges.ts`; deleting by batch removes them cleanly.
+  MOCK_SAMPLE
+}
+
+enum ImportStatus {
+  UPLOADED
+  VALIDATED
+  COMMITTED
+  FAILED
+}
+
+model College {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  /// Public URL part (/colleges/<slug>). Generated from the name; immutable after creation.
+  slug               String            @unique
+  kind               CollegeKind
+  name               String
+  shortName          String?
+  city               String
+  /// INDIA colleges only.
+  stateId            String?           @db.Uuid
+  state              State?            @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  /// ABROAD colleges only.
+  countryId          String?           @db.Uuid
+  country            Country?          @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  ownership          CollegeOwnership?
+  establishedYear    Int?
+  /// Total length of the course in months, internship included. Decides how many fee years are needed.
+  courseLengthMonths Int?
+  /// Written in our own words (never copied from competitors).
+  description        String?
+  heroImageUrl       String?
+  websiteUrl         String?
+
+  status  CollegeStatus @default(DRAFT)
+  /// Set when the college is marked ready; cleared if it goes back to draft.
+  readyAt DateTime?
+
+  /// Sum of all fee years converted at today's exchange rates. Recalculated whenever fees or a rate change; null until computable.
+  totalCourseFeeInr    Int?
+  totalFeeCalculatedAt DateTime?
+
+  /// Starting-list metadata. Staff-only, never returned by the public API.
+  locationBasis LocationBasis?
+  internalNotes String?
+
+  importBatchId String?      @db.Uuid
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  indiaProfile  CollegeIndiaProfile?
+  abroadProfile CollegeAbroadProfile?
+  feeLines      CollegeFeeLine[]
+  sourceLinks   CollegeSourceLink[]
+  faqs          CollegeFaq[]
+  nmcNotices    NmcNotice[]
+
+  @@index([status, kind])
+  @@index([countryId, status])
+  @@index([stateId, status])
+  @@index([importBatchId])
+  @@map("colleges")
+}
+
+model CollegeIndiaProfile {
+  collegeId String  @id @db.Uuid
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  nmcRecognised           Boolean?
+  nmcRecognitionCheckedAt DateTime?
+  mbbsSeats               Int?
+  hospitalName            String?
+  hospitalBeds            Int?
+  dailyOutpatients        Int?
+  serviceBondYears        Int?
+  serviceBondPenaltyInr   Int?
+  stipendInr              Int?
+  domicileRule            String?
+
+  @@map("college_india_profiles")
+}
+
+model CollegeAbroadProfile {
+  collegeId String  @id @db.Uuid
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  wdomsListed      WdomsStatus @default(UNKNOWN)
+  wdomsId          String?
+  wdomsUrl         String?
+  wdomsCheckedAt   DateTime?
+  internshipMonths Int?
+  teachingLanguage String?
+  /// e.g. "Russian from year 3".
+  languageNote     String?
+  /// Months of the year, 1 to 12.
+  intakeMonths     Int[]
+  seatsForIndians  Int?
+  /// The three NMC 2021 foreign-medical-graduate conditions; null = not yet checked. Whether the college "meets NMC 2021 rules" is derived from these.
+  nmcLengthOk      Boolean?
+  nmcEnglishOk     Boolean?
+  nmcInternshipOk  Boolean?
+  nmcCheckedAt     DateTime?
+  /// Age rule, class-12 PCB percentage by category, etc.
+  eligibility      Json?
+  documents        String[]
+
+  @@map("college_abroad_profiles")
+}
+
+/// One row per course year. Amounts are in `currency`; INR is computed from FxRate when read.
+model CollegeFeeLine {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  collegeId  String    @db.Uuid
+  college    College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  /// 1 = first year of the course.
+  yearNumber Int
+  tuition    Decimal   @db.Decimal(14, 2)
+  hostel     Decimal   @default(0) @db.Decimal(14, 2)
+  other      Decimal   @default(0) @db.Decimal(14, 2)
+  /// ISO 4217 code, upper case (USD, RUB, INR ...).
+  currency   String    @db.VarChar(3)
+  sourceId   String?   @db.Uuid
+  source     Source?   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  checkedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([collegeId, yearNumber])
+  @@index([currency])
+  @@index([sourceId])
+  @@map("college_fee_lines")
+}
+
+/// One exchange rate per currency; changing it re-prices every college using that currency.
+model FxRate {
+  currency    String   @id @db.VarChar(3)
+  /// How many rupees one unit of `currency` buys.
+  rateToInr   Decimal  @db.Decimal(18, 6)
+  /// The date the rate was read from the source.
+  asOf        DateTime @db.Date
+  sourceNote  String?
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  @@map("fx_rates")
+}
+
+model CollegeSourceLink {
+  id          String               @id @default(uuid(7)) @db.Uuid
+  collegeId   String               @db.Uuid
+  college     College              @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  sourceId    String               @db.Uuid
+  source      Source               @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  purpose     CollegeSourcePurpose
+  checkedAt   DateTime
+  checkedById String?              @db.Uuid
+  createdAt   DateTime             @default(now())
+
+  @@unique([collegeId, sourceId, purpose])
+  @@index([sourceId])
+  @@map("college_source_links")
+}
+
+model CollegeFaq {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  collegeId String  @db.Uuid
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String
+  sort      Int     @default(0)
+
+  @@index([collegeId, sort])
+  @@map("college_faqs")
+}
+
+model ImportBatch {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  kind        ImportKind
+  filename    String
+  /// SHA-256 of the uploaded file, to spot a re-upload of the same file.
+  fileSha256  String
+  status      ImportStatus @default(UPLOADED)
+  stats       Json?
+  errors      Json?
+  /// The parsed rows of the upload, kept between preview and save so the plan can be recomputed against the current data at commit.
+  payload     Json?
+  createdById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  committedAt DateTime?
+  colleges    College[]
+
+  @@index([kind, createdAt])
+  @@map("import_batches")
+}
