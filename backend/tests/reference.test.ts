@@ -8,6 +8,7 @@ const emails: string[] = [];
 
 async function wipe() {
   await prisma.nmcNotice.deleteMany();
+  await prisma.college.deleteMany();
   await prisma.country.deleteMany();
   await prisma.state.deleteMany();
   await prisma.source.deleteMany();
@@ -289,9 +290,9 @@ describe("NMC notices", () => {
 });
 
 describe("seed", () => {
-  test("inserts 36 states and 8 countries, and a re-run changes nothing (staff edits survive)", async () => {
+  test("inserts 36 states and 21 countries, and a re-run changes nothing (staff edits survive)", async () => {
     const first = await seedReferenceData();
-    expect(first).toEqual({ statesInserted: 36, countriesInserted: 8 });
+    expect(first).toEqual({ statesInserted: 36, countriesInserted: 21 });
     expect(await prisma.state.count({ where: { isLive: true } })).toBe(8);
     expect(await prisma.country.count({ where: { status: "LIVE" } })).toBe(5);
     expect((await prisma.country.findMany({ where: { nearIndia: true } })).map((c) => c.slug).sort()).toEqual(["bangladesh", "nepal"]);

@@ -27,3 +27,6 @@ logs/
 # Local Claude Code settings
 .claude/settings.local.json
 .claude/.headroom_wrap_marker.json
+
+# Source spreadsheets used to seed data (kept local, not committed)
+College-List-by-Country*.xlsx
