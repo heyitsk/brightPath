@@ -893,6 +893,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List exchange rates
+         * @description The whole Exchange rates page in one call: every currency that has a rate, plus any currency colleges already charge in but that has no rate yet (`hasRate: false`, listed first). `missingCount` is how many of those need attention. INR is never listed (it is always 1). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminFx-rates"];
+        /**
+         * Set several exchange rates at once
+         * @description For a 'Save all' button. All rates are checked first and saved together, or none are: a problem names its row (`items.2.rateToInr`). Each currency may appear once. The same 20% safeguard applies per row. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminFx-rates"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/fx-rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set an exchange rate
+         * @description Creates or replaces the rate for one currency. Every college that charges fees in it gets its rupee total recalculated in the same step, so the whole site updates at once; the response says how many. `asOf` is the date the rate was read (not in the future). A change of more than 20% from the current rate is refused unless `confirmLargeChange` is true. INR cannot have a rate. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminFx-ratesByCurrency"];
+        post?: never;
+        /**
+         * Remove an exchange rate
+         * @description Draft colleges that use the currency lose their rupee total until a rate is set again. Refused with 409 while any live college charges fees in that currency, because it would leave that college incomplete. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminFx-ratesByCurrency"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12350,6 +12398,549 @@ export interface operations {
             };
             /** @description Not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "getAdminFx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            currency: string;
+                            /** @description False when colleges charge fees in this currency but no rate has been entered yet */
+                            hasRate: boolean;
+                            rateToInr: number | null;
+                            /** Format: date */
+                            asOf: string | null;
+                            sourceNote: string | null;
+                            /** Format: date-time */
+                            updatedAt: string | null;
+                            /** @description Colleges with at least one fee row in this currency */
+                            collegesUsing: string | number;
+                            /** @description Of those, how many are live (READY) */
+                            liveCollegesUsing: string | number;
+                        }[];
+                        missingCount: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "putAdminFx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    items: {
+                        currency: string;
+                        /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                        rateToInr: number;
+                        /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                        asOf: string;
+                        /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                        sourceNote?: string | null;
+                    }[];
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    items: {
+                        currency: string;
+                        /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                        rateToInr: number;
+                        /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                        asOf: string;
+                        /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                        sourceNote?: string | null;
+                    }[];
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+                "multipart/form-data": {
+                    items: {
+                        currency: string;
+                        /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                        rateToInr: number;
+                        /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                        asOf: string;
+                        /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                        sourceNote?: string | null;
+                    }[];
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rates: {
+                            currency: string;
+                            rateToInr: number;
+                            /**
+                             * Format: date
+                             * @description The date the rate was read, `YYYY-MM-DD`
+                             */
+                            asOf: string;
+                            sourceNote: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        /** @description Colleges that charge fees in the changed currency or currencies */
+                        collegesUsing: string | number;
+                        /** @description Colleges whose rupee total actually changed */
+                        collegesRecalculated: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "putAdminFx-ratesByCurrency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                    rateToInr: number;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    asOf: string;
+                    /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                    sourceNote?: string | null;
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                    rateToInr: number;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    asOf: string;
+                    /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                    sourceNote?: string | null;
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+                "multipart/form-data": {
+                    /** @description How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals. */
+                    rateToInr: number;
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    asOf: string;
+                    /** @description Where the rate was read from, e.g. `RBI reference rate` */
+                    sourceNote?: string | null;
+                    /** @description Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point. */
+                    confirmLargeChange?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One stored exchange rate */
+                        rate: {
+                            currency: string;
+                            rateToInr: number;
+                            /**
+                             * Format: date
+                             * @description The date the rate was read, `YYYY-MM-DD`
+                             */
+                            asOf: string;
+                            sourceNote: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        /** @description Colleges that charge fees in the changed currency or currencies */
+                        collegesUsing: string | number;
+                        /** @description Colleges whose rupee total actually changed */
+                        collegesRecalculated: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "deleteAdminFx-ratesByCurrency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                        /** @description Colleges that charge fees in the changed currency or currencies */
+                        collegesUsing: string | number;
+                        /** @description Colleges whose rupee total actually changed */
+                        collegesRecalculated: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,8 +1,8 @@
 {
   "info": {
     "title": "BrightPath API",
-    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
-    "version": "0.6.0"
+    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
+    "version": "0.7.0"
   },
   "tags": [
     {
@@ -40,6 +40,10 @@
     {
       "name": "Admin · Colleges",
       "description": "Colleges: drafts, Mark ready, fee table, sources, FAQs (EDITOR or ADMIN)"
+    },
+    {
+      "name": "Admin · Exchange rates",
+      "description": "Currency to rupee rates; changing one re-prices every college using it (EDITOR or ADMIN)"
     },
     {
       "name": "Admin · NEET",
@@ -39390,6 +39394,1491 @@
           }
         },
         "operationId": "putAdminCollegesByIdFaqs"
+      }
+    },
+    "/admin/fx-rates": {
+      "get": {
+        "tags": [
+          "Admin · Exchange rates"
+        ],
+        "summary": "List exchange rates",
+        "description": "The whole Exchange rates page in one call: every currency that has a rate, plus any currency colleges already charge in but that has no rate yet (`hasRate: false`, listed first). `missingCount` is how many of those need attention. INR is never listed (it is always 1). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "missingCount"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "A currency as shown on the Exchange rates page",
+                        "type": "object",
+                        "required": [
+                          "currency",
+                          "hasRate",
+                          "rateToInr",
+                          "asOf",
+                          "sourceNote",
+                          "updatedAt",
+                          "collegesUsing",
+                          "liveCollegesUsing"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "hasRate": {
+                            "description": "False when colleges charge fees in this currency but no rate has been entered yet",
+                            "type": "boolean"
+                          },
+                          "rateToInr": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "asOf": {
+                            "format": "date",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sourceNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "collegesUsing": {
+                            "description": "Colleges with at least one fee row in this currency",
+                            "anyOf": [
+                              {
+                                "format": "integer",
+                                "default": 0,
+                                "type": "string"
+                              },
+                              {
+                                "description": "Colleges with at least one fee row in this currency",
+                                "type": "integer"
+                              }
+                            ]
+                          },
+                          "liveCollegesUsing": {
+                            "description": "Of those, how many are live (READY)",
+                            "anyOf": [
+                              {
+                                "format": "integer",
+                                "default": 0,
+                                "type": "string"
+                              },
+                              {
+                                "description": "Of those, how many are live (READY)",
+                                "type": "integer"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "missingCount": {
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminFx-rates"
+      },
+      "put": {
+        "tags": [
+          "Admin · Exchange rates"
+        ],
+        "summary": "Set several exchange rates at once",
+        "description": "For a 'Save all' button. All rates are checked first and saved together, or none are: a problem names its row (`items.2.rateToInr`). Each currency may appear once. The same 20% safeguard applies per row. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "currency",
+                        "rateToInr",
+                        "asOf"
+                      ],
+                      "properties": {
+                        "currency": {
+                          "minLength": 1,
+                          "maxLength": 3,
+                          "type": "string"
+                        },
+                        "rateToInr": {
+                          "minimum": 0.000001,
+                          "maximum": 100000000,
+                          "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                          "type": "number"
+                        },
+                        "asOf": {
+                          "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                          "anyOf": [
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "sourceNote": {
+                          "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                          "maxLength": 300,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "currency",
+                        "rateToInr",
+                        "asOf"
+                      ],
+                      "properties": {
+                        "currency": {
+                          "minLength": 1,
+                          "maxLength": 3,
+                          "type": "string"
+                        },
+                        "rateToInr": {
+                          "minimum": 0.000001,
+                          "maximum": 100000000,
+                          "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                          "type": "number"
+                        },
+                        "asOf": {
+                          "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                          "anyOf": [
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "sourceNote": {
+                          "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                          "maxLength": 300,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "currency",
+                        "rateToInr",
+                        "asOf"
+                      ],
+                      "properties": {
+                        "currency": {
+                          "minLength": 1,
+                          "maxLength": 3,
+                          "type": "string"
+                        },
+                        "rateToInr": {
+                          "minimum": 0.000001,
+                          "maximum": 100000000,
+                          "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                          "type": "number"
+                        },
+                        "asOf": {
+                          "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                          "anyOf": [
+                            {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            {
+                              "format": "date",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "sourceNote": {
+                          "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                          "maxLength": 300,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rates",
+                    "collegesUsing",
+                    "collegesRecalculated"
+                  ],
+                  "properties": {
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "description": "One stored exchange rate",
+                        "type": "object",
+                        "required": [
+                          "currency",
+                          "rateToInr",
+                          "asOf",
+                          "sourceNote",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rateToInr": {
+                            "type": "number"
+                          },
+                          "asOf": {
+                            "format": "date",
+                            "description": "The date the rate was read, `YYYY-MM-DD`",
+                            "type": "string"
+                          },
+                          "sourceNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "collegesUsing": {
+                      "description": "Colleges that charge fees in the changed currency or currencies",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges that charge fees in the changed currency or currencies",
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "collegesRecalculated": {
+                      "description": "Colleges whose rupee total actually changed",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges whose rupee total actually changed",
+                          "type": "integer"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putAdminFx-rates"
+      }
+    },
+    "/admin/fx-rates/{currency}": {
+      "put": {
+        "tags": [
+          "Admin · Exchange rates"
+        ],
+        "summary": "Set an exchange rate",
+        "description": "Creates or replaces the rate for one currency. Every college that charges fees in it gets its rupee total recalculated in the same step, so the whole site updates at once; the response says how many. `asOf` is the date the rate was read (not in the future). A change of more than 20% from the current rate is refused unless `confirmLargeChange` is true. INR cannot have a rate. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{3}$",
+              "description": "3-letter currency code, e.g. `USD` (any case)",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rateToInr",
+                  "asOf"
+                ],
+                "properties": {
+                  "rateToInr": {
+                    "minimum": 0.000001,
+                    "maximum": 100000000,
+                    "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                    "type": "number"
+                  },
+                  "asOf": {
+                    "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sourceNote": {
+                    "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                    "maxLength": 300,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rateToInr",
+                  "asOf"
+                ],
+                "properties": {
+                  "rateToInr": {
+                    "minimum": 0.000001,
+                    "maximum": 100000000,
+                    "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                    "type": "number"
+                  },
+                  "asOf": {
+                    "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sourceNote": {
+                    "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                    "maxLength": 300,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rateToInr",
+                  "asOf"
+                ],
+                "properties": {
+                  "rateToInr": {
+                    "minimum": 0.000001,
+                    "maximum": 100000000,
+                    "description": "How many rupees one unit of the currency buys (e.g. `88.5` for USD). At most 6 decimals.",
+                    "type": "number"
+                  },
+                  "asOf": {
+                    "description": "ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`)",
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "sourceNote": {
+                    "description": "Where the rate was read from, e.g. `RBI reference rate`",
+                    "maxLength": 300,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "confirmLargeChange": {
+                    "description": "Set true to accept a change of more than 20% from the current rate. Without it such a change is refused, to catch a slipped decimal point.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rate",
+                    "collegesUsing",
+                    "collegesRecalculated"
+                  ],
+                  "properties": {
+                    "rate": {
+                      "description": "One stored exchange rate",
+                      "type": "object",
+                      "required": [
+                        "currency",
+                        "rateToInr",
+                        "asOf",
+                        "sourceNote",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rateToInr": {
+                          "type": "number"
+                        },
+                        "asOf": {
+                          "format": "date",
+                          "description": "The date the rate was read, `YYYY-MM-DD`",
+                          "type": "string"
+                        },
+                        "sourceNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "collegesUsing": {
+                      "description": "Colleges that charge fees in the changed currency or currencies",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges that charge fees in the changed currency or currencies",
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "collegesRecalculated": {
+                      "description": "Colleges whose rupee total actually changed",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges whose rupee total actually changed",
+                          "type": "integer"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putAdminFx-ratesByCurrency"
+      },
+      "delete": {
+        "tags": [
+          "Admin · Exchange rates"
+        ],
+        "summary": "Remove an exchange rate",
+        "description": "Draft colleges that use the currency lose their rupee total until a rate is set again. Refused with 409 while any live college charges fees in that currency, because it would leave that college incomplete. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{3}$",
+              "description": "3-letter currency code, e.g. `USD` (any case)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "collegesUsing",
+                    "collegesRecalculated"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "collegesUsing": {
+                      "description": "Colleges that charge fees in the changed currency or currencies",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges that charge fees in the changed currency or currencies",
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "collegesRecalculated": {
+                      "description": "Colleges whose rupee total actually changed",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges whose rupee total actually changed",
+                          "type": "integer"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state of the data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflicts with the current state of the data",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "deleteAdminFx-ratesByCurrency"
       }
     }
   }
