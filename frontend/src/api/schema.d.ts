@@ -504,7 +504,7 @@ export interface paths {
         put?: never;
         /**
          * Create an NMC notice
-         * @description Records an NMC notice for a country. Dates cannot be in the future. Only scope COUNTRY is accepted until the college catalogue exists (422 for COLLEGE). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         * @description Records an NMC notice for a country (`scope` COUNTRY + `countryId`) or for one college (`scope` COLLEGE + `collegeId`). Dates cannot be in the future. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
          */
         post: operations["postAdminNmc-notices"];
         delete?: never;
@@ -687,6 +687,206 @@ export interface paths {
          * @description Takes the year off the public API and makes it editable again. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
          */
         post: operations["postAdminNeetYearsByYearUnpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List colleges
+         * @description Colleges A to Z, cursor-paginated, with `total` for the current filter. Each row shows its status and whether it is ready to go live (`readiness`), so the list can flag drafts that are incomplete. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminColleges"];
+        put?: never;
+        /**
+         * Create a college (as a draft)
+         * @description Always saved as a DRAFT: nothing is public until `POST /admin/colleges/{id}/ready` succeeds. The slug (the page address) is made from the name and cannot change later. Use `stateId` for an INDIA college and `countryId` for an ABROAD one. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminColleges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a college
+         * @description Everything the edit screen needs: details, fee table with rupee conversions, sources, FAQs, and `readiness` listing exactly what is still missing before Mark ready. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminCollegesById"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a draft college
+         * @description Only drafts can be deleted (409 otherwise: archive a college that has been live). The deletion is audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminCollegesById"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a college
+         * @description Send only the fields to change; use the `india` or `abroad` object for kind-specific facts. A live (READY) college can be edited, but an edit that would leave a required detail missing is refused with 422 and nothing is saved. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminCollegesById"];
+        trace?: never;
+    };
+    "/admin/colleges/{id}/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark ready (publish)
+         * @description Makes a draft live. Refused with 422 unless every required detail is filled; `error.fields` then lists each missing item (`path` + plain-words `message`), the same list as `readiness.missing`. Needs: name, city, ownership, description, course length, at least one source, a fee row for every course year (each with a source and, unless INR, an exchange rate), plus the India or abroad checks. 409 for an archived college (move it to draft first). Already-ready is a no-op. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminCollegesByIdReady"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move back to draft
+         * @description Takes a live or archived college off the public site and back to DRAFT. Already-draft is a no-op. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminCollegesByIdDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a college
+         * @description Takes the college off the public site but keeps everything. Already-archived is a no-op. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminCollegesByIdArchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}/fees/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set one year of fees
+         * @description Creates or replaces the fee row for that course year (this is what an inline edit of the fee table calls). The college's rupee total is recalculated in the same step. Returns the whole college so the table, totals and readiness refresh together. 422 if the year is beyond the course length. On a live college, a change that would leave it incomplete is refused. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminCollegesByIdFeesByYear"];
+        post?: never;
+        /**
+         * Remove one year of fees
+         * @description Deletes that year's row and recalculates the total. Refused on a live college if the year is required. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminCollegesByIdFeesByYear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link a source to a college
+         * @description Attaches an existing source (see `/admin/sources`) with what it proves and the date it was checked. 409 if the same source and purpose are already linked. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminCollegesByIdSources"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/colleges/{id}/sources/{linkId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink a source
+         * @description Removes the link (the source itself stays). Refused on a live college if it was the last one. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminCollegesByIdSourcesByLinkId"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a source link
+         * @description Change the purpose or re-confirm the checked date (not in the future). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminCollegesByIdSourcesByLinkId"];
+        trace?: never;
+    };
+    "/admin/colleges/{id}/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the college's FAQs
+         * @description Send the complete list in display order; it replaces what was there. An empty list removes all FAQs. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        put: operations["putAdminCollegesByIdFaqs"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5052,6 +5252,7 @@ export interface operations {
             query?: {
                 scope?: "COLLEGE" | "COUNTRY";
                 countryId?: string;
+                collegeId?: string;
                 isActive?: boolean;
                 limit?: string | number;
                 cursor?: string;
@@ -5206,6 +5407,11 @@ export interface operations {
                      * @description Required when scope is COUNTRY
                      */
                     countryId?: string;
+                    /**
+                     * Format: uuid
+                     * @description Required when scope is COLLEGE
+                     */
+                    collegeId?: string;
                     /** @description Default true */
                     isActive?: boolean;
                     /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
@@ -5229,6 +5435,11 @@ export interface operations {
                      * @description Required when scope is COUNTRY
                      */
                     countryId?: string;
+                    /**
+                     * Format: uuid
+                     * @description Required when scope is COLLEGE
+                     */
+                    collegeId?: string;
                     /** @description Default true */
                     isActive?: boolean;
                     /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
@@ -5252,6 +5463,11 @@ export interface operations {
                      * @description Required when scope is COUNTRY
                      */
                     countryId?: string;
+                    /**
+                     * Format: uuid
+                     * @description Required when scope is COLLEGE
+                     */
+                    collegeId?: string;
                     /** @description Default true */
                     isActive?: boolean;
                     /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
@@ -7947,6 +8163,4193 @@ export interface operations {
             };
             /** @description Conflicts with the current state of the data */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminColleges: {
+        parameters: {
+            query?: {
+                kind?: "INDIA" | "ABROAD";
+                status?: "DRAFT" | "READY" | "ARCHIVED";
+                countryId?: string;
+                stateId?: string;
+                q?: string;
+                limit?: string | number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Public address is `/colleges/<slug>` */
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            courseLengthMonths: (string | number) | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            readiness: {
+                                canMarkReady: boolean;
+                                missingCount: string | number;
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        /** @description How many colleges match the filters, across all pages */
+                        total: string | number;
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminColleges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A new college is always saved as a DRAFT. The web address is made from the name and cannot change later. */
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "INDIA" | "ABROAD";
+                    name: string;
+                    city: string;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for INDIA colleges; not allowed for ABROAD
+                     */
+                    stateId?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for ABROAD colleges; not allowed for INDIA
+                     */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @enum {string} */
+                    kind: "INDIA" | "ABROAD";
+                    name: string;
+                    city: string;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for INDIA colleges; not allowed for ABROAD
+                     */
+                    stateId?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for ABROAD colleges; not allowed for INDIA
+                     */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    kind: "INDIA" | "ABROAD";
+                    name: string;
+                    city: string;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for INDIA colleges; not allowed for ABROAD
+                     */
+                    stateId?: string | null;
+                    /**
+                     * Format: uuid
+                     * @description Required in practice for ABROAD colleges; not allowed for INDIA
+                     */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 201 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminCollegesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminCollegesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminCollegesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Send only the fields to change. `null` clears an optional field. Slug, kind and status cannot be changed here (status has its own actions). */
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    city?: string;
+                    /** Format: uuid */
+                    stateId?: string | null;
+                    /** Format: uuid */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+                "application/x-www-form-urlencoded": {
+                    name?: string;
+                    city?: string;
+                    /** Format: uuid */
+                    stateId?: string | null;
+                    /** Format: uuid */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+                "multipart/form-data": {
+                    name?: string;
+                    city?: string;
+                    /** Format: uuid */
+                    stateId?: string | null;
+                    /** Format: uuid */
+                    countryId?: string | null;
+                    /** @description Short name or abbreviation */
+                    shortName?: string | null;
+                    /** @enum {string|null} */
+                    ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                    /** @description Year the college was founded */
+                    establishedYear?: (string | number) | null;
+                    /** @description Whole course length in months, internship included. Decides how many fee years are needed (rounded up). */
+                    courseLengthMonths?: (string | number) | null;
+                    /** @description Written in our own words, never copied from another site */
+                    description?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    heroImageUrl?: string | null;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    websiteUrl?: string | null;
+                    /** @description Staff-only notes, never shown publicly */
+                    internalNotes?: string | null;
+                    /** @description Facts that only Indian colleges have. Send only the fields to change. */
+                    india?: {
+                        /** @description Recognised by NMC? null = not checked yet */
+                        nmcRecognised?: boolean | null;
+                        /** @description When NMC recognition was last checked (not in the future) */
+                        nmcRecognitionCheckedAt?: (string) | null;
+                        /** @description Number of MBBS seats */
+                        mbbsSeats?: (string | number) | null;
+                        /** @description Attached teaching hospital */
+                        hospitalName?: string | null;
+                        /** @description Beds in the attached hospital */
+                        hospitalBeds?: (string | number) | null;
+                        /** @description Average outpatients per day */
+                        dailyOutpatients?: (string | number) | null;
+                        /** @description Years of compulsory service, 0 or null if none */
+                        serviceBondYears?: (string | number) | null;
+                        /** @description Penalty in rupees for breaking the bond */
+                        serviceBondPenaltyInr?: (string | number) | null;
+                        /** @description Monthly internship stipend in rupees */
+                        stipendInr?: (string | number) | null;
+                        /** @description Who qualifies for state-quota seats, in plain words */
+                        domicileRule?: string | null;
+                    };
+                    /** @description Facts that only foreign colleges have. Send only the fields to change. */
+                    abroad?: {
+                        /** @enum {string} */
+                        wdomsListed?: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                        /** @description ID in the WDOMS directory */
+                        wdomsId?: string | null;
+                        /**
+                         * @description Full http(s) link to the official page or document
+                         * @example https://www.nmc.org.in/
+                         */
+                        wdomsUrl?: string | null;
+                        /** @description When WDOMS was last checked (not in the future) */
+                        wdomsCheckedAt?: (string) | null;
+                        /** @description Length of the internship in months */
+                        internshipMonths?: (string | number) | null;
+                        /** @description Language of teaching, e.g. `English` */
+                        teachingLanguage?: string | null;
+                        /** @description e.g. "Russian from year 3" */
+                        languageNote?: string | null;
+                        /** @description Months of the year when admissions open (1 to 12). Duplicates are removed. */
+                        intakeMonths?: (string | number)[];
+                        /** @description Seats open to Indian students */
+                        seatsForIndians?: (string | number) | null;
+                        /** @description Does the course length meet the NMC 2021 rule? null = not checked */
+                        nmcLengthOk?: boolean | null;
+                        /** @description Is teaching in English, as the NMC 2021 rule needs? null = not checked */
+                        nmcEnglishOk?: boolean | null;
+                        /** @description Does the internship meet the NMC 2021 rule? null = not checked */
+                        nmcInternshipOk?: boolean | null;
+                        /** @description When the NMC 2021 answers were checked (not in the future) */
+                        nmcCheckedAt?: (string) | null;
+                        /** @description Plain-words eligibility rules by name, e.g. `{ "Age": "17 by 31 December", "Class 12 PCB": "50% (40% for SC/ST/OBC)" }` */
+                        eligibility?: {
+                            [key: string]: string;
+                        } | null;
+                        /** @description Documents needed to apply */
+                        documents?: string[];
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminCollegesByIdReady: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminCollegesByIdDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminCollegesByIdArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminCollegesByIdFeesByYear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        /** @description One year of fees. Saving a year that already exists replaces it. */
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Tuition for the year, in `currency`. At most 2 decimals. 0 is allowed. */
+                    tuition: number;
+                    /** @description Hostel and food for the year (default 0) */
+                    hostel?: number;
+                    /** @description Everything else for the year, e.g. insurance, visa, registration (default 0) */
+                    other?: number;
+                    /** @description 3-letter currency code such as `USD`, `RUB` or `INR` (stored upper-case) */
+                    currency: string;
+                    /**
+                     * Format: uuid
+                     * @description The source the figures come from. Required before Mark ready.
+                     */
+                    sourceId: string | null;
+                    /** @description When the figures were last checked (default today) */
+                    checkedAt?: (string) | null;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description Tuition for the year, in `currency`. At most 2 decimals. 0 is allowed. */
+                    tuition: number;
+                    /** @description Hostel and food for the year (default 0) */
+                    hostel?: number;
+                    /** @description Everything else for the year, e.g. insurance, visa, registration (default 0) */
+                    other?: number;
+                    /** @description 3-letter currency code such as `USD`, `RUB` or `INR` (stored upper-case) */
+                    currency: string;
+                    /**
+                     * Format: uuid
+                     * @description The source the figures come from. Required before Mark ready.
+                     */
+                    sourceId: string | null;
+                    /** @description When the figures were last checked (default today) */
+                    checkedAt?: (string) | null;
+                };
+                "multipart/form-data": {
+                    /** @description Tuition for the year, in `currency`. At most 2 decimals. 0 is allowed. */
+                    tuition: number;
+                    /** @description Hostel and food for the year (default 0) */
+                    hostel?: number;
+                    /** @description Everything else for the year, e.g. insurance, visa, registration (default 0) */
+                    other?: number;
+                    /** @description 3-letter currency code such as `USD`, `RUB` or `INR` (stored upper-case) */
+                    currency: string;
+                    /**
+                     * Format: uuid
+                     * @description The source the figures come from. Required before Mark ready.
+                     */
+                    sourceId: string | null;
+                    /** @description When the figures were last checked (default today) */
+                    checkedAt?: (string) | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminCollegesByIdFeesByYear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                year: string | number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminCollegesByIdSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sourceId: string;
+                    /** @enum {string} */
+                    purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** Format: uuid */
+                    sourceId: string;
+                    /** @enum {string} */
+                    purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+                "multipart/form-data": {
+                    /** Format: uuid */
+                    sourceId: string;
+                    /** @enum {string} */
+                    purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 201 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminCollegesByIdSourcesByLinkId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                linkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminCollegesByIdSourcesByLinkId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                linkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    purpose?: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @enum {string} */
+                    purpose?: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    purpose?: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                    /** @description ISO date (`2026-10-01`) or date-time (`2026-10-01T09:30:00Z`) */
+                    checkedAt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putAdminCollegesByIdFaqs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The full list, in display order. Replaces the existing FAQs. */
+                    items: {
+                        question: string;
+                        answer: string;
+                    }[];
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description The full list, in display order. Replaces the existing FAQs. */
+                    items: {
+                        question: string;
+                        answer: string;
+                    }[];
+                };
+                "multipart/form-data": {
+                    /** @description The full list, in display order. Replaces the existing FAQs. */
+                    items: {
+                        question: string;
+                        answer: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything about one college, as the admin edit screen needs it */
+                        college: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            /** @enum {string} */
+                            status: "DRAFT" | "READY" | "ARCHIVED";
+                            country: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            internalNotes: string | null;
+                            /** @enum {string|null} */
+                            locationBasis: "WELL_KNOWN" | "IN_COLLEGE_NAME" | "CHECKED_ONLINE" | null;
+                            /** Format: uuid */
+                            importBatchId: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** Format: date-time */
+                            totalFeeCalculatedAt: string | null;
+                            /** Format: date-time */
+                            readyAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospitalName: string | null;
+                                hospitalBeds: (string | number) | null;
+                                dailyOutpatients: (string | number) | null;
+                                serviceBondYears: (string | number) | null;
+                                serviceBondPenaltyInr: (string | number) | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                /** @enum {string} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                wdomsId: string | null;
+                                wdomsUrl: string | null;
+                                /** Format: date-time */
+                                wdomsCheckedAt: string | null;
+                                internshipMonths: (string | number) | null;
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                nmcLengthOk: boolean | null;
+                                nmcEnglishOk: boolean | null;
+                                nmcInternshipOk: boolean | null;
+                                /** Format: date-time */
+                                nmcCheckedAt: string | null;
+                                /** @enum {string} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description One row per course year, year 1 first */
+                            fees: {
+                                /** @description 1 = first year of the course */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` right now; 1 for INR; null if no rate is on file */
+                                rateToInr: number | null;
+                                totalInr: (string | number) | null;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            sources: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                purpose: "WDOMS" | "FEE_NOTICE" | "NMC_NOTICES" | "NMC_RECOGNITION" | "SEAT_LIST" | "COUNSELLING" | "COLLEGE_WEBSITE" | "OTHER";
+                                /** Format: date-time */
+                                checkedAt: string;
+                                source: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    kind: string;
+                                    title: string;
+                                    url: string | null;
+                                };
+                            }[];
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Whether Mark ready would be accepted, and if not, everything that is missing */
+                            readiness: {
+                                /** @description True when nothing is missing */
+                                canMarkReady: boolean;
+                                missing: {
+                                    /** @description Which field to highlight, e.g. `name`, `fees`, `fees.2.sourceId`, `abroad.wdomsCheckedAt` */
+                                    path: string;
+                                    /** @description What to do, in plain words */
+                                    message: string;
+                                }[];
+                                feeYearsRequired: (string | number) | null;
+                                feeYearsFilled: string | number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

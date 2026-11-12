@@ -102,7 +102,7 @@ export const provenanceAdminRoutes = new Elysia({ tags: ["Admin · Reference"] }
     "/admin/nmc-notices",
     ({ query }) => listNotices(query),
     {
-      query: t.Object({ scope: t.Optional(NoticeScopeSchema), countryId: t.Optional(t.String({ format: "uuid" })), isActive: t.Optional(t.Boolean()), limit, cursor }),
+      query: t.Object({ scope: t.Optional(NoticeScopeSchema), countryId: t.Optional(t.String({ format: "uuid" })), collegeId: t.Optional(t.String({ format: "uuid" })), isActive: t.Optional(t.Boolean()), limit, cursor }),
       detail: { summary: "List NMC notices", description: "NMC advisories and warnings, newest first, cursor-paginated." + note },
       response: { 200: t.Object({ items: t.Array(NmcNoticeSchema), nextCursor }), ...errorResponses(401, 403, 422) },
     },
@@ -122,13 +122,14 @@ export const provenanceAdminRoutes = new Elysia({ tags: ["Admin · Reference"] }
         severity: NoticeSeveritySchema,
         scope: NoticeScopeSchema,
         countryId: t.Optional(t.String({ format: "uuid", description: "Required when scope is COUNTRY" })),
+        collegeId: t.Optional(t.String({ format: "uuid", description: "Required when scope is COLLEGE" })),
         isActive: t.Optional(t.Boolean({ description: "Default true" })),
         checkedAt: dateInput,
       }),
       detail: {
         summary: "Create an NMC notice",
         description:
-          "Records an NMC notice for a country. Dates cannot be in the future. Only scope COUNTRY is accepted until the college catalogue exists (422 for COLLEGE)." + note,
+          "Records an NMC notice for a country (`scope` COUNTRY + `countryId`) or for one college (`scope` COLLEGE + `collegeId`). Dates cannot be in the future." + note,
       },
       response: { 201: t.Object({ notice: NmcNoticeSchema }, { description: "Created" }), ...errorResponses(401, 403, 422) },
     },

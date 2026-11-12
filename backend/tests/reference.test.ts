@@ -229,14 +229,14 @@ describe("NMC notices", () => {
     expect(await auditCount("nmc_notice.create", n.id)).toBe(1);
   });
 
-  test("rejects: college scope, missing/unknown country, future dates, bad urls", async () => {
+  test("rejects: college scope without a college, missing/unknown country, future dates, bad urls", async () => {
     const h = await as("EDITOR");
     const ru = await newCountry(h);
     const post = (over: Record<string, unknown>) => call("/admin/nmc-notices", { method: "POST", headers: h, json: { ...base(ru.id), ...over } });
     const field = (r: any) => r.body.error.fields[0].path;
 
     const college = await post({ scope: "COLLEGE", countryId: undefined });
-    expect([college.status, field(college)]).toEqual([422, "scope"]);
+    expect([college.status, field(college)]).toEqual([422, "collegeId"]);
     const noCountry = await post({ countryId: undefined });
     expect([noCountry.status, field(noCountry)]).toEqual([422, "countryId"]);
     const unknown = await post({ countryId: "0198a000-0000-7000-8000-000000000000" });
