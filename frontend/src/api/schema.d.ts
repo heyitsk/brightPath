@@ -93,6 +93,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/colleges/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List colleges
+         * @description The college directory. Only colleges that staff have marked ready are listed, and a foreign college only once its country is live. Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course fee in rupees and the date its data was last checked. `facets` gives the filter options with counts. Supports `ETag` / `If-None-Match`. Unknown country or state slugs simply match nothing.
+         */
+        get: operations["getColleges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/colleges/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A college page
+         * @description Everything for one college page. `kind` decides the layout: INDIA fills `india`, ABROAD fills `abroad`. Fees are year by year with the rupee conversion; show `feeRatesAsOf` beside converted amounts. `nmc` carries the red alert state and notices; `sources` is the "Sources and dates" block. 404 for a college that does not exist, is not ready, or is a foreign college whose country is not live yet (all look the same). Supports `ETag` / `If-None-Match`.
+         */
+        get: operations["getCollegesBySlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/auth/login": {
         parameters: {
             query?: never;
@@ -1457,6 +1497,432 @@ export interface operations {
                                 /** @description Show next to the result, exactly as written */
                                 text: string;
                             };
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getColleges: {
+        parameters: {
+            query?: {
+                kind?: "INDIA" | "ABROAD";
+                country?: string;
+                state?: string;
+                ownership?: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST";
+                q?: string;
+                minFeeInr?: string | number;
+                maxFeeInr?: string | number;
+                sort?: "name" | "fee_asc" | "fee_desc";
+                page?: string | number;
+                pageSize?: string | number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @description The page is `/colleges/<slug>` */
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            country: {
+                                slug: string;
+                                name: string;
+                            } | null;
+                            state: {
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            heroImageUrl: string | null;
+                            courseLengthMonths: (string | number) | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /** @description The coloured chips on a college card */
+                            badges: {
+                                /** @enum {string} */
+                                nmcAlert: "NONE" | "ADVISORY" | "WARNING";
+                                /** @description INDIA colleges: recognised by NMC. null for foreign colleges. */
+                                nmcRecognised: boolean | null;
+                                /** @enum {string|null} */
+                                wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN" | null;
+                                /** @enum {string|null} */
+                                meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN" | null;
+                            };
+                            /**
+                             * Format: date-time
+                             * @description The OLDEST check date among the facts shown, so this never overstates how fresh the data is
+                             */
+                            dataCheckedAt: string | null;
+                        }[];
+                        /** @description Colleges matching the filters, across all pages */
+                        total: string | number;
+                        page: string | number;
+                        pageSize: string | number;
+                        totalPages: string | number;
+                        /** @description Filter options with counts, computed over ALL listed colleges (not narrowed by the current filters, so the options do not jump around) */
+                        facets: {
+                            countries: {
+                                slug: string;
+                                name: string;
+                                count: string | number;
+                            }[];
+                            states: {
+                                slug: string;
+                                name: string;
+                                code: string;
+                                count: string | number;
+                            }[];
+                            ownership: {
+                                /** @enum {string} */
+                                value: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST";
+                                count: string | number;
+                            }[];
+                            /** @description Cheapest and dearest whole-course fee among all listed colleges, for a budget slider */
+                            totalFeeInr: {
+                                min: (string | number) | null;
+                                max: (string | number) | null;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests. See the `Retry-After` header */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getCollegesBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Everything a college page shows. The `kind` decides the layout and whether `india` or `abroad` is filled. */
+                        college: {
+                            slug: string;
+                            /** @enum {string} */
+                            kind: "INDIA" | "ABROAD";
+                            name: string;
+                            shortName: string | null;
+                            city: string;
+                            country: {
+                                slug: string;
+                                name: string;
+                                typicalFlightFromDelhi: string | null;
+                            } | null;
+                            state: {
+                                slug: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string|null} */
+                            ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                            establishedYear: (string | number) | null;
+                            courseLengthMonths: (string | number) | null;
+                            description: string | null;
+                            heroImageUrl: string | null;
+                            websiteUrl: string | null;
+                            totalCourseFeeInr: (string | number) | null;
+                            /**
+                             * Format: date
+                             * @description The oldest exchange-rate date among the currencies used; null if every fee is in INR. Show next to converted amounts.
+                             */
+                            feeRatesAsOf: string | null;
+                            /** @description Fees, year by year */
+                            fees: {
+                                /** @description 1 = first year */
+                                yearNumber: string | number;
+                                tuition: number;
+                                hostel: number;
+                                other: number;
+                                currency: string;
+                                /** @description tuition + hostel + other, in `currency` */
+                                totalLocal: number;
+                                /** @description Rupees per unit of `currency` used for the conversion (1 for INR) */
+                                rateToInr: number;
+                                /** @description totalLocal in whole rupees */
+                                totalInr: string | number;
+                                source: {
+                                    title: string;
+                                    url: string | null;
+                                } | null;
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            }[];
+                            india: {
+                                nmcRecognised: boolean | null;
+                                /** Format: date-time */
+                                nmcRecognitionCheckedAt: string | null;
+                                mbbsSeats: (string | number) | null;
+                                hospital: {
+                                    name: string | null;
+                                    beds: (string | number) | null;
+                                    dailyOutpatients: (string | number) | null;
+                                };
+                                /** @description null when there is no bond */
+                                serviceBond: {
+                                    years: string | number;
+                                    penaltyInr: (string | number) | null;
+                                } | null;
+                                stipendInr: (string | number) | null;
+                                domicileRule: string | null;
+                            } | null;
+                            abroad: {
+                                wdoms: {
+                                    /** @enum {string} */
+                                    status: "LISTED" | "NOT_LISTED" | "UNKNOWN";
+                                    id: string | null;
+                                    url: string | null;
+                                    /** Format: date-time */
+                                    checkedAt: string | null;
+                                };
+                                nmc2021: {
+                                    /** @enum {string} */
+                                    status: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN";
+                                    lengthOk: boolean | null;
+                                    englishOk: boolean | null;
+                                    internshipOk: boolean | null;
+                                    /** Format: date-time */
+                                    checkedAt: string | null;
+                                };
+                                teachingLanguage: string | null;
+                                languageNote: string | null;
+                                internshipMonths: (string | number) | null;
+                                intakeMonths: (string | number)[];
+                                seatsForIndians: (string | number) | null;
+                                eligibility: {
+                                    [key: string]: string;
+                                } | null;
+                                documents: string[];
+                            } | null;
+                            /** @description `checkedAt`: when the NMC position was last checked, for the "No NMC alert found" chip */
+                            nmc: {
+                                /** @enum {string} */
+                                alert: "NONE" | "ADVISORY" | "WARNING";
+                                /** @description Active notices, newest first. Show them in red when `alert` is not NONE. */
+                                notices: {
+                                    title: string;
+                                    url: string;
+                                    /** Format: date-time */
+                                    publishedAt: string;
+                                    /** @enum {string} */
+                                    severity: "ADVISORY" | "WARNING";
+                                    /** @enum {string} */
+                                    scope: "COLLEGE" | "COUNTRY";
+                                    /** Format: date-time */
+                                    checkedAt: string;
+                                }[];
+                                /** Format: date-time */
+                                checkedAt: string | null;
+                            };
+                            /** @description "Sources and dates" */
+                            sources: {
+                                purpose: string;
+                                title: string;
+                                publisher: string | null;
+                                url: string | null;
+                                /** Format: date-time */
+                                checkedAt: string;
+                            }[];
+                            /** Format: date-time */
+                            dataCheckedAt: string | null;
+                            faqs: {
+                                question: string;
+                                answer: string;
+                            }[];
+                            /** @description Up to 4 other listed colleges in the same city, then the same state or country */
+                            nearby: {
+                                /** @description The page is `/colleges/<slug>` */
+                                slug: string;
+                                /** @enum {string} */
+                                kind: "INDIA" | "ABROAD";
+                                name: string;
+                                shortName: string | null;
+                                city: string;
+                                country: {
+                                    slug: string;
+                                    name: string;
+                                } | null;
+                                state: {
+                                    slug: string;
+                                    name: string;
+                                    code: string;
+                                } | null;
+                                /** @enum {string|null} */
+                                ownership: "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST" | null;
+                                establishedYear: (string | number) | null;
+                                heroImageUrl: string | null;
+                                courseLengthMonths: (string | number) | null;
+                                totalCourseFeeInr: (string | number) | null;
+                                /** @description The coloured chips on a college card */
+                                badges: {
+                                    /** @enum {string} */
+                                    nmcAlert: "NONE" | "ADVISORY" | "WARNING";
+                                    /** @description INDIA colleges: recognised by NMC. null for foreign colleges. */
+                                    nmcRecognised: boolean | null;
+                                    /** @enum {string|null} */
+                                    wdomsListed: "LISTED" | "NOT_LISTED" | "UNKNOWN" | null;
+                                    /** @enum {string|null} */
+                                    meetsNmc2021: "MEETS" | "DOES_NOT_MEET" | "UNKNOWN" | null;
+                                };
+                                /**
+                                 * Format: date-time
+                                 * @description The OLDEST check date among the facts shown, so this never overstates how fresh the data is
+                                 */
+                                dataCheckedAt: string | null;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
                         };
                     };
                 };

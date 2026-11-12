@@ -138,3 +138,10 @@ export function courseTotalInr(courseLengthMonths: number | null, fees: FeeLineA
   }
   return sum;
 }
+
+/** "Meets NMC 2021 rules", worked out from the three answers: any "no" -> DOES_NOT_MEET; all "yes" -> MEETS; otherwise not yet known. */
+export function nmc2021Status(p: { nmcLengthOk: boolean | null; nmcEnglishOk: boolean | null; nmcInternshipOk: boolean | null }): "MEETS" | "DOES_NOT_MEET" | "UNKNOWN" {
+  const v = [p.nmcLengthOk, p.nmcEnglishOk, p.nmcInternshipOk];
+  if (v.includes(false)) return "DOES_NOT_MEET";
+  return v.every((x) => x === true) ? "MEETS" : "UNKNOWN";
+}

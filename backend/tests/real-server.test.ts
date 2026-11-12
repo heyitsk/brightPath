@@ -112,6 +112,14 @@ describe("college admin over real HTTP: numeric fee-year path and multipart file
     expect(tpl.status).toBe(200);
     expect(tpl.headers.get("content-type")).toContain("text/csv");
 
+    // Public routes over real HTTP (no login): the drafts above are not visible.
+    const pub = await fetch(`${base}/colleges?pageSize=5&sort=fee_asc`);
+    expect(pub.status).toBe(200);
+    expect(((await pub.json()) as any).total).toBe(0);
+    const draftPage = await fetch(`${base}/colleges/uploaded-university`);
+    expect(draftPage.status).toBe(404);
+    expect(((await draftPage.json()) as any).error.code).toBe("NOT_FOUND");
+
     await prisma.college.deleteMany();
     await prisma.importBatch.deleteMany();
     await prisma.country.deleteMany();

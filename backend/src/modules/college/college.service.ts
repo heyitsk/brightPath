@@ -4,7 +4,7 @@ import { AppError, type FieldError } from "../../lib/errors";
 import { prisma } from "../../lib/prisma";
 import { slugifyShort } from "../../lib/slug";
 import { assertNotEmpty, optionalText, parsePastDate, parseUrl, requiredText } from "../reference/reference.schemas";
-import { checkReadiness, courseTotalInr, feeYearsRequired, lineTotalInr, lineTotalLocal, type FeeLineAmounts, type Missing, type ReadinessInput } from "./college-readiness";
+import { checkReadiness, courseTotalInr, feeYearsRequired, lineTotalInr, lineTotalLocal, nmc2021Status, type FeeLineAmounts, type Missing, type ReadinessInput } from "./college-readiness";
 
 // Admin operations on colleges (Phase 4b). Rules worth knowing:
 //  - A new college is always a DRAFT. It goes live only through `markReady`, which refuses unless nothing is missing (D-087).
@@ -105,12 +105,6 @@ function toFeeDto(f: CollegeFull["feeLines"][number], rates: Map<string, number>
   };
 }
 
-function meetsNmc2021(p: { nmcLengthOk: boolean | null; nmcEnglishOk: boolean | null; nmcInternshipOk: boolean | null }) {
-  const v = [p.nmcLengthOk, p.nmcEnglishOk, p.nmcInternshipOk];
-  if (v.includes(false)) return "DOES_NOT_MEET" as const;
-  return v.every((x) => x === true) ? ("MEETS" as const) : ("UNKNOWN" as const);
-}
-
 function toDetailDto(c: CollegeFull, rates: Map<string, number>) {
   const r = readinessOf(c, c.sourceLinks.length, rates);
   const { collegeId: _i, ...i } = c.indiaProfile ?? { collegeId: "" };
@@ -125,7 +119,7 @@ function toDetailDto(c: CollegeFull, rates: Map<string, number>) {
     abroad: c.abroadProfile
       ? {
           ...(a as Omit<NonNullable<CollegeFull["abroadProfile"]>, "collegeId">), wdomsCheckedAt: iso(c.abroadProfile.wdomsCheckedAt), nmcCheckedAt: iso(c.abroadProfile.nmcCheckedAt),
-          meetsNmc2021: meetsNmc2021(c.abroadProfile), eligibility: (c.abroadProfile.eligibility as Record<string, string> | null) ?? null,
+          meetsNmc2021: nmc2021Status(c.abroadProfile), eligibility: (c.abroadProfile.eligibility as Record<string, string> | null) ?? null,
         }
       : null,
     fees: c.feeLines.map((f) => toFeeDto(f, rates)),

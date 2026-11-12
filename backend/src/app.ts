@@ -13,6 +13,7 @@ import { auditAdminRoutes } from "./modules/audit/audit.admin.routes";
 import { collegeAdminRoutes } from "./modules/college/college.admin.routes";
 import { fxAdminRoutes } from "./modules/fx/fx.admin.routes";
 import { importsAdminRoutes } from "./modules/imports/imports.admin.routes";
+import { collegePublicRoutes } from "./modules/college/college.public.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { geographyAdminRoutes } from "./modules/reference/geography.admin.routes";
 import { provenanceAdminRoutes } from "./modules/reference/provenance.admin.routes";
@@ -23,7 +24,7 @@ import { siteAdminRoutes } from "./modules/site/site.admin.routes";
 import { siteRoutes } from "./modules/site/site.routes";
 import { staffAdminRoutes } from "./modules/staff/staff.admin.routes";
 
-export const API_VERSION = "0.8.0";
+export const API_VERSION = "0.9.0";
 
 // The app is built here and started in index.ts, so scripts (e.g. OpenAPI export) and tests
 // can import it without opening a port.
@@ -62,13 +63,14 @@ export const app = new Elysia()
             "**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n" +
             "**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. " +
             "Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n" +
-            "**Changelog.** 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
+            "**Changelog.** 0.9.0: public college directory and pages (`GET /colleges`, `GET /colleges/{slug}`): ready colleges only (a foreign college once its country is live), with filters, sorting, paging and filter facets; one page shape with an India and an abroad variant. 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
             "0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
         },
         tags: [
           { name: "Health", description: "Service and dependency health" },
           { name: "Site", description: "Public site-wide configuration" },
           { name: "NEET", description: "NEET (UG) rank predictor and the data it uses" },
+          { name: "Colleges", description: "Public college directory and college pages (only colleges staff have marked ready)" },
           { name: "Admin · Auth", description: "Staff login, logout, current user, change password" },
           { name: "Admin · Staff", description: "Staff accounts and roles (ADMIN only)" },
           { name: "Admin · Site", description: "Site settings and disclaimer texts (ADMIN only)" },
@@ -88,6 +90,7 @@ export const app = new Elysia()
   // ---- feature modules: one `.use(...)` per phase, below the default rate limit ----
   .use(siteRoutes)
   .use(neetRoutes)
+  .use(collegePublicRoutes)
   .use(authRoutes)
   .use(staffAdminRoutes)
   .use(siteAdminRoutes)

@@ -1,8 +1,8 @@
 {
   "info": {
     "title": "BrightPath API",
-    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
-    "version": "0.8.0"
+    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.9.0: public college directory and pages (`GET /colleges`, `GET /colleges/{slug}`): ready colleges only (a foreign college once its country is live), with filters, sorting, paging and filter facets; one page shape with an India and an abroad variant. 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
+    "version": "0.9.0"
   },
   "tags": [
     {
@@ -16,6 +16,10 @@
     {
       "name": "NEET",
       "description": "NEET (UG) rank predictor and the data it uses"
+    },
+    {
+      "name": "Colleges",
+      "description": "Public college directory and college pages (only colleges staff have marked ready)"
     },
     {
       "name": "Admin · Auth",
@@ -1602,6 +1606,1987 @@
           }
         },
         "operationId": "getNeetData-sources"
+      }
+    },
+    "/colleges/": {
+      "get": {
+        "tags": [
+          "Colleges"
+        ],
+        "summary": "List colleges",
+        "description": "The college directory. Only colleges that staff have marked ready are listed, and a foreign college only once its country is live. Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course fee in rupees and the date its data was last checked. `facets` gives the filter options with counts. Supports `ETag` / `If-None-Match`. Unknown country or state slugs simply match nothing.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "INDIA",
+                "ABROAD"
+              ]
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "maxLength": 60,
+              "description": "Country slug, e.g. `russia`",
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "maxLength": 60,
+              "description": "State slug, e.g. `maharashtra`",
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownership",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "GOVERNMENT",
+                "PRIVATE",
+                "DEEMED",
+                "TRUST"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "description": "Words in the college name, short name or city",
+              "type": "string"
+            }
+          },
+          {
+            "name": "minFeeInr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "maximum": 2000000000,
+              "description": "Whole-course fee in rupees, at least",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 0,
+                  "maximum": 2000000000,
+                  "description": "Whole-course fee in rupees, at least",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "maxFeeInr",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "maximum": 2000000000,
+              "description": "Whole-course fee in rupees, at most (the budget)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 0,
+                  "maximum": 2000000000,
+                  "description": "Whole-course fee in rupees, at most (the budget)",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "fee_asc",
+                "fee_desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Page number, starting at 1 (default 1)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "description": "Page number, starting at 1 (default 1)",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Colleges per page (default 24)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 50,
+                  "description": "Colleges per page (default 24)",
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "total",
+                    "page",
+                    "pageSize",
+                    "totalPages",
+                    "facets"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "A college as shown on a card or in a list",
+                        "type": "object",
+                        "required": [
+                          "slug",
+                          "kind",
+                          "name",
+                          "shortName",
+                          "city",
+                          "country",
+                          "state",
+                          "ownership",
+                          "establishedYear",
+                          "heroImageUrl",
+                          "courseLengthMonths",
+                          "totalCourseFeeInr",
+                          "badges",
+                          "dataCheckedAt"
+                        ],
+                        "properties": {
+                          "slug": {
+                            "description": "The page is `/colleges/<slug>`",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "INDIA",
+                              "ABROAD"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "shortName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "city": {
+                            "type": "string"
+                          },
+                          "country": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "required": [
+                              "slug",
+                              "name"
+                            ],
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "state": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "required": [
+                              "slug",
+                              "name",
+                              "code"
+                            ],
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "ownership": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "GOVERNMENT",
+                              "PRIVATE",
+                              "DEEMED",
+                              "TRUST"
+                            ]
+                          },
+                          "establishedYear": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "heroImageUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "courseLengthMonths": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "totalCourseFeeInr": {
+                            "anyOf": [
+                              {
+                                "description": "Whole-course fee in rupees at the current exchange rates",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "Whole-course fee in rupees at the current exchange rates",
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "badges": {
+                            "description": "The coloured chips on a college card",
+                            "type": "object",
+                            "required": [
+                              "nmcAlert",
+                              "nmcRecognised",
+                              "wdomsListed",
+                              "meetsNmc2021"
+                            ],
+                            "properties": {
+                              "nmcAlert": {
+                                "type": "string",
+                                "enum": [
+                                  "NONE",
+                                  "ADVISORY",
+                                  "WARNING"
+                                ]
+                              },
+                              "nmcRecognised": {
+                                "description": "INDIA colleges: recognised by NMC. null for foreign colleges.",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "wdomsListed": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "LISTED",
+                                  "NOT_LISTED",
+                                  "UNKNOWN"
+                                ]
+                              },
+                              "meetsNmc2021": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "MEETS",
+                                  "DOES_NOT_MEET",
+                                  "UNKNOWN"
+                                ]
+                              }
+                            }
+                          },
+                          "dataCheckedAt": {
+                            "format": "date-time",
+                            "description": "The OLDEST check date among the facts shown, so this never overstates how fresh the data is",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "description": "Colleges matching the filters, across all pages",
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "description": "Colleges matching the filters, across all pages",
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "page": {
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "pageSize": {
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "totalPages": {
+                      "anyOf": [
+                        {
+                          "format": "integer",
+                          "default": 0,
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "facets": {
+                      "description": "Filter options with counts, computed over ALL listed colleges (not narrowed by the current filters, so the options do not jump around)",
+                      "type": "object",
+                      "required": [
+                        "countries",
+                        "states",
+                        "ownership",
+                        "totalFeeInr"
+                      ],
+                      "properties": {
+                        "countries": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "slug",
+                              "name",
+                              "count"
+                            ],
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "states": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "slug",
+                              "name",
+                              "code",
+                              "count"
+                            ],
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "ownership": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "value",
+                              "count"
+                            ],
+                            "properties": {
+                              "value": {
+                                "type": "string",
+                                "enum": [
+                                  "GOVERNMENT",
+                                  "PRIVATE",
+                                  "DEEMED",
+                                  "TRUST"
+                                ]
+                              },
+                              "count": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "totalFeeInr": {
+                          "description": "Cheapest and dearest whole-course fee among all listed colleges, for a budget slider",
+                          "type": "object",
+                          "required": [
+                            "min",
+                            "max"
+                          ],
+                          "properties": {
+                            "min": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "max": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. See the `Retry-After` header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Too many requests. See the `Retry-After` header",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getColleges"
+      }
+    },
+    "/colleges/{slug}": {
+      "get": {
+        "tags": [
+          "Colleges"
+        ],
+        "summary": "A college page",
+        "description": "Everything for one college page. `kind` decides the layout: INDIA fills `india`, ABROAD fills `abroad`. Fees are year by year with the rupee conversion; show `feeRatesAsOf` beside converted amounts. `nmc` carries the red alert state and notices; `sources` is the \"Sources and dates\" block. 404 for a college that does not exist, is not ready, or is a foreign college whose country is not live yet (all look the same). Supports `ETag` / `If-None-Match`.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "maxLength": 120,
+              "pattern": "^[a-zA-Z0-9-]+$",
+              "description": "The college's web address part",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "college"
+                  ],
+                  "properties": {
+                    "college": {
+                      "description": "Everything a college page shows. The `kind` decides the layout and whether `india` or `abroad` is filled.",
+                      "type": "object",
+                      "required": [
+                        "slug",
+                        "kind",
+                        "name",
+                        "shortName",
+                        "city",
+                        "country",
+                        "state",
+                        "ownership",
+                        "establishedYear",
+                        "courseLengthMonths",
+                        "description",
+                        "heroImageUrl",
+                        "websiteUrl",
+                        "totalCourseFeeInr",
+                        "feeRatesAsOf",
+                        "fees",
+                        "india",
+                        "abroad",
+                        "nmc",
+                        "sources",
+                        "dataCheckedAt",
+                        "faqs",
+                        "nearby",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "slug": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "INDIA",
+                            "ABROAD"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "shortName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "country": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "slug",
+                            "name",
+                            "typicalFlightFromDelhi"
+                          ],
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "typicalFlightFromDelhi": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "state": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "slug",
+                            "name",
+                            "code"
+                          ],
+                          "properties": {
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "code": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "ownership": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "GOVERNMENT",
+                            "PRIVATE",
+                            "DEEMED",
+                            "TRUST"
+                          ]
+                        },
+                        "establishedYear": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "courseLengthMonths": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "heroImageUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "websiteUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "totalCourseFeeInr": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "feeRatesAsOf": {
+                          "format": "date",
+                          "description": "The oldest exchange-rate date among the currencies used; null if every fee is in INR. Show next to converted amounts.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fees": {
+                          "description": "Fees, year by year",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "yearNumber",
+                              "tuition",
+                              "hostel",
+                              "other",
+                              "currency",
+                              "totalLocal",
+                              "rateToInr",
+                              "totalInr",
+                              "source",
+                              "checkedAt"
+                            ],
+                            "properties": {
+                              "yearNumber": {
+                                "description": "1 = first year",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "1 = first year",
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "tuition": {
+                                "type": "number"
+                              },
+                              "hostel": {
+                                "type": "number"
+                              },
+                              "other": {
+                                "type": "number"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "totalLocal": {
+                                "description": "tuition + hostel + other, in `currency`",
+                                "type": "number"
+                              },
+                              "rateToInr": {
+                                "description": "Rupees per unit of `currency` used for the conversion (1 for INR)",
+                                "type": "number"
+                              },
+                              "totalInr": {
+                                "description": "totalLocal in whole rupees",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "totalLocal in whole rupees",
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "source": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "required": [
+                                  "title",
+                                  "url"
+                                ],
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                }
+                              },
+                              "checkedAt": {
+                                "format": "date-time",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "india": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "nmcRecognised",
+                            "nmcRecognitionCheckedAt",
+                            "mbbsSeats",
+                            "hospital",
+                            "serviceBond",
+                            "stipendInr",
+                            "domicileRule"
+                          ],
+                          "properties": {
+                            "nmcRecognised": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "nmcRecognitionCheckedAt": {
+                              "format": "date-time",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "mbbsSeats": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "hospital": {
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "beds",
+                                "dailyOutpatients"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "beds": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "format": "integer",
+                                          "default": 0,
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "integer"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "dailyOutpatients": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "format": "integer",
+                                          "default": 0,
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "integer"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "serviceBond": {
+                              "description": "null when there is no bond",
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "required": [
+                                "years",
+                                "penaltyInr"
+                              ],
+                              "properties": {
+                                "years": {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                "penaltyInr": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "format": "integer",
+                                          "default": 0,
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "integer"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "stipendInr": {
+                              "anyOf": [
+                                {
+                                  "description": "Monthly internship stipend",
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "description": "Monthly internship stipend",
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "domicileRule": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "abroad": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "wdoms",
+                            "nmc2021",
+                            "teachingLanguage",
+                            "languageNote",
+                            "internshipMonths",
+                            "intakeMonths",
+                            "seatsForIndians",
+                            "eligibility",
+                            "documents"
+                          ],
+                          "properties": {
+                            "wdoms": {
+                              "type": "object",
+                              "required": [
+                                "status",
+                                "id",
+                                "url",
+                                "checkedAt"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "LISTED",
+                                    "NOT_LISTED",
+                                    "UNKNOWN"
+                                  ]
+                                },
+                                "id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "checkedAt": {
+                                  "format": "date-time",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            },
+                            "nmc2021": {
+                              "type": "object",
+                              "required": [
+                                "status",
+                                "lengthOk",
+                                "englishOk",
+                                "internshipOk",
+                                "checkedAt"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "MEETS",
+                                    "DOES_NOT_MEET",
+                                    "UNKNOWN"
+                                  ]
+                                },
+                                "lengthOk": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "englishOk": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "internshipOk": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "checkedAt": {
+                                  "format": "date-time",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            },
+                            "teachingLanguage": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "languageNote": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "internshipMonths": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "intakeMonths": {
+                              "type": "array",
+                              "items": {
+                                "description": "1 to 12",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "1 to 12",
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            },
+                            "seatsForIndians": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "format": "integer",
+                                      "default": 0,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "eligibility": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "patternProperties": {
+                                "^(.*)$": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "documents": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "nmc": {
+                          "description": "`checkedAt`: when the NMC position was last checked, for the \"No NMC alert found\" chip",
+                          "type": "object",
+                          "required": [
+                            "alert",
+                            "notices",
+                            "checkedAt"
+                          ],
+                          "properties": {
+                            "alert": {
+                              "type": "string",
+                              "enum": [
+                                "NONE",
+                                "ADVISORY",
+                                "WARNING"
+                              ]
+                            },
+                            "notices": {
+                              "description": "Active notices, newest first. Show them in red when `alert` is not NONE.",
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "title",
+                                  "url",
+                                  "publishedAt",
+                                  "severity",
+                                  "scope",
+                                  "checkedAt"
+                                ],
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": "string"
+                                  },
+                                  "publishedAt": {
+                                    "format": "date-time",
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ADVISORY",
+                                      "WARNING"
+                                    ]
+                                  },
+                                  "scope": {
+                                    "type": "string",
+                                    "enum": [
+                                      "COLLEGE",
+                                      "COUNTRY"
+                                    ]
+                                  },
+                                  "checkedAt": {
+                                    "format": "date-time",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "checkedAt": {
+                              "format": "date-time",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "sources": {
+                          "description": "\"Sources and dates\"",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "purpose",
+                              "title",
+                              "publisher",
+                              "url",
+                              "checkedAt"
+                            ],
+                            "properties": {
+                              "purpose": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "publisher": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "url": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "checkedAt": {
+                                "format": "date-time",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "dataCheckedAt": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "faqs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "question",
+                              "answer"
+                            ],
+                            "properties": {
+                              "question": {
+                                "type": "string"
+                              },
+                              "answer": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "nearby": {
+                          "description": "Up to 4 other listed colleges in the same city, then the same state or country",
+                          "type": "array",
+                          "items": {
+                            "description": "A college as shown on a card or in a list",
+                            "type": "object",
+                            "required": [
+                              "slug",
+                              "kind",
+                              "name",
+                              "shortName",
+                              "city",
+                              "country",
+                              "state",
+                              "ownership",
+                              "establishedYear",
+                              "heroImageUrl",
+                              "courseLengthMonths",
+                              "totalCourseFeeInr",
+                              "badges",
+                              "dataCheckedAt"
+                            ],
+                            "properties": {
+                              "slug": {
+                                "description": "The page is `/colleges/<slug>`",
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "INDIA",
+                                  "ABROAD"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "shortName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "required": [
+                                  "slug",
+                                  "name"
+                                ],
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "state": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "required": [
+                                  "slug",
+                                  "name",
+                                  "code"
+                                ],
+                                "properties": {
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "code": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "ownership": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "GOVERNMENT",
+                                  "PRIVATE",
+                                  "DEEMED",
+                                  "TRUST"
+                                ]
+                              },
+                              "establishedYear": {
+                                "anyOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "format": "integer",
+                                        "default": 0,
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "integer"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "heroImageUrl": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "courseLengthMonths": {
+                                "anyOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "format": "integer",
+                                        "default": 0,
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "integer"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalCourseFeeInr": {
+                                "anyOf": [
+                                  {
+                                    "description": "Whole-course fee in rupees at the current exchange rates",
+                                    "anyOf": [
+                                      {
+                                        "format": "integer",
+                                        "default": 0,
+                                        "type": "string"
+                                      },
+                                      {
+                                        "description": "Whole-course fee in rupees at the current exchange rates",
+                                        "type": "integer"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "badges": {
+                                "description": "The coloured chips on a college card",
+                                "type": "object",
+                                "required": [
+                                  "nmcAlert",
+                                  "nmcRecognised",
+                                  "wdomsListed",
+                                  "meetsNmc2021"
+                                ],
+                                "properties": {
+                                  "nmcAlert": {
+                                    "type": "string",
+                                    "enum": [
+                                      "NONE",
+                                      "ADVISORY",
+                                      "WARNING"
+                                    ]
+                                  },
+                                  "nmcRecognised": {
+                                    "description": "INDIA colleges: recognised by NMC. null for foreign colleges.",
+                                    "type": [
+                                      "boolean",
+                                      "null"
+                                    ]
+                                  },
+                                  "wdomsListed": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "enum": [
+                                      "LISTED",
+                                      "NOT_LISTED",
+                                      "UNKNOWN"
+                                    ]
+                                  },
+                                  "meetsNmc2021": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "enum": [
+                                      "MEETS",
+                                      "DOES_NOT_MEET",
+                                      "UNKNOWN"
+                                    ]
+                                  }
+                                }
+                              },
+                              "dataCheckedAt": {
+                                "format": "date-time",
+                                "description": "The OLDEST check date among the facts shown, so this never overstates how fresh the data is",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. See the `Retry-After` header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Too many requests. See the `Retry-After` header",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getCollegesBySlug"
       }
     },
     "/admin/auth/login": {
