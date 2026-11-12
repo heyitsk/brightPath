@@ -1,265 +1,277 @@
-// College list import: parse an Excel sheet -> build a preview ("plan") -> commit the plan.
+// Bulk upload of COLLEGES (Phase 4a, extended in 4d to India colleges and more columns).
 //
-// The same three functions serve the one-off loader (`scripts/load-colleges.ts`) and, in step 4d, the admin bulk upload
-// (preview first, save after). Nothing here writes to the database except `commitCollegeImport`.
+// planCollegeRows  -> what the file would do (preview; writes nothing)
+// applyCollegePlan -> does it, inside the caller's transaction
 //
-// Rules (history.md D-082..D-085):
-//  - Every imported college starts as an abroad DRAFT. Nothing becomes public by importing.
-//  - Re-running is safe: a college is recognised by its slug; an existing college is never overwritten, only
-//    given the starting-list note / location check if it has none (staff edits survive).
-//  - Problems are reported per row with the sheet row number; one bad row never blocks the others.
-import ExcelJS from "exceljs";
-import { audit, type AuditActor } from "../../lib/audit";
+// Rules (history.md D-084, D-085, D-107):
+//  - Every uploaded college starts as a DRAFT. Nothing becomes public by uploading.
+//  - A college is recognised by its web address (slug). An existing college is never overwritten: empty fields are filled in,
+//    and where the file disagrees with what is stored the stored value is kept and the preview says so.
+//  - Problems are reported per row with the file's row number; one bad row never blocks the others.
+import type { Prisma } from "../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import { slugify, slugifyShort } from "../../lib/slug";
 import type { LocationBasis } from "../../generated/prisma/client";
+import { blankItem, buildPlan, type Plan, type PlanChange, type PlanItem } from "../imports/plan";
+import { parseHttpUrl, parseMonths, parseWholeNumber, type Spec } from "../imports/table";
 
-export interface ImportRow {
-  /** 1-based row number in the sheet, for error messages. */
-  line: number;
-  country: string;
-  name: string;
-  city: string;
-  verified: string | null;
-  note: string | null;
-}
+export type CollegeField =
+  | "kind" | "country" | "state" | "name" | "city" | "ownership" | "established" | "courseLength" | "website" | "verified" | "note"
+  | "teachingLanguage" | "intake" | "internship" | "seatsForIndians" | "mbbsSeats" | "hospital" | "hospitalBeds";
 
-export interface ParseResult {
-  rows: ImportRow[];
-  /** Problems that stop a row from being read at all (e.g. missing college name). */
-  errors: Array<{ line: number; message: string }>;
-  sheet: string;
-}
-
-export type PlanAction = "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
-
-export interface PlanItem {
-  line: number;
-  action: PlanAction;
-  country: string;
-  name: string;
-  city: string;
-  slug: string | null;
-  /** Plain-words explanation, always present for SKIP / ERROR / UPDATE. */
-  message: string | null;
-  locationBasis: LocationBasis | null;
-  note: string | null;
-  /** Set for UPDATE / UNCHANGED / SKIP: the college already in the database. */
-  existingId: string | null;
-  countryId: string | null;
-}
-
-export interface ImportPlan {
-  items: PlanItem[];
-  counts: Record<PlanAction, number>;
-  perCountry: Record<string, number>;
-}
-
-const SHEET_NAMES = ["All colleges", "Colleges", "Sheet1"];
-const HEADER_ALIASES: Record<keyof Omit<ImportRow, "line">, string[]> = {
+export const COLLEGE_SHEETS = ["All colleges", "Colleges", "Sheet1"] as const;
+export const COLLEGE_SPEC: Spec<CollegeField> = {
+  kind: ["kind", "type", "india or abroad"],
   country: ["country"],
-  name: ["college", "college name", "name", "university"],
+  state: ["state", "state/ut"],
+  name: ["college", "college name", "name", "university", "institution"],
   city: ["city", "location"],
+  ownership: ["ownership", "type of college", "management"],
+  established: ["established", "established year", "year established", "founded", "year founded"],
+  courseLength: ["course length (months)", "course length months", "course length", "course months", "duration (months)"],
+  website: ["website", "website url", "college website", "official website"],
   verified: ["verified", "city check", "location check"],
   note: ["note", "notes", "remarks"],
+  teachingLanguage: ["teaching language", "language of teaching", "medium", "medium of instruction"],
+  intake: ["intake", "intake months", "intakes"],
+  internship: ["internship months", "internship (months)", "internship"],
+  seatsForIndians: ["seats for indians", "indian seats", "seats (indians)"],
+  mbbsSeats: ["mbbs seats", "seats", "total seats"],
+  hospital: ["hospital", "hospital name", "attached hospital"],
+  hospitalBeds: ["hospital beds", "beds"],
 };
+export const collegeHeaderOk = (found: ReadonlySet<CollegeField>) => found.has("name") && (found.has("country") || found.has("state"));
+export const COLLEGE_NEEDS = 'at least the columns "College" and "Country" (for India colleges "State")';
+
+export type CollegeRow = { line: number; v: Partial<Record<CollegeField, string>> };
 
 const LOCATION_BASIS: Record<string, LocationBasis> = {
   "well-known location": "WELL_KNOWN",
   "city is in the college name": "IN_COLLEGE_NAME",
   "checked online": "CHECKED_ONLINE",
 };
+const OWNERSHIP: Record<string, "GOVERNMENT" | "PRIVATE" | "DEEMED" | "TRUST"> = {
+  government: "GOVERNMENT", govt: "GOVERNMENT", public: "GOVERNMENT", private: "PRIVATE", deemed: "DEEMED", "deemed university": "DEEMED", trust: "TRUST",
+};
+const KINDS: Record<string, "INDIA" | "ABROAD"> = { india: "INDIA", indian: "INDIA", abroad: "ABROAD", foreign: "ABROAD", overseas: "ABROAD", international: "ABROAD" };
 
-function cellText(v: ExcelJS.CellValue): string {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "object") {
-    if ("richText" in v) return v.richText.map((r) => r.text).join("").trim();
-    if ("text" in v) return String(v.text ?? "").trim(); // hyperlink
-    if ("result" in v) return String(v.result ?? "").trim(); // formula
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
-  }
-  return String(v).trim().replace(/\s+/g, " ");
+/** What committing one row changes. For CREATE it is the whole college; for UPDATE only the fields being filled. */
+export interface CollegeApply {
+  kind: "INDIA" | "ABROAD";
+  slug: string;
+  name: string;
+  city: string;
+  stateId: string | null;
+  countryId: string | null;
+  base: Prisma.CollegeUncheckedUpdateInput;
+  india: Prisma.CollegeIndiaProfileUncheckedUpdateInput;
+  abroad: Prisma.CollegeAbroadProfileUncheckedUpdateInput;
 }
 
-/** Reads the college sheet of an .xlsx file. Columns are found by their header names, in any order. */
-export async function parseCollegeWorkbook(data: ArrayBuffer | Buffer): Promise<ParseResult> {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(data as ArrayBuffer);
-  const sheet = SHEET_NAMES.map((n) => wb.getWorksheet(n)).find(Boolean);
-  if (!sheet) {
-    throw new Error(`Could not find a sheet named ${SHEET_NAMES.map((n) => `"${n}"`).join(" or ")}. Found: ${wb.worksheets.map((w) => `"${w.name}"`).join(", ") || "none"}.`);
-  }
+type Existing = Prisma.CollegeGetPayload<{ include: { indiaProfile: true; abroadProfile: true } }>;
+const show = (v: unknown) => (Array.isArray(v) ? v.join(", ") : String(v));
 
-  // Header = the first row (within the first 10) that contains both a country and a college column.
-  let headerRow = 0;
-  const colOf: Partial<Record<keyof Omit<ImportRow, "line">, number>> = {};
-  for (let r = 1; r <= Math.min(10, sheet.rowCount) && !headerRow; r++) {
-    const found: typeof colOf = {};
-    sheet.getRow(r).eachCell((cell, col) => {
-      const text = cellText(cell.value).toLowerCase();
-      for (const [field, names] of Object.entries(HEADER_ALIASES)) {
-        if (names.includes(text) && !(field in found)) found[field as keyof typeof found] = col;
-      }
-    });
-    if (found.country && found.name) {
-      headerRow = r;
-      Object.assign(colOf, found);
-    }
-  }
-  if (!headerRow) throw new Error(`Sheet "${sheet.name}" needs a header row with at least the columns "Country" and "College" (and ideally "City").`);
-
-  const rows: ImportRow[] = [];
-  const errors: ParseResult["errors"] = [];
-  const get = (r: ExcelJS.Row, f: keyof typeof colOf) => (colOf[f] ? cellText(r.getCell(colOf[f]!).value) : "");
-  for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
-    const row = sheet.getRow(r);
-    const country = get(row, "country");
-    const name = get(row, "name");
-    const city = get(row, "city");
-    if (!country && !name && !city) continue; // blank line
-    if (!name) {
-      errors.push({ line: r, message: "College name is empty." });
-      continue;
-    }
-    rows.push({ line: r, country, name, city, verified: get(row, "verified") || null, note: get(row, "note") || null });
-  }
-  return { rows, errors, sheet: sheet.name };
-}
-
-/** Compares the rows with what is already in the database and says what committing would do. Writes nothing. */
-export async function planCollegeImport(rows: ImportRow[]): Promise<ImportPlan> {
-  const countries = await prisma.country.findMany({ select: { id: true, name: true, slug: true, aliases: true } });
+/** Compares the file's rows with the database and says what saving would do. Writes nothing. */
+export async function planCollegeRows(rows: CollegeRow[]): Promise<Plan<CollegeApply>> {
+  const [countries, states, existing] = await Promise.all([
+    prisma.country.findMany({ select: { id: true, name: true, slug: true, aliases: true } }),
+    prisma.state.findMany({ select: { id: true, name: true, slug: true, code: true, aliases: true } }),
+    prisma.college.findMany({ include: { indiaProfile: true, abroadProfile: true } }),
+  ]);
   const countryByKey = new Map<string, { id: string; name: string }>();
   for (const c of countries) {
     countryByKey.set(slugify(c.name), c);
     countryByKey.set(c.slug, c);
     for (const a of c.aliases) countryByKey.set(slugify(a), c);
   }
-
-  const existing = await prisma.college.findMany({
-    select: { id: true, slug: true, name: true, countryId: true, status: true, locationBasis: true, internalNotes: true },
-  });
+  const stateByKey = new Map<string, { id: string; name: string; slug: string }>();
+  for (const s of states) {
+    stateByKey.set(slugify(s.name), s);
+    stateByKey.set(s.slug, s);
+    stateByKey.set(s.code.toLowerCase(), s);
+    for (const a of s.aliases) stateByKey.set(slugify(a), s);
+  }
   const bySlug = new Map(existing.map((c) => [c.slug, c]));
   const usedNewSlugs = new Set<string>();
   const seenInFile = new Set<string>();
 
-  const items: PlanItem[] = rows.map((row): PlanItem => {
-    const base: PlanItem = {
-      line: row.line, action: "ERROR", country: row.country, name: row.name, city: row.city, slug: null, message: null,
-      locationBasis: null, note: row.note, existingId: null, countryId: null,
-    };
-    const fail = (message: string): PlanItem => ({ ...base, action: "ERROR", message });
+  const items = rows.map(({ line, v }): PlanItem<CollegeApply> => {
+    const name = v.name ?? "";
+    const item: PlanItem<CollegeApply> = { ...blankItem(line, name), apply: null };
+    const fail = (message: string): PlanItem<CollegeApply> => ({ ...item, action: "ERROR", message });
+    const problems: string[] = [];
+    const warnings: string[] = [];
+    const take = <T>(p: { ok: true; value: T } | { ok: false; message: string }): T | undefined => (p.ok ? p.value : (problems.push(p.message), undefined));
 
-    if (!row.country) return fail("Country is empty.");
-    const country = countryByKey.get(slugify(row.country));
-    if (!country) return fail(`Country "${row.country}" is not in the countries list. Add it under Countries first.`);
-    if (!row.city) return fail("City is empty.");
-    if (row.name.length > 200) return fail("College name is longer than 200 characters.");
-    if (row.city.length > 100) return fail("City is longer than 100 characters.");
+    // ---- kind, place ----
+    const explicit = v.kind ? KINDS[v.kind.toLowerCase()] : undefined;
+    if (v.kind && !explicit) return fail(`"${v.kind}" is not a known Kind. Use India or Abroad (or leave the column empty).`);
+    const countryIsIndia = v.country ? slugify(v.country) === "india" : false;
+    if (!explicit && v.state && v.country && !countryIsIndia) return fail("This row has both a Country and a State. Fill only one (State for Indian colleges, Country for foreign ones), or set Kind.");
+    const kind = explicit ?? (v.state || countryIsIndia ? "INDIA" : v.country ? "ABROAD" : undefined);
+    if (!kind) return fail("Country is empty. Give a Country for foreign colleges, or a State for Indian ones.");
 
-    let locationBasis: LocationBasis | null = null;
-    if (row.verified) {
-      locationBasis = LOCATION_BASIS[row.verified.toLowerCase()] ?? null;
-      if (!locationBasis) return fail(`"${row.verified}" is not a known value for Verified. Use "Well-known location", "City is in the college name" or "Checked online".`);
+    let place: { id: string; name: string; slug: string };
+    if (kind === "INDIA") {
+      if (v.country && !countryIsIndia) return fail(`An Indian college cannot have the country "${v.country}". Leave Country empty or use India.`);
+      if (!v.state) return fail("State is empty. Indian colleges need a State.");
+      const s = stateByKey.get(slugify(v.state));
+      if (!s) return fail(`State "${v.state}" is not in the states list.`);
+      place = s;
+    } else {
+      if (v.state) return fail("A foreign college has a country, not a state. Remove the State or set Kind to India.");
+      if (!v.country) return fail("Country is empty.");
+      const c = countryByKey.get(slugify(v.country));
+      if (!c) return fail(`Country "${v.country}" is not in the countries list. Add it under Countries first.`);
+      place = { ...c, slug: slugify(c.name) };
     }
+    if (!name) return fail("College name is empty.");
+    if (!v.city) return fail("City is empty.");
+    if (name.length > 200) return fail("College name is longer than 200 characters.");
+    if (v.city.length > 100) return fail("City is longer than 100 characters.");
 
-    const dupKey = `${country.id}|${row.name.toLowerCase()}`;
-    if (seenInFile.has(dupKey)) return fail(`"${row.name}" appears twice for ${country.name}. Remove one of the rows.`);
+    // ---- optional values (all checked before anything is decided) ----
+    const ownership = v.ownership ? OWNERSHIP[v.ownership.toLowerCase()] : undefined;
+    if (v.ownership && !ownership) problems.push(`Ownership "${v.ownership}" is not known. Use Government, Private, Deemed or Trust.`);
+    const established = v.established ? take(parseWholeNumber("Established year", v.established, 1500, new Date().getFullYear())) : undefined;
+    const courseLength = v.courseLength ? take(parseWholeNumber("Course length (months)", v.courseLength, 12, 144)) : undefined;
+    const website = v.website ? take(parseHttpUrl("Website", v.website)) : undefined;
+    let basis: LocationBasis | undefined;
+    if (v.verified) {
+      basis = LOCATION_BASIS[v.verified.toLowerCase()];
+      if (!basis) problems.push(`"${v.verified}" is not a known value for Verified. Use "Well-known location", "City is in the college name" or "Checked online".`);
+    }
+    if (v.hospital && v.hospital.length > 200) problems.push("Hospital name is longer than 200 characters.");
+    if (v.teachingLanguage && v.teachingLanguage.length > 80) problems.push("Teaching language is longer than 80 characters.");
+
+    const india: Record<string, unknown> = {};
+    const abroad: Record<string, unknown> = {};
+    if (kind === "INDIA") {
+      if (v.mbbsSeats) { const n = take(parseWholeNumber("MBBS seats", v.mbbsSeats, 1, 2000)); if (n !== undefined) india.mbbsSeats = n; }
+      if (v.hospital) india.hospitalName = v.hospital;
+      if (v.hospitalBeds) { const n = take(parseWholeNumber("Hospital beds", v.hospitalBeds, 0, 20000)); if (n !== undefined) india.hospitalBeds = n; }
+      for (const f of ["teachingLanguage", "intake", "internship", "seatsForIndians"] as const) if (v[f]) warnings.push(`The ${f === "seatsForIndians" ? "Seats for Indians" : f === "teachingLanguage" ? "Teaching language" : f === "intake" ? "Intake" : "Internship"} column only applies to foreign colleges, so it was ignored.`);
+    } else {
+      if (v.teachingLanguage) abroad.teachingLanguage = v.teachingLanguage;
+      if (v.intake) { const m = take(parseMonths("Intake", v.intake)); if (m) abroad.intakeMonths = m; }
+      if (v.internship) { const n = take(parseWholeNumber("Internship months", v.internship, 0, 60)); if (n !== undefined) abroad.internshipMonths = n; }
+      if (v.seatsForIndians) { const n = take(parseWholeNumber("Seats for Indians", v.seatsForIndians, 0, 5000)); if (n !== undefined) abroad.seatsForIndians = n; }
+      for (const f of ["mbbsSeats", "hospital", "hospitalBeds"] as const) if (v[f]) warnings.push(`The ${f === "mbbsSeats" ? "MBBS seats" : f === "hospital" ? "Hospital" : "Hospital beds"} column only applies to Indian colleges, so it was ignored.`);
+    }
+    if (problems.length) return fail(problems.join(" "));
+
+    const base: Record<string, unknown> = {};
+    if (ownership) base.ownership = ownership;
+    if (established !== undefined) base.establishedYear = established;
+    if (courseLength !== undefined) base.courseLengthMonths = courseLength;
+    if (website) base.websiteUrl = website;
+    if (basis) base.locationBasis = basis;
+    if (v.note) base.internalNotes = v.note;
+
+    const dupKey = `${kind}|${place.id}|${name.toLowerCase()}`;
+    if (seenInFile.has(dupKey)) return fail(`"${name}" appears twice for ${place.name}. Remove one of the rows.`);
     seenInFile.add(dupKey);
 
-    // Slug: plain name first; on a clash with a different college add the country code, then a number.
-    const root = slugifyShort(row.name);
+    // ---- slug: plain name first; on a clash with a different college add the place, then a number ----
+    const root = slugifyShort(name);
     if (!root) return fail("College name has no letters or digits to build a web address from.");
-    const iso = slugify(country.name);
-    const candidates = [root, `${root}-${iso}`, ...Array.from({ length: 8 }, (_, i) => `${root}-${iso}-${i + 2}`)];
+    const candidates = [root, `${root}-${place.slug}`, ...Array.from({ length: 8 }, (_, i) => `${root}-${place.slug}-${i + 2}`)];
     let slug: string | null = null;
-    let match: (typeof existing)[number] | undefined;
+    let match: Existing | undefined;
     for (const cand of candidates) {
       const owner = bySlug.get(cand);
       if (owner) {
-        if (owner.countryId === country.id && owner.name.toLowerCase() === row.name.toLowerCase()) {
+        const samePlace = kind === "INDIA" ? owner.stateId === place.id : owner.countryId === place.id;
+        if (owner.kind === kind && samePlace && owner.name.toLowerCase() === name.toLowerCase()) {
           slug = cand;
           match = owner;
           break;
         }
         continue; // taken by a different college
       }
-      if (!usedNewSlugs.has(cand)) {
-        slug = cand;
-        break;
-      }
+      if (!usedNewSlugs.has(cand)) { slug = cand; break; }
     }
     if (!slug) return fail("Could not build a unique web address for this college.");
 
+    const labelled = { ...item, label: `${name} (${place.name})`, detail: [v.city, ownership ? ownership.charAt(0) + ownership.slice(1).toLowerCase() : null].filter(Boolean).join(", "), slug, warnings };
+    const apply = (b: object, i: object, a: object): CollegeApply => ({ kind, slug: slug!, name, city: v.city!, stateId: kind === "INDIA" ? place.id : null, countryId: kind === "ABROAD" ? place.id : null, base: b, india: i, abroad: a });
+
     if (!match) {
       usedNewSlugs.add(slug);
-      return { ...base, action: "CREATE", slug, locationBasis, countryId: country.id, message: null };
+      return { ...labelled, action: "CREATE", message: null, apply: apply(base, india, abroad) };
     }
 
-    // Existing college: staff may have edited it, so never overwrite; only fill what is still empty.
-    const fills: string[] = [];
-    if (locationBasis && !match.locationBasis) fills.push("city check");
-    if (row.note && !match.internalNotes) fills.push("note");
-    const common = { ...base, slug, locationBasis, existingId: match.id, countryId: country.id };
-    if (!fills.length) return { ...common, action: match.status === "DRAFT" ? "UNCHANGED" : "SKIP", message: match.status === "DRAFT" ? null : `Already ${match.status.toLowerCase()}; left as it is.` };
-    return { ...common, action: "UPDATE", message: `Already exists as a ${match.status.toLowerCase()}; fills the empty ${fills.join(" and ")} only.` };
+    // ---- existing college: fill what is empty, keep what staff have, say where the file disagrees ----
+    const changes: PlanChange[] = [];
+    const fillBase: Record<string, unknown> = {};
+    const fillIndia: Record<string, unknown> = {};
+    const fillAbroad: Record<string, unknown> = {};
+    const consider = (field: string, current: unknown, uploaded: unknown, into: Record<string, unknown>, key: string) => {
+      if (uploaded === undefined) return;
+      const empty = current === null || current === undefined || current === "" || (Array.isArray(current) && current.length === 0);
+      if (empty) { into[key] = uploaded; changes.push({ field, current: null, uploaded: show(uploaded) }); }
+      else if (show(current) !== show(uploaded)) warnings.push(`Kept the stored ${field} "${show(current)}" (the file says "${show(uploaded)}").`);
+    };
+    if (v.city && v.city !== match.city) warnings.push(`Kept the stored city "${match.city}" (the file says "${v.city}").`);
+    consider("ownership", match.ownership, base.ownership, fillBase, "ownership");
+    consider("established year", match.establishedYear, base.establishedYear, fillBase, "establishedYear");
+    consider("course length (months)", match.courseLengthMonths, base.courseLengthMonths, fillBase, "courseLengthMonths");
+    consider("website", match.websiteUrl, base.websiteUrl, fillBase, "websiteUrl");
+    consider("city check", match.locationBasis, base.locationBasis, fillBase, "locationBasis");
+    consider("note", match.internalNotes, base.internalNotes, fillBase, "internalNotes");
+    if (kind === "INDIA") {
+      consider("MBBS seats", match.indiaProfile?.mbbsSeats, india.mbbsSeats, fillIndia, "mbbsSeats");
+      consider("hospital", match.indiaProfile?.hospitalName, india.hospitalName, fillIndia, "hospitalName");
+      consider("hospital beds", match.indiaProfile?.hospitalBeds, india.hospitalBeds, fillIndia, "hospitalBeds");
+    } else {
+      consider("teaching language", match.abroadProfile?.teachingLanguage, abroad.teachingLanguage, fillAbroad, "teachingLanguage");
+      consider("intake months", match.abroadProfile?.intakeMonths, abroad.intakeMonths, fillAbroad, "intakeMonths");
+      consider("internship months", match.abroadProfile?.internshipMonths, abroad.internshipMonths, fillAbroad, "internshipMonths");
+      consider("seats for Indians", match.abroadProfile?.seatsForIndians, abroad.seatsForIndians, fillAbroad, "seatsForIndians");
+    }
+    const common = { ...labelled, targetId: match.id, changes };
+    if (!changes.length) {
+      return match.status === "DRAFT"
+        ? { ...common, action: "UNCHANGED", message: null }
+        : { ...common, action: "SKIP", message: `Already ${match.status.toLowerCase()}; left as it is.` };
+    }
+    return {
+      ...common, action: "UPDATE", message: `Already exists as a ${match.status.toLowerCase()}; fills the empty ${changes.map((c) => c.field).join(", ")} only.`,
+      apply: apply(fillBase, fillIndia, fillAbroad),
+    };
   });
 
-  const counts: ImportPlan["counts"] = { CREATE: 0, UPDATE: 0, UNCHANGED: 0, SKIP: 0, ERROR: 0 };
-  const perCountry: Record<string, number> = {};
-  for (const i of items) {
-    counts[i.action]++;
-    if (i.action === "CREATE") perCountry[i.country] = (perCountry[i.country] ?? 0) + 1;
-  }
-  return { items, counts, perCountry };
+  return buildPlan(items, (i) => (i.label.match(/\(([^)]+)\)$/)?.[1] ?? null));
 }
 
-export interface CommitResult {
-  /** Null when there was nothing to save (no batch is recorded for a no-op). */
-  batchId: string | null;
-  created: number;
-  updated: number;
-}
-
-/**
- * Applies a plan in one transaction (all or nothing). Rows with errors are never written, so the caller decides
- * whether to commit a plan that still has errors (the script refuses; the admin screen can offer "save the valid rows").
- */
-export async function commitCollegeImport(plan: ImportPlan, meta: { filename: string; sha256: string; actor: AuditActor | null }): Promise<CommitResult> {
-  if (plan.counts.CREATE + plan.counts.UPDATE === 0) return { batchId: null, created: 0, updated: 0 };
-  return prisma.$transaction(async (tx) => {
-    const batch = await tx.importBatch.create({
-      data: {
-        kind: "COLLEGES", filename: meta.filename, fileSha256: meta.sha256, status: "UPLOADED", createdById: meta.actor?.id ?? null,
-        stats: plan.counts, errors: plan.items.filter((i) => i.action === "ERROR").map((i) => ({ line: i.line, name: i.name, message: i.message })),
-      },
-    });
-    let created = 0;
-    let updated = 0;
-    for (const item of plan.items) {
-      if (item.action === "CREATE") {
-        await tx.college.create({
-          data: {
-            slug: item.slug!, kind: "ABROAD", name: item.name, city: item.city, countryId: item.countryId!,
-            status: "DRAFT", locationBasis: item.locationBasis, internalNotes: item.note, importBatchId: batch.id,
-            abroadProfile: { create: {} },
-          },
-        });
-        created++;
-      } else if (item.action === "UPDATE") {
-        const current = await tx.college.findUniqueOrThrow({ where: { id: item.existingId! }, select: { locationBasis: true, internalNotes: true } });
-        await tx.college.update({
-          where: { id: item.existingId! },
-          data: {
-            ...(item.locationBasis && !current.locationBasis ? { locationBasis: item.locationBasis } : {}),
-            ...(item.note && !current.internalNotes ? { internalNotes: item.note } : {}),
-          },
-        });
-        updated++;
+/** Writes the plan inside the caller's transaction. Rows with errors, and rows that change nothing, are skipped. */
+export async function applyCollegePlan(tx: Prisma.TransactionClient, plan: Plan<CollegeApply>, batchId: string): Promise<{ created: number; updated: number }> {
+  let created = 0;
+  let updated = 0;
+  for (const item of plan.items) {
+    const a = item.apply;
+    if (!a) continue;
+    if (item.action === "CREATE") {
+      await tx.college.create({
+        data: {
+          ...(a.base as Prisma.CollegeUncheckedCreateInput),
+          slug: a.slug, kind: a.kind, name: a.name, city: a.city, stateId: a.stateId, countryId: a.countryId, status: "DRAFT", importBatchId: batchId,
+          ...(a.kind === "INDIA"
+            ? { indiaProfile: { create: a.india as Prisma.CollegeIndiaProfileUncheckedCreateWithoutCollegeInput } }
+            : { abroadProfile: { create: a.abroad as Prisma.CollegeAbroadProfileUncheckedCreateWithoutCollegeInput } }),
+        },
+      });
+      created++;
+    } else if (item.action === "UPDATE" && item.targetId) {
+      if (Object.keys(a.base).length) await tx.college.update({ where: { id: item.targetId }, data: a.base });
+      if (a.kind === "INDIA" && Object.keys(a.india).length) {
+        await tx.collegeIndiaProfile.upsert({ where: { collegeId: item.targetId }, update: a.india, create: { collegeId: item.targetId, ...(a.india as object) } });
       }
+      if (a.kind === "ABROAD" && Object.keys(a.abroad).length) {
+        await tx.collegeAbroadProfile.upsert({ where: { collegeId: item.targetId }, update: a.abroad, create: { collegeId: item.targetId, ...(a.abroad as object) } });
+      }
+      updated++;
     }
-    await tx.importBatch.update({ where: { id: batch.id }, data: { status: "COMMITTED", committedAt: new Date() } });
-    await audit(tx, { actor: meta.actor, action: "college_import.commit", entityType: "ImportBatch", entityId: batch.id, after: { filename: meta.filename, created, updated, counts: plan.counts } });
-    return { batchId: batch.id, created, updated };
-  });
+  }
+  return { created, updated };
 }

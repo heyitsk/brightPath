@@ -941,6 +941,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List uploads
+         * @description Newest first. Shows both waiting-to-save uploads and saved ones. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminImports"];
+        put?: never;
+        /**
+         * Upload a file and preview it (nothing is saved yet)
+         * @description Send the file as multipart form data (field `file`) with `?kind=COLLEGES` or `?kind=FEES`. The file is read and checked, and a preview of what saving would do is returned: counts, then every row with its action and a plain-words message. Nothing is changed in the catalogue until `POST /admin/imports/{id}/commit`. File-level problems (unreadable file, missing columns, too many rows) return 422 with `fields[0].path = "file"`.
+         *
+         *     **COLLEGES:** columns Country (or State for India colleges), College, City, and optionally Kind, Ownership, Established, Course length (months), Website, Teaching language, Intake, Internship months, Seats for Indians, MBBS seats, Hospital, Hospital beds, Verified, Note. New colleges are always drafts. Existing colleges are never overwritten, only empty fields are filled.
+         *
+         *     **FEES:** columns College (or Slug), Year, Tuition, Currency, and optionally Country/State (to tell apart same-named colleges), Hostel, Other, Source URL, Source, Checked on. A fee row replaces the stored one for that college and year. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/templates/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a CSV template
+         * @description The expected column headings with two example rows (delete them before uploading). Excel files use the same headings; column order does not matter. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminImportsTemplatesByKind"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an upload (with a fresh preview if not saved yet)
+         * @description While the upload is waiting to be saved the preview is recomputed against the data as it is now, so it is never stale. After saving, `preview` is null and `batch.result` / `errors` describe what happened. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminImportsById"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard an unsaved upload
+         * @description Throws away an upload that has not been saved. A saved upload is kept as a record (409). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminImportsById"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save an upload
+         * @description Recomputes the preview against the current data and saves it in one step: all of it or none of it. 422 listing the problem rows if any row has an error, unless `skipBadRows` is true. 409 if the upload was already saved. Rows that change nothing are left alone. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminImportsByIdCommit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12861,6 +12953,991 @@ export interface operations {
                         collegesUsing: string | number;
                         /** @description Colleges whose rupee total actually changed */
                         collegesRecalculated: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminImports: {
+        parameters: {
+            query?: {
+                kind?: ("COLLEGES" | "FEES") | "MOCK_SAMPLE";
+                status?: "UPLOADED" | "VALIDATED" | "COMMITTED" | "FAILED";
+                limit?: string | number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            kind: ("COLLEGES" | "FEES") | "MOCK_SAMPLE";
+                            filename: string;
+                            /** @enum {string} */
+                            status: "UPLOADED" | "VALIDATED" | "COMMITTED" | "FAILED";
+                            /** @description Row counts by action (at upload time, or at save time once saved) */
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            } | null;
+                            /** @description After saving: what was written, e.g. `{ created, updated }` */
+                            result: {
+                                [key: string]: string | number;
+                            } | null;
+                            createdById: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            committedAt: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminImports: {
+        parameters: {
+            query: {
+                kind: "COLLEGES" | "FEES";
+                action?: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                limit?: string | number;
+                offset?: string | number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: binary
+                     * @description An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows
+                     * @default File
+                     */
+                    file: string;
+                };
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * Format: binary
+                     * @description An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows
+                     * @default File
+                     */
+                    file: string;
+                };
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows
+                     * @default File
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 201 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One upload */
+                        batch: {
+                            /** Format: uuid */
+                            id: string;
+                            kind: ("COLLEGES" | "FEES") | "MOCK_SAMPLE";
+                            filename: string;
+                            /** @enum {string} */
+                            status: "UPLOADED" | "VALIDATED" | "COMMITTED" | "FAILED";
+                            /** @description Row counts by action (at upload time, or at save time once saved) */
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            } | null;
+                            /** @description After saving: what was written, e.g. `{ created, updated }` */
+                            result: {
+                                [key: string]: string | number;
+                            } | null;
+                            createdById: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            committedAt: string | null;
+                        };
+                        /** @description The preview shown before anything is saved */
+                        preview: {
+                            sheet: string;
+                            totalRows: string | number;
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            };
+                            /** @description New rows grouped, e.g. per country (colleges) or per college (fees) */
+                            groups: {
+                                [key: string]: string | number;
+                            };
+                            /** @description Header cells that matched no known column; usually a typo */
+                            ignoredColumns: string[];
+                            /** @description File-level messages to show above the preview */
+                            notices: string[];
+                            /** @description True when saving would create or change something */
+                            canSave: boolean;
+                            /** @description True when some rows have problems. Saving then needs `skipBadRows`. */
+                            hasErrors: boolean;
+                            /** @description Rows matching the `action` filter */
+                            itemsTotal: string | number;
+                            offset: string | number;
+                            /** @description Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action` */
+                            items: {
+                                /** @description Row number in the file */
+                                line: string | number;
+                                /** @enum {string} */
+                                action: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                                /** @description e.g. "Altai State Medical University (Russia)" or "…, year 3" */
+                                label: string;
+                                detail: string | null;
+                                slug: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The college that already exists, if any
+                                 */
+                                targetId: string | null;
+                                /** @description Plain-words explanation. Always set for ERROR, SKIP and UPDATE. */
+                                message: string | null;
+                                /** @description UPDATE rows: each field that would change */
+                                changes: {
+                                    field: string;
+                                    current: string | null;
+                                    uploaded: string | null;
+                                }[];
+                                /** @description Do not block the row, but are worth a look */
+                                warnings: string[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminImportsTemplatesByKind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "COLLEGES" | "FEES";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminImportsById: {
+        parameters: {
+            query?: {
+                action?: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                limit?: string | number;
+                offset?: string | number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One upload */
+                        batch: {
+                            /** Format: uuid */
+                            id: string;
+                            kind: ("COLLEGES" | "FEES") | "MOCK_SAMPLE";
+                            filename: string;
+                            /** @enum {string} */
+                            status: "UPLOADED" | "VALIDATED" | "COMMITTED" | "FAILED";
+                            /** @description Row counts by action (at upload time, or at save time once saved) */
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            } | null;
+                            /** @description After saving: what was written, e.g. `{ created, updated }` */
+                            result: {
+                                [key: string]: string | number;
+                            } | null;
+                            createdById: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            committedAt: string | null;
+                        };
+                        /** @description The preview shown before anything is saved */
+                        preview: {
+                            sheet: string;
+                            totalRows: string | number;
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            };
+                            /** @description New rows grouped, e.g. per country (colleges) or per college (fees) */
+                            groups: {
+                                [key: string]: string | number;
+                            };
+                            /** @description Header cells that matched no known column; usually a typo */
+                            ignoredColumns: string[];
+                            /** @description File-level messages to show above the preview */
+                            notices: string[];
+                            /** @description True when saving would create or change something */
+                            canSave: boolean;
+                            /** @description True when some rows have problems. Saving then needs `skipBadRows`. */
+                            hasErrors: boolean;
+                            /** @description Rows matching the `action` filter */
+                            itemsTotal: string | number;
+                            offset: string | number;
+                            /** @description Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action` */
+                            items: {
+                                /** @description Row number in the file */
+                                line: string | number;
+                                /** @enum {string} */
+                                action: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                                /** @description e.g. "Altai State Medical University (Russia)" or "…, year 3" */
+                                label: string;
+                                detail: string | null;
+                                slug: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The college that already exists, if any
+                                 */
+                                targetId: string | null;
+                                /** @description Plain-words explanation. Always set for ERROR, SKIP and UPDATE. */
+                                message: string | null;
+                                /** @description UPDATE rows: each field that would change */
+                                changes: {
+                                    field: string;
+                                    current: string | null;
+                                    uploaded: string | null;
+                                }[];
+                                /** @description Do not block the row, but are worth a look */
+                                warnings: string[];
+                            }[];
+                        } | null;
+                        errors: {
+                            line: string | number;
+                            label: string;
+                            message: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminImportsById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminImportsByIdCommit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Save the valid rows and leave out the ones with problems */
+                    skipBadRows?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @description Save the valid rows and leave out the ones with problems */
+                    skipBadRows?: boolean;
+                };
+                "multipart/form-data": {
+                    /** @description Save the valid rows and leave out the ones with problems */
+                    skipBadRows?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One upload */
+                        batch: {
+                            /** Format: uuid */
+                            id: string;
+                            kind: ("COLLEGES" | "FEES") | "MOCK_SAMPLE";
+                            filename: string;
+                            /** @enum {string} */
+                            status: "UPLOADED" | "VALIDATED" | "COMMITTED" | "FAILED";
+                            /** @description Row counts by action (at upload time, or at save time once saved) */
+                            counts: {
+                                CREATE: string | number;
+                                UPDATE: string | number;
+                                UNCHANGED: string | number;
+                                SKIP: string | number;
+                                ERROR: string | number;
+                            } | null;
+                            /** @description After saving: what was written, e.g. `{ created, updated }` */
+                            result: {
+                                [key: string]: string | number;
+                            } | null;
+                            createdById: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            committedAt: string | null;
+                        };
+                        /** @description COLLEGES: `created`, `updated`. FEES: also `colleges` and `sourcesCreated`. */
+                        result: {
+                            [key: string]: string | number;
+                        };
                     };
                 };
             };

@@ -1,48 +1,50 @@
-// Loads the starting college list (Excel) into the database as DRAFT colleges.
+// Loads a college list or a fee list (Excel or CSV) from the command line, through the same pipeline as the admin upload.
 //
-//   bun run scripts/load-colleges.ts "<path to .xlsx>" [--dry-run] [--skip-bad-rows]
+//   bun run scripts/load-colleges.ts "<file>" [--fees] [--dry-run] [--skip-bad-rows]
 //
-// Prerequisite: `bun run db:seed` (the countries must exist).
-// Reads the "All colleges" sheet (columns Country, College, City, Verified, Note), prints a preview, then saves.
-// Safe to re-run: existing colleges are never overwritten. Nothing is made public; every college starts as a draft.
-// Acts as the first active ADMIN, like load-neet-data.ts, so the audit log shows who loaded it.
-import { createHash } from "node:crypto";
+// Without --fees the file is a college list (columns Country/State, College, City, ...); with --fees it is a fee list.
+// Prerequisite: `bun run db:seed` (countries and states must exist).
+// Prints the preview, then saves. Safe to re-run: existing colleges are never overwritten (empty fields are filled).
+// Nothing is made public; every college starts as a draft. Acts as the first active ADMIN so the audit log shows who loaded it.
 import { basename } from "node:path";
 import { prisma } from "../src/lib/prisma";
-import { commitCollegeImport, parseCollegeWorkbook, planCollegeImport } from "../src/modules/college/college-import";
+import { commitImport, createImport, previewFile, type UploadKind } from "../src/modules/imports/imports.service";
 
 const args = process.argv.slice(2);
 const file = args.find((a) => !a.startsWith("--"));
-if (!file) throw new Error('Usage: bun run scripts/load-colleges.ts "<file.xlsx>" [--dry-run] [--skip-bad-rows]');
+if (!file) throw new Error('Usage: bun run scripts/load-colleges.ts "<file.xlsx|csv>" [--fees] [--dry-run] [--skip-bad-rows]');
+const kind: UploadKind = args.includes("--fees") ? "FEES" : "COLLEGES";
 const dryRun = args.includes("--dry-run");
 const skipBad = args.includes("--skip-bad-rows");
 
-const bytes = Buffer.from(await Bun.file(file).arrayBuffer());
-const parsed = await parseCollegeWorkbook(bytes);
-const plan = await planCollegeImport(parsed.rows);
-for (const e of parsed.errors) plan.items.push({ line: e.line, action: "ERROR", country: "", name: "", city: "", slug: null, message: e.message, locationBasis: null, note: null, existingId: null, countryId: null });
-plan.counts.ERROR += parsed.errors.length;
+const bytes = new Uint8Array(await Bun.file(file).arrayBuffer());
+const name = basename(file);
 
-console.log(`Sheet "${parsed.sheet}": ${parsed.rows.length} rows read`);
-console.log("Would create:", plan.perCountry);
-console.log("Summary:", plan.counts);
-for (const i of plan.items.filter((x) => x.action === "ERROR" || x.action === "SKIP" || x.action === "UPDATE")) {
-  console.log(`  row ${i.line} [${i.action}] ${i.name}: ${i.message}`);
-}
+const show = (p: Awaited<ReturnType<typeof previewFile>>["preview"]) => {
+  console.log(`Sheet "${p.sheet}": ${p.totalRows} rows read`);
+  console.log("Would create:", p.groups);
+  console.log("Summary:", p.counts);
+  for (const n of p.notices) console.log("Note:", n);
+  for (const i of p.items.filter((x) => x.action === "ERROR" || x.action === "SKIP" || x.action === "UPDATE").slice(0, 60)) console.log(`  row ${i.line} [${i.action}] ${i.label}: ${i.message}`);
+};
 
 if (dryRun) {
+  show((await previewFile(kind, name, bytes)).preview);
   console.log("Dry run: nothing saved.");
-} else if (plan.counts.ERROR > 0 && !skipBad) {
-  console.error(`\n${plan.counts.ERROR} row(s) have problems. Fix the file, or re-run with --skip-bad-rows to save the valid rows only.`);
-  process.exitCode = 1;
 } else {
   const admin = await prisma.staffUser.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("No active ADMIN user found. Run `bun run admin:bootstrap` first.");
-  const result = await commitCollegeImport(plan, {
-    filename: basename(file),
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    actor: { id: admin.id, email: admin.email },
-  });
-  console.log(result.batchId ? `Saved. Created ${result.created}, updated ${result.updated}. Import batch ${result.batchId}.` : "Nothing to save: the database already has all of these.");
+  const actor = { id: admin.id, email: admin.email };
+  const { batch, preview } = await createImport(actor, kind, name, bytes, { limit: 500 });
+  show(preview);
+  if (preview.hasErrors && !skipBad) {
+    console.error(`\n${preview.counts.ERROR} row(s) have problems. Fix the file, or re-run with --skip-bad-rows to save the valid rows only. (Preview kept as import ${batch.id}.)`);
+    process.exitCode = 1;
+  } else if (!preview.canSave) {
+    console.log("Nothing to save: the database already has all of this.");
+  } else {
+    const res = await commitImport(actor, batch.id, { skipBadRows: skipBad });
+    console.log("Saved.", res.result, `Import ${batch.id}.`);
+  }
 }
 await prisma.$disconnect();

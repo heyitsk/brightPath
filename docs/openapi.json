@@ -1,8 +1,8 @@
 {
   "info": {
     "title": "BrightPath API",
-    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
-    "version": "0.7.0"
+    "description": "Backend API for BrightPath: NEET rank predictor, college finder and student enquiries.\n\nThis spec is the contract for the frontend. Every route documents its summary, parameters, request body and responses. Exported to `docs/openapi.json` via `bun run openapi:export`.\n\n**Errors.** Every non-2xx response uses one body shape, `{ error: { code, message, fields?, requestId } }`. `fields` lists per-field problems for form validation (HTTP 422). `requestId` matches the `X-Request-Id` header.\n\n**Empty query values.** A query parameter sent with an empty value (`?limit=`) is treated as not provided.\n\n**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n**Changelog.** 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. 0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
+    "version": "0.8.0"
   },
   "tags": [
     {
@@ -44,6 +44,10 @@
     {
       "name": "Admin · Exchange rates",
       "description": "Currency to rupee rates; changing one re-prices every college using it (EDITOR or ADMIN)"
+    },
+    {
+      "name": "Admin · Imports",
+      "description": "Bulk upload of colleges and fees from Excel/CSV, with a preview before saving (EDITOR or ADMIN)"
     },
     {
       "name": "Admin · NEET",
@@ -40879,6 +40883,3165 @@
           }
         },
         "operationId": "deleteAdminFx-ratesByCurrency"
+      }
+    },
+    "/admin/imports": {
+      "get": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "List uploads",
+        "description": "Newest first. Shows both waiting-to-save uploads and saved ones. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "COLLEGES",
+                    "FEES"
+                  ]
+                },
+                {
+                  "const": "MOCK_SAMPLE",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "UPLOADED",
+                "VALIDATED",
+                "COMMITTED",
+                "FAILED"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 100,
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "description": "One upload",
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "kind",
+                          "filename",
+                          "status",
+                          "counts",
+                          "result",
+                          "createdById",
+                          "createdAt",
+                          "committedAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "COLLEGES",
+                                  "FEES"
+                                ]
+                              },
+                              {
+                                "const": "MOCK_SAMPLE",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "UPLOADED",
+                              "VALIDATED",
+                              "COMMITTED",
+                              "FAILED"
+                            ]
+                          },
+                          "counts": {
+                            "description": "Row counts by action (at upload time, or at save time once saved)",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "required": [
+                              "CREATE",
+                              "UPDATE",
+                              "UNCHANGED",
+                              "SKIP",
+                              "ERROR"
+                            ],
+                            "properties": {
+                              "CREATE": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "UPDATE": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "UNCHANGED": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "SKIP": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "ERROR": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "result": {
+                            "description": "After saving: what was written, e.g. `{ created, updated }`",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "patternProperties": {
+                              "^(.*)$": {
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "createdById": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "committedAt": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminImports"
+      },
+      "post": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "Upload a file and preview it (nothing is saved yet)",
+        "description": "Send the file as multipart form data (field `file`) with `?kind=COLLEGES` or `?kind=FEES`. The file is read and checked, and a preview of what saving would do is returned: counts, then every row with its action and a plain-words message. Nothing is changed in the catalogue until `POST /admin/imports/{id}/commit`. File-level problems (unreadable file, missing columns, too many rows) return 422 with `fields[0].path = \"file\"`.\n\n**COLLEGES:** columns Country (or State for India colleges), College, City, and optionally Kind, Ownership, Established, Course length (months), Website, Teaching language, Intake, Internship months, Seats for Indians, MBBS seats, Hospital, Hospital beds, Verified, Note. New colleges are always drafts. Existing colleges are never overwritten, only empty fields are filled.\n\n**FEES:** columns College (or Slug), Year, Tuition, Currency, and optionally Country/State (to tell apart same-named colleges), Hostel, Other, Source URL, Source, Checked on. A fee row replaces the stored one for that college and year. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COLLEGES",
+                "FEES"
+              ]
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "UNCHANGED",
+                "SKIP",
+                "ERROR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Rows per page (default 100)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 500,
+                  "description": "Rows per page (default 100)",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "description": "Rows to skip (default 0)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 0,
+                  "description": "Rows to skip (default 0)",
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "default": "File",
+                    "description": "An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "default": "File",
+                    "description": "An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "default": "File",
+                    "description": "An Excel (.xlsx) or CSV (.csv) file, up to 1 MB and 5,000 rows",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response for status 201",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "batch",
+                    "preview"
+                  ],
+                  "properties": {
+                    "batch": {
+                      "description": "One upload",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "kind",
+                        "filename",
+                        "status",
+                        "counts",
+                        "result",
+                        "createdById",
+                        "createdAt",
+                        "committedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "COLLEGES",
+                                "FEES"
+                              ]
+                            },
+                            {
+                              "const": "MOCK_SAMPLE",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "filename": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "UPLOADED",
+                            "VALIDATED",
+                            "COMMITTED",
+                            "FAILED"
+                          ]
+                        },
+                        "counts": {
+                          "description": "Row counts by action (at upload time, or at save time once saved)",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "CREATE",
+                            "UPDATE",
+                            "UNCHANGED",
+                            "SKIP",
+                            "ERROR"
+                          ],
+                          "properties": {
+                            "CREATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UPDATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UNCHANGED": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "SKIP": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "ERROR": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "result": {
+                          "description": "After saving: what was written, e.g. `{ created, updated }`",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "patternProperties": {
+                            "^(.*)$": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "createdById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "committedAt": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "preview": {
+                      "description": "The preview shown before anything is saved",
+                      "type": "object",
+                      "required": [
+                        "sheet",
+                        "totalRows",
+                        "counts",
+                        "groups",
+                        "ignoredColumns",
+                        "notices",
+                        "canSave",
+                        "hasErrors",
+                        "itemsTotal",
+                        "offset",
+                        "items"
+                      ],
+                      "properties": {
+                        "sheet": {
+                          "type": "string"
+                        },
+                        "totalRows": {
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "counts": {
+                          "type": "object",
+                          "required": [
+                            "CREATE",
+                            "UPDATE",
+                            "UNCHANGED",
+                            "SKIP",
+                            "ERROR"
+                          ],
+                          "properties": {
+                            "CREATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UPDATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UNCHANGED": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "SKIP": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "ERROR": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "groups": {
+                          "description": "New rows grouped, e.g. per country (colleges) or per college (fees)",
+                          "type": "object",
+                          "patternProperties": {
+                            "^(.*)$": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "ignoredColumns": {
+                          "description": "Header cells that matched no known column; usually a typo",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "notices": {
+                          "description": "File-level messages to show above the preview",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "canSave": {
+                          "description": "True when saving would create or change something",
+                          "type": "boolean"
+                        },
+                        "hasErrors": {
+                          "description": "True when some rows have problems. Saving then needs `skipBadRows`.",
+                          "type": "boolean"
+                        },
+                        "itemsTotal": {
+                          "description": "Rows matching the `action` filter",
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "description": "Rows matching the `action` filter",
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "offset": {
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "items": {
+                          "description": "Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action`",
+                          "type": "array",
+                          "items": {
+                            "description": "What one row of the file would do",
+                            "type": "object",
+                            "required": [
+                              "line",
+                              "action",
+                              "label",
+                              "detail",
+                              "slug",
+                              "targetId",
+                              "message",
+                              "changes",
+                              "warnings"
+                            ],
+                            "properties": {
+                              "line": {
+                                "description": "Row number in the file",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "Row number in the file",
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "CREATE",
+                                  "UPDATE",
+                                  "UNCHANGED",
+                                  "SKIP",
+                                  "ERROR"
+                                ]
+                              },
+                              "label": {
+                                "description": "e.g. \"Altai State Medical University (Russia)\" or \"…, year 3\"",
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "slug": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "targetId": {
+                                "description": "The college that already exists, if any",
+                                "format": "uuid",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "description": "Plain-words explanation. Always set for ERROR, SKIP and UPDATE.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "changes": {
+                                "description": "UPDATE rows: each field that would change",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "field",
+                                    "current",
+                                    "uploaded"
+                                  ],
+                                  "properties": {
+                                    "field": {
+                                      "type": "string"
+                                    },
+                                    "current": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "uploaded": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "warnings": {
+                                "description": "Do not block the row, but are worth a look",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminImports"
+      }
+    },
+    "/admin/imports/templates/{kind}": {
+      "get": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "Download a CSV template",
+        "description": "The expected column headings with two example rows (delete them before uploading). Excel files use the same headings; column order does not matter. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COLLEGES",
+                "FEES"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "description": "CSV text",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminImportsTemplatesByKind"
+      }
+    },
+    "/admin/imports/{id}": {
+      "get": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "Get an upload (with a fresh preview if not saved yet)",
+        "description": "While the upload is waiting to be saved the preview is recomputed against the data as it is now, so it is never stale. After saving, `preview` is null and `batch.result` / `errors` describe what happened. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "UNCHANGED",
+                "SKIP",
+                "ERROR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Rows per page (default 100)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 1,
+                  "maximum": 500,
+                  "description": "Rows per page (default 100)",
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "description": "Rows to skip (default 0)",
+              "anyOf": [
+                {
+                  "format": "integer",
+                  "default": 0,
+                  "type": "string"
+                },
+                {
+                  "minimum": 0,
+                  "description": "Rows to skip (default 0)",
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "batch",
+                    "preview",
+                    "errors"
+                  ],
+                  "properties": {
+                    "batch": {
+                      "description": "One upload",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "kind",
+                        "filename",
+                        "status",
+                        "counts",
+                        "result",
+                        "createdById",
+                        "createdAt",
+                        "committedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "COLLEGES",
+                                "FEES"
+                              ]
+                            },
+                            {
+                              "const": "MOCK_SAMPLE",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "filename": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "UPLOADED",
+                            "VALIDATED",
+                            "COMMITTED",
+                            "FAILED"
+                          ]
+                        },
+                        "counts": {
+                          "description": "Row counts by action (at upload time, or at save time once saved)",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "CREATE",
+                            "UPDATE",
+                            "UNCHANGED",
+                            "SKIP",
+                            "ERROR"
+                          ],
+                          "properties": {
+                            "CREATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UPDATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UNCHANGED": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "SKIP": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "ERROR": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "result": {
+                          "description": "After saving: what was written, e.g. `{ created, updated }`",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "patternProperties": {
+                            "^(.*)$": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "createdById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "committedAt": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "preview": {
+                      "description": "The preview shown before anything is saved",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "sheet",
+                        "totalRows",
+                        "counts",
+                        "groups",
+                        "ignoredColumns",
+                        "notices",
+                        "canSave",
+                        "hasErrors",
+                        "itemsTotal",
+                        "offset",
+                        "items"
+                      ],
+                      "properties": {
+                        "sheet": {
+                          "type": "string"
+                        },
+                        "totalRows": {
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "counts": {
+                          "type": "object",
+                          "required": [
+                            "CREATE",
+                            "UPDATE",
+                            "UNCHANGED",
+                            "SKIP",
+                            "ERROR"
+                          ],
+                          "properties": {
+                            "CREATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UPDATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UNCHANGED": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "SKIP": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "ERROR": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "groups": {
+                          "description": "New rows grouped, e.g. per country (colleges) or per college (fees)",
+                          "type": "object",
+                          "patternProperties": {
+                            "^(.*)$": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "ignoredColumns": {
+                          "description": "Header cells that matched no known column; usually a typo",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "notices": {
+                          "description": "File-level messages to show above the preview",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "canSave": {
+                          "description": "True when saving would create or change something",
+                          "type": "boolean"
+                        },
+                        "hasErrors": {
+                          "description": "True when some rows have problems. Saving then needs `skipBadRows`.",
+                          "type": "boolean"
+                        },
+                        "itemsTotal": {
+                          "description": "Rows matching the `action` filter",
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "description": "Rows matching the `action` filter",
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "offset": {
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        },
+                        "items": {
+                          "description": "Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action`",
+                          "type": "array",
+                          "items": {
+                            "description": "What one row of the file would do",
+                            "type": "object",
+                            "required": [
+                              "line",
+                              "action",
+                              "label",
+                              "detail",
+                              "slug",
+                              "targetId",
+                              "message",
+                              "changes",
+                              "warnings"
+                            ],
+                            "properties": {
+                              "line": {
+                                "description": "Row number in the file",
+                                "anyOf": [
+                                  {
+                                    "format": "integer",
+                                    "default": 0,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "Row number in the file",
+                                    "type": "integer"
+                                  }
+                                ]
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "CREATE",
+                                  "UPDATE",
+                                  "UNCHANGED",
+                                  "SKIP",
+                                  "ERROR"
+                                ]
+                              },
+                              "label": {
+                                "description": "e.g. \"Altai State Medical University (Russia)\" or \"…, year 3\"",
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "slug": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "targetId": {
+                                "description": "The college that already exists, if any",
+                                "format": "uuid",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "description": "Plain-words explanation. Always set for ERROR, SKIP and UPDATE.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "changes": {
+                                "description": "UPDATE rows: each field that would change",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "field",
+                                    "current",
+                                    "uploaded"
+                                  ],
+                                  "properties": {
+                                    "field": {
+                                      "type": "string"
+                                    },
+                                    "current": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "uploaded": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "warnings": {
+                                "description": "Do not block the row, but are worth a look",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "line",
+                          "label",
+                          "message"
+                        ],
+                        "properties": {
+                          "line": {
+                            "anyOf": [
+                              {
+                                "format": "integer",
+                                "default": 0,
+                                "type": "string"
+                              },
+                              {
+                                "type": "integer"
+                              }
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getAdminImportsById"
+      },
+      "delete": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "Discard an unsaved upload",
+        "description": "Throws away an upload that has not been saved. A saved upload is kept as a record (409). Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state of the data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflicts with the current state of the data",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "deleteAdminImportsById"
+      }
+    },
+    "/admin/imports/{id}/commit": {
+      "post": {
+        "tags": [
+          "Admin · Imports"
+        ],
+        "summary": "Save an upload",
+        "description": "Recomputes the preview against the current data and saves it in one step: all of it or none of it. 422 listing the problem rows if any row has an error, unless `skipBadRows` is true. 409 if the upload was already saved. Rows that change nothing are left alone. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skipBadRows": {
+                    "description": "Save the valid rows and leave out the ones with problems",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skipBadRows": {
+                    "description": "Save the valid rows and leave out the ones with problems",
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skipBadRows": {
+                    "description": "Save the valid rows and leave out the ones with problems",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "batch",
+                    "result"
+                  ],
+                  "properties": {
+                    "batch": {
+                      "description": "One upload",
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "kind",
+                        "filename",
+                        "status",
+                        "counts",
+                        "result",
+                        "createdById",
+                        "createdAt",
+                        "committedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "COLLEGES",
+                                "FEES"
+                              ]
+                            },
+                            {
+                              "const": "MOCK_SAMPLE",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "filename": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "UPLOADED",
+                            "VALIDATED",
+                            "COMMITTED",
+                            "FAILED"
+                          ]
+                        },
+                        "counts": {
+                          "description": "Row counts by action (at upload time, or at save time once saved)",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "required": [
+                            "CREATE",
+                            "UPDATE",
+                            "UNCHANGED",
+                            "SKIP",
+                            "ERROR"
+                          ],
+                          "properties": {
+                            "CREATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UPDATE": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "UNCHANGED": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "SKIP": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            },
+                            "ERROR": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "result": {
+                          "description": "After saving: what was written, e.g. `{ created, updated }`",
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "patternProperties": {
+                            "^(.*)$": {
+                              "anyOf": [
+                                {
+                                  "format": "integer",
+                                  "default": 0,
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "integer"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "createdById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "committedAt": {
+                          "format": "date-time",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "result": {
+                      "description": "COLLEGES: `created`, `updated`. FEES: also `colleges` and `sourcesCreated`.",
+                      "type": "object",
+                      "patternProperties": {
+                        "^(.*)$": {
+                          "anyOf": [
+                            {
+                              "format": "integer",
+                              "default": 0,
+                              "type": "string"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not logged in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not logged in",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Logged in but not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Logged in but not allowed",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Not found",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state of the data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Conflicts with the current state of the data",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. See `error.fields` for each problem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Validation failed. See `error.fields` for each problem",
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET`",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable summary, e.g. `Please fix 2 things below.`",
+                          "type": "string"
+                        },
+                        "fields": {
+                          "description": "Per-field problems. Present for validation errors.",
+                          "type": "array",
+                          "items": {
+                            "description": "One problem with one field",
+                            "type": "object",
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "properties": {
+                              "path": {
+                                "description": "Dotted path of the offending field, e.g. `phone` or `items.0.name`",
+                                "type": "string"
+                              },
+                              "message": {
+                                "description": "Human-readable explanation, safe to show next to the field",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "requestId": {
+                          "description": "Echoes the `X-Request-Id` response header. Quote it when reporting a problem.",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postAdminImportsByIdCommit"
       }
     }
   }

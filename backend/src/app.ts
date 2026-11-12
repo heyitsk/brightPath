@@ -12,6 +12,7 @@ import { securityHeaders } from "./plugins/security-headers";
 import { auditAdminRoutes } from "./modules/audit/audit.admin.routes";
 import { collegeAdminRoutes } from "./modules/college/college.admin.routes";
 import { fxAdminRoutes } from "./modules/fx/fx.admin.routes";
+import { importsAdminRoutes } from "./modules/imports/imports.admin.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { geographyAdminRoutes } from "./modules/reference/geography.admin.routes";
 import { provenanceAdminRoutes } from "./modules/reference/provenance.admin.routes";
@@ -22,7 +23,7 @@ import { siteAdminRoutes } from "./modules/site/site.admin.routes";
 import { siteRoutes } from "./modules/site/site.routes";
 import { staffAdminRoutes } from "./modules/staff/staff.admin.routes";
 
-export const API_VERSION = "0.7.0";
+export const API_VERSION = "0.8.0";
 
 // The app is built here and started in index.ts, so scripts (e.g. OpenAPI export) and tests
 // can import it without opening a port.
@@ -61,7 +62,7 @@ export const app = new Elysia()
             "**Rate limits.** Public routes are limited per IP. When exceeded the API answers 429 with a `Retry-After` header.\n\n" +
             "**Staff auth.** `/admin/*` routes need a staff session: `POST /admin/auth/login` sets an httpOnly `bp_session` cookie; send requests with credentials. " +
             "Writes must also send `X-BP-Admin: 1`. Roles: ADMIN (everything), EDITOR (content and data), COUNSELLOR (enquiries). 401 = not logged in, 403 = not allowed.\n\n" +
-            "**Changelog.** 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
+            "**Changelog.** 0.8.0: bulk upload (`/admin/imports`): upload an Excel or CSV file of colleges or of fees, get a row-by-row preview, then save it in one step or discard it. CSV templates at `/admin/imports/templates/{kind}`. 0.7.0: exchange rates (`/admin/fx-rates`): one rate per currency, set singly or in bulk; changing a rate recalculates the rupee total of every college using that currency in the same step; a change of more than 20% needs `confirmLargeChange`; a rate cannot be removed while a live college uses it. 0.6.0: college catalogue admin (`/admin/colleges`): create colleges as drafts, edit details, inline fee table (one row per course year, `PUT /admin/colleges/{id}/fees/{year}`), source links, FAQs, and the status actions Mark ready / Move to draft / Archive. Mark ready is refused with 422 and a list of every missing detail until the college is complete; a live college cannot be edited into an incomplete state. NMC notices can now be college-level (`scope` COLLEGE + `collegeId`). 0.5.2: validation errors now name the right field for out-of-range numbers (was `(body)`; unnamed cases are `(request)`) and say what is allowed (\"Enter a whole number from -180 to 720.\") instead of \"Expected union value\"; `GET /neet/rank` answers 404 with error code `NOT_PUBLISHED_YET` while no year is published (a year that is not available is still 422 on `year`). 0.5.1: a locked staff account now answers 429 with error code `ACCOUNT_LOCKED` (was `RATE_LIMITED`); a refused setting value now explains what is allowed. 0.5.0: NEET rank predictor (`GET /neet/rank`, `GET /neet/data-sources`) and NEET data admin (years, cut-offs, score-count upload, preview, publish). 0.4.0: reference data admin (states, countries, sources, NMC notices). 0.3.1: blank query parameters are treated as not provided. 0.3.0: staff login/roles, staff management, site settings, versioned disclaimers, audit log, `GET /site/config`. " +
             "0.2.0: foundation (error envelope, request ids, rate limiting, security headers).",
         },
         tags: [
@@ -75,6 +76,7 @@ export const app = new Elysia()
           { name: "Admin · Reference", description: "States, countries, official sources and NMC notices (EDITOR or ADMIN)" },
           { name: "Admin · Colleges", description: "Colleges: drafts, Mark ready, fee table, sources, FAQs (EDITOR or ADMIN)" },
           { name: "Admin · Exchange rates", description: "Currency to rupee rates; changing one re-prices every college using it (EDITOR or ADMIN)" },
+          { name: "Admin · Imports", description: "Bulk upload of colleges and fees from Excel/CSV, with a preview before saving (EDITOR or ADMIN)" },
           { name: "Admin · NEET", description: "NEET years, cut-offs, score-count upload, preview and publish (EDITOR or ADMIN)" },
         ],
         components: { schemas: { ErrorEnvelope } },
@@ -94,7 +96,8 @@ export const app = new Elysia()
   .use(provenanceAdminRoutes)
   .use(neetAdminRoutes)
   .use(collegeAdminRoutes)
-  .use(fxAdminRoutes);
+  .use(fxAdminRoutes)
+  .use(importsAdminRoutes);
 
 provideRouteTable(() => app.routes as never);
 

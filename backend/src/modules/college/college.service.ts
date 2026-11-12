@@ -191,9 +191,8 @@ export async function recalcCourseTotals(db: Db, ids?: string[]): Promise<number
   return changed;
 }
 
-/** After any change: refresh the total and, for a live college, refuse (and roll back) a change that would leave something required missing. */
-async function settle(tx: Prisma.TransactionClient, id: string) {
-  await recalcCourseTotals(tx, [id]);
+/** For a live college: refuses (the caller's transaction then rolls back) if anything required is now missing. Returns the college as it now stands. */
+export async function assertStillComplete(tx: Prisma.TransactionClient, id: string) {
   const c = await loadFull(tx, id);
   if (c.status === "READY") {
     const missing = readinessOf(c, c.sourceLinks.length, await loadRates(tx)).missing;
@@ -205,6 +204,12 @@ async function settle(tx: Prisma.TransactionClient, id: string) {
     }
   }
   return c;
+}
+
+/** After any change: refresh the total and, for a live college, refuse (and roll back) a change that would leave something required missing. */
+async function settle(tx: Prisma.TransactionClient, id: string) {
+  await recalcCourseTotals(tx, [id]);
+  return assertStillComplete(tx, id);
 }
 
 // ---- field helpers -----------------------------------------------------------------------------

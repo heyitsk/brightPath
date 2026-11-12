@@ -234,6 +234,8 @@ model ImportBatch {
   status      ImportStatus @default(UPLOADED)
   stats       Json?
   errors      Json?
+  /// The parsed rows of the upload, kept between preview and save so the plan can be recomputed against the current data at commit.
+  payload     Json?
   createdById String?      @db.Uuid
   createdAt   DateTime     @default(now())
   committedAt DateTime?
