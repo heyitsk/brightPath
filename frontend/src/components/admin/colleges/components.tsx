@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Form, useNavigation } from 'react-router'
 import type { ApiFailure } from '../../../api/errors'
 import { FormError } from '../AdminFormError'
 import type { Opt } from '../crud/types'
 import { showDate, today } from '../crud/util'
 import { Messages } from '../neet/common'
-import { feeYears, inr, MONTHS, num, PURPOSE_LABEL, PURPOSE_OPTIONS, STATUS_LABEL } from './data'
+import { feeYears, MONTHS, PURPOSE_LABEL, PURPOSE_OPTIONS, STATUS_LABEL } from './data'
 import type { College, Status } from './types'
 
 export function CollegeStatusBadge({ status }: { status: Status }) {
@@ -31,48 +31,6 @@ export function ReadinessPanel({ college }: { college: College }) {
         />
       )}
       <p className="hint">Fee years filled: {feeYears(readiness)}.</p>
-    </>
-  )
-}
-
-const money = (n: number, currency: string) => `${n.toLocaleString('en-IN')} ${currency}`
-
-/** Year-by-year fees, read only. The rupee figures use today's exchange rate. */
-export function FeeSummary({ college }: { college: College }) {
-  if (college.fees.length === 0) return <p>No fee rows yet.</p>
-  return (
-    <>
-      <div className="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Year</th>
-              <th>Tuition</th>
-              <th className="hide-sm">Hostel</th>
-              <th className="hide-sm">Other</th>
-              <th>In rupees</th>
-              <th className="hide-sm">Source</th>
-              <th className="hide-sm">Checked</th>
-            </tr>
-          </thead>
-          <tbody>
-            {college.fees.map((f) => (
-              <tr key={String(f.yearNumber)}>
-                <td>{num(f.yearNumber)}</td>
-                <td>{money(f.tuition, f.currency)}</td>
-                <td className="hide-sm">{money(f.hostel, f.currency)}</td>
-                <td className="hide-sm">{money(f.other, f.currency)}</td>
-                <td>{f.rateToInr == null ? `No ${f.currency} rate yet` : inr(f.totalInr)}</td>
-                <td className="hide-sm">{f.source?.title ?? 'No source'}</td>
-                <td className="hide-sm">{showDate(f.checkedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p>
-        Whole course in rupees: <strong>{inr(college.totalCourseFeeInr)}</strong>
-      </p>
     </>
   )
 }
@@ -114,6 +72,13 @@ export function SourcesPanel(props: { college: College; sources: Opt[]; failure?
   const { college, sources, failure } = props
   const busy = useNavigation().state !== 'idle'
   const err = failure?.fieldErrors ?? {}
+  // Empty "Link a source" again once a link is added (failed attempts keep what was chosen).
+  // Not done with a `key` on the form: remounting duplicated the page's forms in the DOM.
+  const linkCount = college.sources.length
+  const addRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    addRef.current?.reset()
+  }, [linkCount])
   return (
     <>
       <FormError message={failure?.formError} />
@@ -130,7 +95,7 @@ export function SourcesPanel(props: { college: College; sources: Opt[]; failure?
             </thead>
             <tbody>
               {college.sources.map((s) => (
-                <tr key={`${s.id}-${s.checkedAt}-${s.purpose}`}>
+                <tr key={s.id}>
                   <td>
                     {s.source.url ? (
                       <a href={s.source.url} target="_blank" rel="noreferrer noopener">
@@ -178,7 +143,7 @@ export function SourcesPanel(props: { college: College; sources: Opt[]; failure?
       )}
 
       <h3>Link a source</h3>
-      <Form method="post" className="adm-form" key={college.sources.length}>
+      <Form method="post" className="adm-form" ref={addRef}>
         <input type="hidden" name="intent" value="source-add" />
         <div className={err.sourceId ? 'field err' : 'field'}>
           <label htmlFor="link-source">Source</label>
@@ -217,8 +182,17 @@ type FaqRow = { key: number; question: string; answer: string }
 export function FaqEditor(props: { faqs: College['faqs']; failure?: ApiFailure }) {
   const { faqs, failure } = props
   const busy = useNavigation().state !== 'idle'
-  const [rows, setRows] = useState<FaqRow[]>(() => faqs.map((f, i) => ({ key: i, ...f })))
-  const [nextKey, setNextKey] = useState(faqs.length)
+  const toRows = (list: typeof faqs): FaqRow[] => list.map((f, i) => ({ key: i, ...f }))
+  const [rows, setRows] = useState<FaqRow[]>(() => toRows(faqs))
+  // Start again from the server's list when it changes (a save got through). Saving another
+  // section or a failed save leaves it the same, so unsaved questions are kept.
+  // Not done with a `key`: remounting duplicated the page's forms in the DOM.
+  const saved = JSON.stringify(faqs)
+  const [seen, setSeen] = useState(saved)
+  if (saved !== seen) {
+    setSeen(saved)
+    setRows(toRows(faqs))
+  }
   const err = failure?.fieldErrors ?? {}
 
   const edit = (key: number, part: 'question' | 'answer', text: string) =>
@@ -230,8 +204,7 @@ export function FaqEditor(props: { faqs: College['faqs']; failure?: ApiFailure }
       return out
     })
   const add = () => {
-    setRows((rs) => [...rs, { key: nextKey, question: '', answer: '' }])
-    setNextKey((k) => k + 1)
+    setRows((rs) => [...rs, { key: Math.max(-1, ...rs.map((r) => r.key)) + 1, question: '', answer: '' }])
   }
 
   return (
