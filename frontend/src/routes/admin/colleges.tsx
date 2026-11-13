@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useLocation } from 'react-router'
 import { adminApi } from '../../api/client.browser'
 import { CollegeStatusBadge } from '../../components/admin/colleges/components'
@@ -28,6 +28,8 @@ export const meta: Route.MetaFunction = () => [
 
 const PAGE = 50
 const FILTERS = ['q', 'kind', 'status', 'countryId', 'stateId'] as const
+/** Lets the five filters share one row when there is room (the default .adm-filters minimum is 180px). */
+const FIELD_STYLE = { flex: '1 1 130px', minWidth: 130 }
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const sp = new URL(request.url).searchParams
@@ -63,8 +65,19 @@ export default function Colleges({ loaderData }: Route.ComponentProps) {
   const { data, countries, states, query, saved } = loaderData
   const { search } = useLocation()
   const filtered = Object.keys(query).length > 0
+  // The inputs are uncontrolled, so put the URL's values back in after each navigation
+  // (e.g. "Clear"). Not done with a `key` on the form: remounting it left stale copies in the DOM.
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    const form = formRef.current
+    if (!form) return
+    for (const k of FILTERS) {
+      const el = form.elements.namedItem(k)
+      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) el.value = query[k] ?? ''
+    }
+  }, [query])
   const select = (name: string, label: string, options: Opt[]) => (
-    <div className="field">
+    <div className="field" style={FIELD_STYLE}>
       <label htmlFor={`f-${name}`}>{label}</label>
       <select className="select" id={`f-${name}`} name={name} defaultValue={query[name] ?? ''}>
         <option value="">Any</option>
@@ -82,8 +95,8 @@ export default function Colleges({ loaderData }: Route.ComponentProps) {
       <PageHead title="Colleges" action={{ to: '/admin/colleges/new', label: 'New college' }} />
       {saved === 'deleted' && <Flash>College deleted.</Flash>}
 
-      <Form method="get" className="adm-filters" key={search}>
-        <div className="field">
+      <Form method="get" className="adm-filters" ref={formRef}>
+        <div className="field" style={{ ...FIELD_STYLE, flexBasis: 180 }}>
           <label htmlFor="f-q">Search</label>
           <input className="input" id="f-q" name="q" type="search" defaultValue={query.q ?? ''} placeholder="Name or city" />
         </div>
