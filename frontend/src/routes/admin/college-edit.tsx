@@ -73,6 +73,7 @@ const DONE: Record<Intent, string> = {
 }
 
 const INTENTS = Object.keys(DONE) as Intent[]
+const STATUS_INTENTS: Intent[] = ['ready', 'draft', 'archive']
 
 /** Every button on the page names its intent, so a stale page never does the wrong thing. */
 export async function clientAction({ params, request }: Route.ClientActionArgs): Promise<Done | Failed> {
@@ -206,6 +207,19 @@ export default function CollegeEdit({ loaderData, actionData }: Route.ComponentP
   const done = actionData && 'ok' in actionData ? actionData : null
   const failed = actionData && !('ok' in actionData) ? actionData : null
   const failFor = (...intents: Intent[]) => (failed && intents.includes(failed.intent) ? failed : undefined)
+
+  // After Mark ready / Move back to draft / Archive, bring the top of the page content into view so
+  // the result message and the new status badge show. The content, not the window: on phones the
+  // admin menu sits above it. Waits for the college to reload so the badge is already up to date;
+  // once per result.
+  const idle = useNavigation().state === 'idle'
+  const scrolledFor = useRef<Done | null>(null)
+  useEffect(() => {
+    if (!idle || !done || !STATUS_INTENTS.includes(done.intent) || scrolledFor.current === done) return
+    scrolledFor.current = done
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    document.getElementById('main')?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' })
+  }, [idle, done])
 
   return (
     <>
