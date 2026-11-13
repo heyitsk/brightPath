@@ -22,6 +22,8 @@ export type FieldDef = {
   /** Static options (enums from schema.d.ts) or a named lookup loaded from the API. */
   options?: Opt[]
   lookup?: string
+  /** Selects only: text of the empty choice (default "None", or "Choose…" when required). */
+  emptyLabel?: string
   /** Enum values shown but not selectable. */
   disabledOptions?: string[]
   /** Shown read-only on edit and never sent (slug, scope: fixed by the API). */

@@ -31,6 +31,10 @@ export default [
     route('neet/:year/distribution', 'routes/admin/neet-distribution.tsx'),
     route('neet/:year/preview', 'routes/admin/neet-preview.tsx'),
     route('neet/:year/publish', 'routes/admin/neet-publish.tsx'),
+    route('colleges', 'routes/admin/colleges.tsx'),
+    route('colleges/new', 'routes/admin/colleges-new.tsx'),
+    route('colleges/:id', 'routes/admin/college-edit.tsx'),
+    route('colleges/:id/delete', 'routes/admin/college-delete.tsx'),
     // One set of pages for every CRUD section (states, countries, sources, nmc-notices).
     route(':section', 'routes/admin/section-list.tsx'),
     route(':section/new', 'routes/admin/section-new.tsx'),

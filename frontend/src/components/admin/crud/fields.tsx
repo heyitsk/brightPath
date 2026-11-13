@@ -72,7 +72,7 @@ export function FieldInput(props: {
       <div className={cls}>
         <Label f={f} />
         <select className="select" name={f.name} defaultValue={String(value)} required={f.required} {...common}>
-          {(!f.required || value === '') && <option value="">{f.required ? 'Choose…' : 'None'}</option>}
+          {(!f.required || value === '') && <option value="">{f.emptyLabel ?? (f.required ? 'Choose…' : 'None')}</option>}
           {(options ?? []).map((o) => (
             <option key={o.value} value={o.value} disabled={f.disabledOptions?.includes(o.value)}>
               {o.label}
