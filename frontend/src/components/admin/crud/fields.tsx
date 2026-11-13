@@ -72,7 +72,7 @@ export function FieldInput(props: {
       <div className={cls}>
         <Label f={f} />
         <select className="select" name={f.name} defaultValue={String(value)} required={f.required} {...common}>
-          {(!f.required || value === '') && <option value="">{f.required ? 'Choose…' : 'None'}</option>}
+          {(!f.required || value === '') && <option value="">{f.emptyLabel ?? (f.required ? 'Choose…' : 'None')}</option>}
           {(options ?? []).map((o) => (
             <option key={o.value} value={o.value} disabled={f.disabledOptions?.includes(o.value)}>
               {o.label}
@@ -125,6 +125,12 @@ export function FieldInput(props: {
 /** Date input; the chosen date is also spelled out as "12 Oct 2026" under it. */
 function DateField({ f, value, error }: { f: FieldDef; value: string; error?: string }) {
   const [picked, setPicked] = useState(value)
+  // Follow a new saved value (the form is not remounted after a save).
+  const [seen, setSeen] = useState(value)
+  if (value !== seen) {
+    setSeen(value)
+    setPicked(value)
+  }
   return (
     <div className={error ? 'field err' : 'field'}>
       <Label f={f} />

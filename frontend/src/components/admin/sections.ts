@@ -8,6 +8,7 @@ export type AdminSection = { label: string; href?: string }
 
 /** Admin sections and who may use them. ADMIN always sees everything. No href = coming soon. */
 const SECTIONS: (AdminSection & { roles: Role[] })[] = [
+  { label: 'Colleges', href: '/admin/colleges', roles: ['EDITOR'] },
   { label: 'States', href: '/admin/states', roles: ['EDITOR'] },
   { label: 'Countries', href: '/admin/countries', roles: ['EDITOR'] },
   { label: 'Sources', href: '/admin/sources', roles: ['EDITOR'] },
