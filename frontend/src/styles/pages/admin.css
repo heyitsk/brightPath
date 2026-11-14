@@ -32,3 +32,28 @@
    (.btn-light is the on-cover variant: near-white text, unreadable here.) */
 .adm-tabs .btn[aria-current="page"]{background:var(--ink);color:#fff}
 .adm-wide{max-width:760px}
+/* Small buttons for row actions inside admin tables. */
+.adm-btn-sm{min-height:36px;padding:0 12px;font-size:.875rem;border-width:1.5px}
+/* Exchange rates: one editable table that fits the admin column at 1280 px without scrolling.
+   Fixed widths for rate and date, Note takes the rest, counts and actions shrink to their content. */
+.adm-fx{max-width:none}
+.adm-fx th,.adm-fx td{padding:8px 10px}
+.adm-fx .input{min-height:40px;padding:6px 10px}
+.adm-fx .fx-code{width:120px}
+.adm-fx .fx-rate{width:130px}
+.adm-fx .fx-date{width:170px}
+.adm-fx .fx-use,.adm-fx .fx-act{width:1%;white-space:nowrap}
+.adm-fx .fx-btns{display:flex;gap:6px}
+.adm-fx .fx-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0 16px}
+/* Phones: each currency becomes a small card; labels come from data-label. */
+@media (max-width:759px){
+  .adm-fx thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .adm-fx table,.adm-fx tbody,.adm-fx td{display:block;width:auto}
+  .adm-fx tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px;padding:12px;border-bottom:1px solid var(--line-soft)}
+  .adm-fx tbody tr:last-child{border-bottom:0}
+  .adm-fx td{padding:0;border:0}
+  .adm-fx .fx-use,.adm-fx .fx-act{width:auto;white-space:normal}
+  .adm-fx td[data-label]::before{content:attr(data-label);display:block;font-weight:650;font-size:.875rem;margin-bottom:4px}
+  .adm-fx .fx-code,.adm-fx .fx-note,.adm-fx .fx-full{grid-column:1/-1}
+  .adm-fx .input,.adm-fx .adm-btn-sm{min-height:44px}
+}
