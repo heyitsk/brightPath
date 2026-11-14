@@ -1,16 +1,16 @@
 /*
   SAMPLE NAVIGATION DATA.
   The backend has no navigation endpoint yet (GET /navigation/explore is planned for
-  phase 7). Until then getNavigation() returns the labels from the v3 menu previews.
-  Swap the body of getNavigation() for the API call when it exists; components only
-  depend on the Navigation type below.
+  phase 7). Until then the menus use the labels from the v3 menu previews, and
+  getNavigation() in navigation.server.ts fills in the college counts and lists from
+  GET /colleges/. Components only depend on the Navigation type below.
 
   Every item carries its real future URL and a `published` flag. Unpublished items are
   rendered without an href (see components/site/MenuLink.tsx), so the menus never link
   to a page that does not exist yet.
 */
 
-import { countCollegesByCountry, countCollegesByState, listCollegesByCountry, SAMPLE_COLLEGE_SLUGS } from './colleges'
+import type { CollegeCard } from './colleges'
 import { SAMPLE_COUNTRY_SLUGS } from './countries'
 import { SAMPLE_STATE_SLUGS } from './states'
 
@@ -67,17 +67,24 @@ export type Navigation = {
   tabs: { icon: 'chart' | 'college' | 'book' | 'chat'; label: string; item: NavItem; talk?: boolean }[]
 }
 
-/* Pages that exist in the app today. Everything else stays unpublished. */
+/* Pages that exist in the app today. Everything else stays unpublished. College pages are not
+   listed here: a college from the API always has a page, so its link is built with collegeLink(). */
 const LIVE = new Set<string>([
   '/',
   '/neet-rank-predictor',
-  ...SAMPLE_COLLEGE_SLUGS.map((slug) => `/colleges/${slug}`),
   ...SAMPLE_COUNTRY_SLUGS.map((slug) => `/mbbs-abroad/${slug}`),
   ...SAMPLE_STATE_SLUGS.map((slug) => `/neet-counselling/${slug}`),
 ])
 
 /** True when the page at this path exists, so links to it may be followed. */
 export const isLive = (href: string) => LIVE.has(href)
+
+/** A link to a college page, for colleges that come from the API (they are always listed). */
+export const collegeLink = (c: Pick<CollegeCard, 'slug' | 'name'>, label = c.name): NavItem => ({
+  label,
+  href: `/colleges/${c.slug}`,
+  published: true,
+})
 
 function slugify(label: string) {
   return label
@@ -110,7 +117,7 @@ function exploreCountry(
 ): ExploreCountry {
   return {
     ...country(name),
-    // Filled in by getNavigation() from the sample colleges.
+    // Filled in by getNavigation() from GET /colleges/.
     total: null,
     alert,
     colleges,
@@ -118,7 +125,7 @@ function exploreCountry(
   }
 }
 
-const SAMPLE_NAVIGATION: Navigation = {
+export const SAMPLE_NAVIGATION: Navigation = {
   explore: {
     abroadNote: 'Every college is listed in WDOMS. Alerts shown in red.',
     countries: [
@@ -415,33 +422,4 @@ const SAMPLE_NAVIGATION: Navigation = {
     { icon: 'book', label: 'Guides', item: guides },
     { icon: 'chat', label: 'Talk to us', item: contact, talk: true },
   ],
-}
-
-/** Menu, footer and tab bar data. SAMPLE until GET /navigation/explore exists. */
-export async function getNavigation(): Promise<Navigation> {
-  const { explore } = SAMPLE_NAVIGATION
-  // Counts (and, for countries with a page, the college list) come from the same sample
-  // colleges the pages show, so the menu and the pages agree.
-  // Countries and states without a page yet keep a null count and show a [placeholder].
-  const countries = await Promise.all(
-    explore.countries.map(async (c) => {
-      const slug = c.href.replace('/mbbs-abroad/', '')
-      if (!SAMPLE_COUNTRY_SLUGS.includes(slug)) return c
-      // A country with a page lists only the colleges that have a page, from colleges.ts.
-      const colleges = (await listCollegesByCountry(slug)).map((row) => college(row.shortName ?? row.name, row.slug))
-      return {
-        ...c,
-        total: await countCollegesByCountry(slug),
-        colleges,
-        mobileColleges: colleges.slice(0, c.mobileColleges.length),
-      }
-    }),
-  )
-  const states = await Promise.all(
-    explore.states.map(async (s) => {
-      const slug = s.href.replace('/neet-counselling/', '')
-      return SAMPLE_STATE_SLUGS.includes(slug) ? { ...s, count: String(await countCollegesByState(slug)) } : s
-    }),
-  )
-  return { ...SAMPLE_NAVIGATION, explore: { ...explore, countries, states } }
 }

@@ -1,19 +1,21 @@
 import { data } from 'react-router'
 import { PageError } from '../components/shared/PageError'
 import { StatePage } from '../components/state/StatePage'
+import { listColleges } from '../data/colleges'
 import { getStateCounselling } from '../data/states'
 import stateStyles from '../styles/pages/state.css?url'
 import type { Route } from './+types/state'
 
 export const links: Route.LinksFunction = () => [{ rel: 'stylesheet', href: stateStyles }]
 
-/** The only data call on this page. Switching to the real API means changing getStateCounselling(). */
+/** State content (SAMPLE until phase 7, see getStateCounselling()) plus its listed colleges from the API. */
 export async function loader({ params }: Route.LoaderArgs) {
   const detail = await getStateCounselling(params.state)
   if (!detail) {
     throw data({ code: 'STATE_NOT_FOUND', message: 'We do not have a counselling page for that state yet.' }, { status: 404 })
   }
-  return detail
+  const list = await listColleges({ kind: 'INDIA', state: detail.state.slug })
+  return { ...detail, colleges: list.items }
 }
 
 // Same for every visitor, so shared caches may keep it for five minutes.
@@ -25,10 +27,10 @@ export const meta: Route.MetaFunction = ({ data: detail }) => {
   if (!detail) return [{ title: 'State not found' }]
   const { state, colleges } = detail
   return [
-    { title: `NEET UG counselling in ${state.name}: colleges, fees and closing ranks` },
+    { title: `NEET UG counselling in ${state.name}: colleges and fees` },
     {
       name: 'description',
-      content: `How state quota MBBS seats are filled in ${state.name}: who runs counselling, who can apply, the steps, and fees and past closing ranks for ${colleges.length} ${colleges.length === 1 ? 'college' : 'colleges'}.`,
+      content: `How state quota MBBS seats are filled in ${state.name}: who runs counselling, who can apply, the steps, and fees for ${colleges.length} ${colleges.length === 1 ? 'college' : 'colleges'}.`,
     },
   ]
 }
