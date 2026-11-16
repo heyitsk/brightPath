@@ -1,6 +1,7 @@
 import { Icon } from '../Icon'
 
-type FaqItem = { question: string; answer: string; sort: number }
+/** `sort` is optional: API FAQs come already in order, and a stable sort keeps that order. */
+type FaqItem = { question: string; answer: string; sort?: number }
 
 export function FaqList({
   faqs,
@@ -17,7 +18,7 @@ export function FaqList({
       <h2 id={id}>{title}</h2>
       <div className="faq">
         {[...faqs]
-          .sort((a, b) => a.sort - b.sort)
+          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
           .map((f) => (
             <details key={f.question}>
               <summary>

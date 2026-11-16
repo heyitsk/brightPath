@@ -1,6 +1,6 @@
-import type { AbroadCollegeRow } from '../../data/colleges'
-import type { CountryDetail } from '../../data/countries'
-import { isLive, type NavItem } from '../../data/navigation'
+import type { CollegeCard } from '../../data/colleges'
+import type { CountryPageData as CountryDetail } from '../../data/countries'
+import { collegeLink, isLive, type NavItem } from '../../data/navigation'
 import { Icon } from '../Icon'
 import { MenuLink } from '../site/MenuLink'
 import { useRootData } from '../site/config'
@@ -105,7 +105,7 @@ export function CountryPage({ detail }: { detail: CountryDetail }) {
 
 function Glance({ detail }: { detail: CountryDetail }) {
   const { country, content, colleges, nmcNotices } = detail
-  const collegeAlerts = colleges.filter((c) => c.nmcAlertStatus === 'ALERT').length
+  const collegeAlerts = colleges.filter((c) => c.badges.nmcAlert !== 'NONE').length
   let alerts = 'None found'
   if (nmcNotices.length) alerts = 'Country alert'
   else if (collegeAlerts) alerts = `On ${collegeAlerts} ${collegeAlerts === 1 ? 'college' : 'colleges'}`
@@ -131,7 +131,7 @@ function Glance({ detail }: { detail: CountryDetail }) {
         </div>
         <div>
           <dt>Colleges on our list</dt>
-          <dd>{colleges.length} checked</dd>
+          <dd>{detail.collegesTotal} checked</dd>
         </div>
         <div>
           <dt>NMC alerts</dt>
@@ -188,24 +188,25 @@ function Valid({ detail }: { detail: CountryDetail }) {
 }
 
 /** The marks on a college record. Never "approved": WDOMS listing, NMC 2021 rules, NMC alert. */
-function Marks({ c }: { c: AbroadCollegeRow }) {
+function Marks({ c }: { c: CollegeCard }) {
+  const { wdomsListed, meetsNmc2021, nmcAlert } = c.badges
   return (
     <div className="marks">
-      {c.wdomsListed === 'LISTED' && (
+      {wdomsListed === 'LISTED' && (
         <span className="mark green">
           <Icon name="check" size={14} /> Listed in WDOMS
         </span>
       )}
-      {c.wdomsListed === 'NOT_LISTED' && <span className="mark red">Not listed in WDOMS</span>}
-      {c.wdomsListed === 'UNKNOWN' && <span className="mark grey">WDOMS listing unknown</span>}
-      {c.nmc2021Status === 'MEETS' && (
+      {wdomsListed === 'NOT_LISTED' && <span className="mark red">Not listed in WDOMS</span>}
+      {wdomsListed === 'UNKNOWN' && <span className="mark grey">WDOMS listing unknown</span>}
+      {meetsNmc2021 === 'MEETS' && (
         <span className="mark">
           <Icon name="shield" size={14} /> Meets NMC 2021 rules
         </span>
       )}
-      {c.nmc2021Status === 'DOES_NOT_MEET' && <span className="mark red">Does not meet NMC 2021 rules</span>}
-      {c.nmc2021Status === 'UNKNOWN' && <span className="mark grey">NMC 2021 rules unknown</span>}
-      {c.nmcAlertStatus === 'ALERT' && (
+      {meetsNmc2021 === 'DOES_NOT_MEET' && <span className="mark red">Does not meet NMC 2021 rules</span>}
+      {meetsNmc2021 === 'UNKNOWN' && <span className="mark grey">NMC 2021 rules unknown</span>}
+      {nmcAlert !== 'NONE' && (
         <span className="mark red">
           <Icon name="alert" size={14} /> NMC alert
         </span>
@@ -216,7 +217,7 @@ function Marks({ c }: { c: AbroadCollegeRow }) {
 
 function Colleges({ detail }: { detail: CountryDetail }) {
   const { country, colleges } = detail
-  const allListed = colleges.length > 0 && colleges.every((c) => c.wdomsListed === 'LISTED')
+  const allListed = colleges.length > 0 && colleges.every((c) => c.badges.wdomsListed === 'LISTED')
   return (
     <>
       <h2 id="colleges">Colleges in {country.name} we have checked</h2>
@@ -232,17 +233,17 @@ function Colleges({ detail }: { detail: CountryDetail }) {
             <li key={c.slug} className="record" style={{ gridTemplateColumns: '1fr' }}>
               <div>
                 <h3>
-                  <MenuLink item={link(c.name, `/colleges/${c.slug}`)} />
+                  <MenuLink item={collegeLink(c)} />
                 </h3>
                 <p className="place">
-                  {c.city} · {OWNERSHIP[c.ownership]}
+                  {c.city} · {c.ownership ? OWNERSHIP[c.ownership] : slot('ownership')}
                 </p>
                 <Marks c={c} />
               </div>
               <dl className="facts" style={{ gridTemplateColumns: 'repeat(3,auto)', justifyContent: 'start', gap: '8px 28px' }}>
                 <div>
                   <dt>Total fees</dt>
-                  <dd>{c.totalCourseFeeInr ? formatLakh(c.totalCourseFeeInr) : slot('total fee')}</dd>
+                  <dd>{c.totalCourseFeeInr != null ? formatLakh(Number(c.totalCourseFeeInr)) : slot('total fee')}</dd>
                 </div>
                 <div>
                   <dt>Course</dt>
@@ -250,7 +251,7 @@ function Colleges({ detail }: { detail: CountryDetail }) {
                 </div>
                 <div>
                   <dt>Checked</dt>
-                  <dd>{c.lastCheckedAt ? formatDate(c.lastCheckedAt) : NO_DATE}</dd>
+                  <dd>{c.dataCheckedAt ? formatDate(c.dataCheckedAt) : NO_DATE}</dd>
                 </div>
               </dl>
             </li>
@@ -259,9 +260,9 @@ function Colleges({ detail }: { detail: CountryDetail }) {
       ) : (
         <p>No colleges in {country.name} are on our list yet.</p>
       )}
-      {colleges.length > SHOWN && (
+      {detail.collegesTotal > SHOWN && (
         <p style={{ marginTop: 16 }}>
-          <MenuLink className="btn btn-secondary" item={link(`See all ${colleges.length} colleges in ${country.name}`, '/college-finder')} />
+          <MenuLink className="btn btn-secondary" item={link(`See all ${detail.collegesTotal} colleges in ${country.name}`, '/college-finder')} />
         </p>
       )}
     </>

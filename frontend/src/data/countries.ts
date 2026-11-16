@@ -7,15 +7,27 @@
   Every number, date and text below is SAMPLE data from the v3 preview (05-country) and has not
   been checked. Author and reviewer names stay null and render as [placeholders].
 
-  Switching to the real API means changing ONE function: getCountry(). The route loader calls
-  nothing else. The college list comes from colleges.ts, so the same sample colleges show on the
-  college pages, the country page and the menus.
+  Switching to the real API means changing ONE function: getCountry(). The college list is not
+  sample: the route loader adds it from GET /colleges/?kind=ABROAD&country=<slug>, the same call
+  the menus make, so the college pages, the country page and the menus agree.
 
   4.7 only names the content fields loosely ("intro, why-study, typical fee range, recognition
   explainer, admission steps, lastCheckedAt, sources"). The extra fields the preview needs are
   marked "added for the page" and will have to come from the content API too.
 */
-import { listCollegesByCountry, type AbroadCollegeRow, type NmcNotice } from './colleges'
+import type { CollegeCard } from './colleges'
+
+/* ---------- 4.2 NMC notices (sample, country scope) ---------- */
+
+export type NmcNotice = {
+  title: string
+  url: string
+  publishedAt: string
+  severity: 'ADVISORY' | 'WARNING'
+  scope: 'COLLEGE' | 'COUNTRY'
+  isActive: boolean
+  checkedAt: string
+}
 
 /* ---------- 4.2 ---------- */
 
@@ -88,7 +100,13 @@ export type CountryDetail = {
   faqs: Faq[]
   /** Active COUNTRY-scope notices. College notices show on each college row. */
   nmcNotices: NmcNotice[]
-  colleges: AbroadCollegeRow[]
+}
+
+/** What the country route renders: the sample content plus the listed colleges from the API. */
+export type CountryPageData = CountryDetail & {
+  colleges: CollegeCard[]
+  /** All listed colleges in the country (the list holds up to 50). */
+  collegesTotal: number
 }
 
 /* ---------- Sample data ---------- */
@@ -96,7 +114,7 @@ export type CountryDetail = {
 const lakh = (n: number) => Math.round(n * 100_000)
 const range = (a: number, b: number = a) => ({ min: lakh(a), max: lakh(b) })
 
-const RUSSIA: Omit<CountryDetail, 'colleges'> = {
+const RUSSIA: CountryDetail = {
   country: {
     id: 1,
     slug: 'russia',
@@ -202,6 +220,5 @@ export async function getCountry(slug: string): Promise<CountryDetail | null> {
     ...found,
     faqs: found.faqs.filter((f) => f.isPublished),
     nmcNotices: found.nmcNotices.filter((n) => n.isActive),
-    colleges: await listCollegesByCountry(slug),
   }
 }

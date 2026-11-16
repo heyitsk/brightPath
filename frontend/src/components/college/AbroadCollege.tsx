@@ -1,6 +1,6 @@
-import type { CSSProperties } from 'react'
-import { isLive } from '../../data/navigation'
-import type { AbroadCollegeDetail, CollegeFeeLine, CollegeSourceLink } from '../../data/colleges'
+import { Fragment, type CSSProperties } from 'react'
+import { collegeLink, isLive } from '../../data/navigation'
+import type { AbroadCollegePage, CollegePage } from '../../data/colleges'
 import { Icon } from '../Icon'
 import { MenuLink } from '../site/MenuLink'
 import { TalkToCounsellor } from '../site/TalkToCounsellor'
@@ -10,50 +10,74 @@ import { Crumbs } from '../shared/Crumbs'
 import { HOME } from '../shared/home'
 import { Estimate } from '../shared/Estimate'
 import { FaqList } from '../shared/FaqList'
+import { feesChecked, sortedFees } from './college-data'
 import { SourcesList } from './SourcesList'
-import { checkedOn, courseLength, currencyName, formatDate, formatInr, formatLakh, formatRate, NO_DATE, slot } from '../shared/format'
+import {
+  checkedOn,
+  courseLength,
+  currencyName,
+  formatDate,
+  formatInr,
+  formatLakh,
+  formatRate,
+  MONTHS,
+  NO_DATE,
+  slot,
+} from '../shared/format'
 
-const linkDate = (links: CollegeSourceLink[], purpose: CollegeSourceLink['purpose']) =>
-  links.find((l) => l.purpose === purpose)?.checkedAt ?? null
+type FeeLine = CollegePage['fees'][number]
+type Props = { college: AbroadCollegePage }
 
 const ownership = { GOVERNMENT: 'Public', PRIVATE: 'Private', DEEMED: 'Deemed', TRUST: 'Trust' } as const
 
-/** Fee lines are in the foreign currency; the page shows rupees at the line's own rate. */
-const inr = (amount: number, line: CollegeFeeLine) => Math.round(amount * line.fxRateToInr)
+/** Fee lines are in the college's currency; the page shows rupees at the line's own rate. */
+const inr = (amount: number, line: FeeLine) => Math.round(amount * line.rateToInr)
 
-export function AbroadCollege({ detail }: { detail: AbroadCollegeDetail }) {
-  const { college } = detail
-  const countryHref = `/mbbs-abroad/${detail.countrySlug}`
-  const country = { label: `MBBS in ${detail.countryName}`, href: countryHref, published: isLive(countryHref) }
-  const asideTitle = detail.related.every((r) => r.city === college.city) ? college.city : detail.countryName
+/** True when every line is in the same currency at the same rate, so one rate can be quoted. */
+const oneRate = (fees: FeeLine[]) =>
+  fees.length > 0 && fees.every((l) => l.currency === fees[0].currency && l.rateToInr === fees[0].rateToInr)
+
+/**
+ * The NEET rule. Staff may set it as the "NEET UG" eligibility entry. Without one, it is the NMC
+ * rule for every Indian student studying MBBS abroad, not a fact about the college.
+ */
+const NEET_KEY = 'NEET UG'
+const neetRule = (p: AbroadCollegePage['abroad']) => p.eligibility?.[NEET_KEY] ?? 'Qualified'
+
+const countryName = (college: AbroadCollegePage) => college.country?.name ?? slot('country')
+
+export function AbroadCollege({ college }: Props) {
+  const countryHref = `/mbbs-abroad/${college.country?.slug ?? ''}`
+  const country = { label: `MBBS in ${countryName(college)}`, href: countryHref, published: isLive(countryHref) }
+  const asideTitle = college.nearby.every((r) => r.city === college.city) ? college.city : countryName(college)
   return (
     <>
       <div className="wrap">
         <Crumbs parents={[HOME, country]} current={college.name} />
-        <Header detail={detail} />
+        <Header college={college} />
       </div>
       <hr className="perf" />
       <div className="wrap split side" style={{ padding: '40px var(--gut) 64px' }}>
         <article className="prose">
-          <Gallery detail={detail} />
-          <About text={college.description} />
-          <Fees detail={detail} />
-          <Recognition detail={detail} />
-          <Eligibility detail={detail} />
-          <FaqList faqs={detail.faqs} />
-          <SourcesList detail={detail} />
+          <Gallery college={college} />
+          {college.description && <About text={college.description} />}
+          <Fees college={college} />
+          <Recognition college={college} />
+          <Eligibility college={college} />
+          <FaqList faqs={college.faqs} />
+          <SourcesList sources={college.sources} />
         </article>
         <aside>
           <div className="visa security sticky-cta">
             <h2 style={{ fontSize: '1.125rem' }}>Other colleges in {asideTitle}</h2>
-            {detail.related.length ? (
+            {college.nearby.length ? (
               <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 16px' }}>
-                {detail.related.map((r) => (
+                {college.nearby.map((r) => (
                   <li key={r.slug} style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                    <MenuLink item={{ label: r.name, href: `/colleges/${r.slug}`, published: true }} />
+                    <MenuLink item={collegeLink(r)} />
                     <br />
                     <span className="small muted">
-                      {r.totalCourseFeeInr ? `${formatLakh(r.totalCourseFeeInr)} total` : `${slot('total fee')} total`}
+                      {r.totalCourseFeeInr != null ? `${formatLakh(Number(r.totalCourseFeeInr))} total` : `${slot('total fee')} total`}
                     </span>
                   </li>
                 ))}
@@ -76,18 +100,22 @@ export function AbroadCollege({ detail }: { detail: AbroadCollegeDetail }) {
   )
 }
 
-function Header({ detail }: { detail: AbroadCollegeDetail }) {
-  const { college, abroadProfile: p, feeLines, sourceLinks } = detail
-  const mrz = `COL<${detail.countryCode}<${college.slug.toUpperCase().replaceAll('-', '<')}<<${p.wdomsId ?? ''}`.padEnd(44, '<')
-  const rate = feeLines[0]
-  const sameRate = rate && feeLines.every((l) => l.fxRateToInr === rate.fxRateToInr && l.fxRateDate === rate.fxRateDate)
-  const feeDate = linkDate(sourceLinks, 'FEE_NOTICE')
+function Header({ college }: Props) {
+  const p = college.abroad
+  const fees = college.fees
+  // The API sends no country code; this decorative line uses the first letters of the country slug.
+  const code = (college.country?.slug ?? '').slice(0, 3).toUpperCase()
+  const mrz = `COL<${code}<${college.slug.toUpperCase().replaceAll('-', '<')}<<${p.wdoms.id ?? ''}`.padEnd(44, '<')
+  const rate = fees[0]
+  const feeDate = feesChecked(fees)
   let rateNote = 'No fee lines recorded yet'
-  if (rate && sameRate) {
-    const when = rate.fxRateDate ? ` on ${formatDate(rate.fxRateDate)}` : ` (rate ${NO_DATE})`
-    rateNote = `Tuition, hostel and fees for ${feeLines.length} years, at ${formatRate(rate.fxRateToInr)} per ${currencyName(rate.currency)}${when}`
+  if (rate && oneRate(fees) && rate.currency === 'INR') {
+    rateNote = `Tuition, hostel and fees for ${fees.length} years, in rupees`
+  } else if (rate && oneRate(fees)) {
+    const when = college.feeRatesAsOf ? ` on ${formatDate(college.feeRatesAsOf)}` : ` (rate ${NO_DATE})`
+    rateNote = `Tuition, hostel and fees for ${fees.length} years, at ${formatRate(rate.rateToInr)} per ${currencyName(rate.currency)}${when}`
   } else if (rate) {
-    rateNote = `Tuition, hostel and fees for ${feeLines.length} years, at the rates shown in the fee table`
+    rateNote = `Tuition, hostel and fees for ${fees.length} years, at the rates shown in the fee table`
   }
 
   return (
@@ -95,16 +123,17 @@ function Header({ detail }: { detail: AbroadCollegeDetail }) {
       <div>
         <h1>{college.name}</h1>
         <p className="lead" style={{ marginTop: 10 }}>
-          {college.city}, {detail.countryName} · {ownership[college.ownership]} university · MBBS, {courseLength(p.courseLengthMonths)}
+          {college.city}, {countryName(college)} · {college.ownership ? ownership[college.ownership] : slot('ownership')} university ·
+          MBBS, {courseLength(college.courseLengthMonths)}
         </p>
-        <Stamps detail={detail} />
+        <Stamps college={college} />
         <p className="small muted">
           Each mark shows the date it was checked. <a href="#sources">See all sources</a>
         </p>
       </div>
       <div className="datapage datacard">
         <p className="k">Total cost, whole course</p>
-        <p className="big">{detail.totalCourseFeeInr ? formatLakh(detail.totalCourseFeeInr) : slot('total fee')}</p>
+        <p className="big">{college.totalCourseFeeInr != null ? formatLakh(Number(college.totalCourseFeeInr)) : slot('total fee')}</p>
         <p className="k" style={{ marginBottom: 16 }}>
           {rateNote}
         </p>
@@ -112,25 +141,25 @@ function Header({ detail }: { detail: AbroadCollegeDetail }) {
           <div>
             <dt>Taught in</dt>
             <dd>
-              {p.teachingLanguage}
+              {p.teachingLanguage ?? slot('language')}
               {p.languageNote ? `, ${p.languageNote}` : ''}
             </dd>
           </div>
           <div>
             <dt>Intake</dt>
-            <dd>{p.intakeMonths.length ? p.intakeMonths.join(', ') : slot('month')}</dd>
+            <dd>{p.intakeMonths.length ? p.intakeMonths.map((m) => MONTHS[Number(m) - 1] ?? String(m)).join(', ') : slot('month')}</dd>
           </div>
           <div>
             <dt>Seats for Indians</dt>
-            <dd>{p.seatsForIndians ?? slot('number')}</dd>
+            <dd>{p.seatsForIndians != null ? Number(p.seatsForIndians) : slot('number')}</dd>
           </div>
           <div>
             <dt>Min. NEET</dt>
-            <dd>{p.minNeet === 'QUALIFIED' ? 'Qualified' : slot('rule')}</dd>
+            <dd>{neetRule(p)}</dd>
           </div>
         </dl>
         <p className="k" style={{ marginBottom: 16 }}>
-          {college.lastCheckedAt ? `Course facts checked ${formatDate(college.lastCheckedAt)}` : `Course facts ${NO_DATE}`}
+          {college.dataCheckedAt ? `Course facts checked ${formatDate(college.dataCheckedAt)}` : `Course facts ${NO_DATE}`}
           {feeDate ? `, fees checked ${formatDate(feeDate)}` : ''}
         </p>
         <div style={{ display: 'grid', gap: 10 }}>
@@ -154,18 +183,19 @@ function Header({ detail }: { detail: AbroadCollegeDetail }) {
 }
 
 /** The three official marks. Wording follows the rules: never "approved" for a foreign college. */
-function Stamps({ detail }: { detail: AbroadCollegeDetail }) {
-  const { college, abroadProfile: p, sourceLinks, nmcNotices } = detail
-  const wdomsDate = checkedOn(linkDate(sourceLinks, 'WDOMS'))
-  // The 2021 rules check has no date of its own yet, so it uses the college's last check.
-  const nmcRulesDate = checkedOn(college.lastCheckedAt)
-  const alert = nmcNotices.find((n) => n.isActive)
-  const alertDate = checkedOn(linkDate(sourceLinks, 'NMC_NOTICES'))
-  const id = p.wdomsId ? `ID ${p.wdomsId} · ` : ''
+function Stamps({ college }: Props) {
+  const { wdoms, nmc2021 } = college.abroad
+  const { nmc } = college
+  const wdomsDate = checkedOn(wdoms.checkedAt)
+  const nmcRulesDate = checkedOn(nmc2021.checkedAt)
+  const alert = nmc.alert !== 'NONE'
+  const notice = alert ? nmc.notices[0] : undefined
+  const alertDate = checkedOn(nmc.checkedAt)
+  const id = wdoms.id ? `ID ${wdoms.id} · ` : ''
 
   return (
     <div className="stamps">
-      {p.wdomsListed === 'LISTED' && (
+      {wdoms.status === 'LISTED' && (
         <span className="stamp green">
           Listed in WDOMS
           <span className="d">
@@ -174,38 +204,44 @@ function Stamps({ detail }: { detail: AbroadCollegeDetail }) {
           </span>
         </span>
       )}
-      {p.wdomsListed === 'NOT_LISTED' && (
+      {wdoms.status === 'NOT_LISTED' && (
         <span className="stamp red">
           Not listed in WDOMS<span className="d">{wdomsDate}</span>
         </span>
       )}
-      {p.wdomsListed === 'UNKNOWN' && (
+      {wdoms.status === 'UNKNOWN' && (
         <span className="stamp navy">
           WDOMS listing unknown<span className="d">{wdomsDate}</span>
         </span>
       )}
 
-      {p.nmc2021Status === 'MEETS' && (
+      {nmc2021.status === 'MEETS' && (
         <span className="stamp">
           Meets NMC 2021 rules<span className="d">{nmcRulesDate}</span>
         </span>
       )}
-      {p.nmc2021Status === 'DOES_NOT_MEET' && (
+      {nmc2021.status === 'DOES_NOT_MEET' && (
         <span className="stamp red">
           Does not meet NMC 2021 rules<span className="d">{nmcRulesDate}</span>
         </span>
       )}
-      {p.nmc2021Status === 'UNKNOWN' && (
+      {nmc2021.status === 'UNKNOWN' && (
         <span className="stamp navy">
           NMC 2021 rules unknown<span className="d">{nmcRulesDate}</span>
         </span>
       )}
 
-      {alert ? (
-        <a className="stamp red" href={alert.url} rel="noopener noreferrer" target="_blank" style={{ textDecoration: 'none' }}>
-          NMC alert<span className="d">notice of {formatDate(alert.publishedAt)}</span>
+      {notice && (
+        <a className="stamp red" href={notice.url} rel="noopener noreferrer" target="_blank" style={{ textDecoration: 'none' }}>
+          NMC alert<span className="d">notice of {formatDate(notice.publishedAt)}</span>
         </a>
-      ) : (
+      )}
+      {alert && !notice && (
+        <span className="stamp red">
+          NMC alert<span className="d">{alertDate}</span>
+        </span>
+      )}
+      {!alert && (
         <span className="stamp navy">
           No NMC alert found<span className="d">{alertDate}</span>
         </span>
@@ -214,23 +250,12 @@ function Stamps({ detail }: { detail: AbroadCollegeDetail }) {
   )
 }
 
-function Gallery({ detail }: { detail: AbroadCollegeDetail }) {
-  const items = detail.college.galleryJSON
-  if (!items.length) return null
+/** The college's own photo, when there is one. No placeholder tile on a public page. */
+function Gallery({ college }: Props) {
+  if (!college.heroImageUrl) return null
   return (
     <div className="gallery">
-      {items.map((g, i) =>
-        g.url ? (
-          <img key={g.caption} src={g.url} alt={g.caption} style={{ width: '100%', borderRadius: 'var(--r-lg)' }} />
-        ) : (
-          <div className="photo" key={g.caption}>
-            <span>
-              <strong>{g.caption}</strong>
-              {i === 0 && 'Real photo, from the college or our visit, with credit'}
-            </span>
-          </div>
-        ),
-      )}
+      <img src={college.heroImageUrl} alt={college.name} style={{ width: '100%', borderRadius: 'var(--r-lg)' }} />
     </div>
   )
 }
@@ -246,8 +271,8 @@ export function About({ text }: { text: string }) {
   )
 }
 
-function Fees({ detail }: { detail: AbroadCollegeDetail }) {
-  const lines = [...detail.feeLines].sort((a, b) => (a.yearNumber ?? 99) - (b.yearNumber ?? 99))
+function Fees({ college }: Props) {
+  const lines = sortedFees(college.fees)
   if (!lines.length) {
     return (
       <>
@@ -257,10 +282,16 @@ function Fees({ detail }: { detail: AbroadCollegeDetail }) {
     )
   }
   const first = lines[0]
-  const src = detail.sources.find((s) => s.id === first.sourceId)
-  const total = lines.reduce((sum, l) => sum + l.totalInr, 0)
-  const checked = lines.map((l) => l.checkedAt).sort().at(-1) ?? null
+  const total = lines.reduce((sum, l) => sum + Number(l.totalInr), 0)
+  const checked = feesChecked(lines)
   const unit = currencyName(first.currency)
+  const when = college.feeRatesAsOf ? ` on ${formatDate(college.feeRatesAsOf)}` : ` (rate ${NO_DATE})`
+  let converted = 'Amounts are in rupees.'
+  if (oneRate(lines) && first.currency !== 'INR') {
+    converted = `Amounts are converted from ${unit}s at ${formatRate(first.rateToInr)} per ${unit}${when}.`
+  } else if (!oneRate(lines)) {
+    converted = `Amounts are converted to rupees at each line's own rate${when}.`
+  }
 
   return (
     <>
@@ -278,13 +309,13 @@ function Fees({ detail }: { detail: AbroadCollegeDetail }) {
           </thead>
           <tbody>
             {lines.map((l) => (
-              <tr key={l.academicYear + l.scope}>
-                <td>{l.scope === 'ONE_TIME' ? 'One time' : `Year ${l.yearNumber}`}</td>
+              <tr key={String(l.yearNumber)}>
+                <td>Year {Number(l.yearNumber)}</td>
                 <td className="r">{formatInr(inr(l.tuition, l))}</td>
                 <td className="r hide-sm">{formatInr(inr(l.hostel, l))}</td>
                 <td className="r hide-sm">{formatInr(inr(l.other, l))}</td>
                 <td className="r">
-                  <b>{formatInr(l.totalInr)}</b>
+                  <b>{formatInr(Number(l.totalInr))}</b>
                 </td>
               </tr>
             ))}
@@ -303,9 +334,8 @@ function Fees({ detail }: { detail: AbroadCollegeDetail }) {
         </table>
       </div>
       <p className="tbl-note">
-        Total includes hostel and other fees. Amounts are converted from {unit}s at {formatRate(first.fxRateToInr)} per {unit}
-        {first.fxRateDate ? ` on ${formatDate(first.fxRateDate)}` : ` (rate ${NO_DATE})`}. Source: {src?.title ?? 'college fee notice'},{' '}
-        {checkedOn(checked)}. Food, flights and visa are not included.
+        Total includes hostel and other fees. {converted} Source: {first.source?.title ?? 'college fee notice'}, {checkedOn(checked)}. Food,
+        flights and visa are not included.
       </p>
       <Estimate lead="Fees can change." />
     </>
@@ -320,12 +350,12 @@ function Check({ ok, label }: { ok: boolean | null; label: string }) {
   )
 }
 
-function Recognition({ detail }: { detail: AbroadCollegeDetail }) {
-  const { college, abroadProfile: p, sourceLinks, nmcNotices } = detail
+function Recognition({ college }: Props) {
+  const p = college.abroad
+  const { wdoms, nmc2021 } = p
+  const { nmc } = college
   const foreign = useDisclaimer('FOREIGN_COLLEGES_NMC')
-  const wdomsChecked = linkDate(sourceLinks, 'WDOMS')
-  const alertChecked = linkDate(sourceLinks, 'NMC_NOTICES')
-  const alerts = nmcNotices.filter((n) => n.isActive)
+  const alerts = nmc.alert !== 'NONE' ? nmc.notices : []
   const redH3: CSSProperties = { color: 'var(--red)' }
   const rulesNote = `NMC does not approve foreign colleges; it is your course that must meet these rules.`
 
@@ -334,72 +364,72 @@ function Recognition({ detail }: { detail: AbroadCollegeDetail }) {
       <h2>Recognition, explained</h2>
 
       <div className="callout">
-        {p.wdomsListed === 'LISTED' && (
+        {wdoms.status === 'LISTED' && (
           <>
             <h3>
               <Icon name="check" size={16} /> Listed in the World Directory of Medical Schools
             </h3>
             <p>
-              The college has an entry in WDOMS{p.wdomsId ? `, ID ${p.wdomsId}` : ''}. {checkedOn(wdomsChecked)}.{' '}
-              {p.wdomsUrl && (
-                <a href={p.wdomsUrl} rel="noopener noreferrer" target="_blank">
+              The college has an entry in WDOMS{wdoms.id ? `, ID ${wdoms.id}` : ''}. {checkedOn(wdoms.checkedAt)}.{' '}
+              {wdoms.url && (
+                <a href={wdoms.url} rel="noopener noreferrer" target="_blank">
                   View the entry <Icon name="ext" size={14} />
                 </a>
               )}
             </p>
           </>
         )}
-        {p.wdomsListed === 'NOT_LISTED' && (
+        {wdoms.status === 'NOT_LISTED' && (
           <>
             <h3 style={redH3}>
               <Icon name="alert" size={16} /> Not listed in the World Directory of Medical Schools
             </h3>
-            <p>We could not find this college in WDOMS. {checkedOn(wdomsChecked)}.</p>
+            <p>We could not find this college in WDOMS. {checkedOn(wdoms.checkedAt)}.</p>
           </>
         )}
-        {p.wdomsListed === 'UNKNOWN' && (
+        {wdoms.status === 'UNKNOWN' && (
           <>
             <h3>WDOMS listing not confirmed yet</h3>
-            <p>We have not yet confirmed whether this college is in WDOMS. {checkedOn(wdomsChecked)}.</p>
+            <p>We have not yet confirmed whether this college is in WDOMS. {checkedOn(wdoms.checkedAt)}.</p>
           </>
         )}
       </div>
 
       <div className="callout">
-        {p.nmc2021Status === 'MEETS' && (
+        {nmc2021.status === 'MEETS' && (
           <>
             <h3>
               <Icon name="shield" size={16} /> Meets NMC's 2021 rules for study abroad
             </h3>
             <p>
-              The course runs {courseLength(p.courseLengthMonths)}, is taught in {p.teachingLanguage}
-              {p.internshipMonths ? `, and includes a ${p.internshipMonths}-month internship` : ''}. {checkedOn(college.lastCheckedAt)}.{' '}
-              {rulesNote}
+              The course runs {courseLength(college.courseLengthMonths)}, is taught in {p.teachingLanguage ?? slot('language')}
+              {p.internshipMonths != null ? `, and includes a ${Number(p.internshipMonths)}-month internship` : ''}.{' '}
+              {checkedOn(nmc2021.checkedAt)}. {rulesNote}
             </p>
           </>
         )}
-        {p.nmc2021Status === 'DOES_NOT_MEET' && (
+        {nmc2021.status === 'DOES_NOT_MEET' && (
           <>
             <h3 style={redH3}>
               <Icon name="alert" size={16} /> Does not meet NMC's 2021 rules for study abroad
             </h3>
             <p>
-              At least one of the three rules is not met. {checkedOn(college.lastCheckedAt)}. {rulesNote}
+              At least one of the three rules is not met. {checkedOn(nmc2021.checkedAt)}. {rulesNote}
             </p>
           </>
         )}
-        {p.nmc2021Status === 'UNKNOWN' && (
+        {nmc2021.status === 'UNKNOWN' && (
           <>
             <h3>NMC 2021 rules: not fully checked yet</h3>
             <p>
-              We have not been able to confirm all three rules for this course. {checkedOn(college.lastCheckedAt)}. {rulesNote}
+              We have not been able to confirm all three rules for this course. {checkedOn(nmc2021.checkedAt)}. {rulesNote}
             </p>
           </>
         )}
         <ul>
-          <Check ok={p.nmcLengthOk} label="Course length of at least 54 months" />
-          <Check ok={p.nmcEnglishOk} label="Taught in English" />
-          <Check ok={p.nmcInternshipOk} label="12-month internship at the same college" />
+          <Check ok={nmc2021.lengthOk} label="Course length of at least 54 months" />
+          <Check ok={nmc2021.englishOk} label="Taught in English" />
+          <Check ok={nmc2021.internshipOk} label="12-month internship at the same college" />
         </ul>
       </div>
 
@@ -409,7 +439,7 @@ function Recognition({ detail }: { detail: AbroadCollegeDetail }) {
             <Icon name="alert" size={16} /> NMC alert
           </h3>
           {alerts.map((n) => (
-            <p key={n.url}>
+            <p key={`${n.url}-${n.publishedAt}`}>
               <a href={n.url} rel="noopener noreferrer" target="_blank">
                 {n.title} <Icon name="ext" size={14} />
               </a>{' '}
@@ -423,7 +453,7 @@ function Recognition({ detail }: { detail: AbroadCollegeDetail }) {
         <div className="callout">
           <h3>No NMC alert found</h3>
           <p>
-            {alertChecked ? `We checked NMC's public notices on ${formatDate(alertChecked)}.` : `NMC notices check ${NO_DATE}.`} If
+            {nmc.checkedAt ? `We checked NMC's public notices on ${formatDate(nmc.checkedAt)}.` : `NMC notices check ${NO_DATE}.`} If
             NMC issues an alert about this college, it will appear here in red.
           </p>
         </div>
@@ -441,23 +471,35 @@ function Recognition({ detail }: { detail: AbroadCollegeDetail }) {
   )
 }
 
-function Eligibility({ detail }: { detail: AbroadCollegeDetail }) {
-  const { college, abroadProfile: p } = detail
-  const pcb = p.eligibility.class12Pcb.map((c) => `${c.category} ${c.percent}%`).join(', ')
+function Eligibility({ college }: Props) {
+  const p = college.abroad
+  // Staff write eligibility as { label: rule } pairs; NEET UG has its own first row.
+  const rules = Object.entries(p.eligibility ?? {}).filter(([label]) => label !== NEET_KEY)
   return (
     <>
       <h2>Who can apply</h2>
       <dl className="kv">
         <dt>NEET UG</dt>
-        <dd>{p.minNeet === 'QUALIFIED' ? 'Qualified' : slot('rule')}</dd>
-        <dt>Class 12 PCB</dt>
-        <dd>{pcb || slot('marks rule')}</dd>
-        <dt>Age</dt>
-        <dd>{p.eligibility.ageRule ?? slot('age rule')}</dd>
+        <dd>{neetRule(p)}</dd>
+        {rules.length ? (
+          rules.map(([label, rule]) => (
+            <Fragment key={label}>
+              <dt>{label}</dt>
+              <dd>{rule}</dd>
+            </Fragment>
+          ))
+        ) : (
+          <>
+            <dt>Class 12 PCB</dt>
+            <dd>{slot('marks rule')}</dd>
+            <dt>Age</dt>
+            <dd>{slot('age rule')}</dd>
+          </>
+        )}
         <dt>Documents</dt>
         <dd>{p.documents.length ? p.documents.join(', ') : slot('documents')}</dd>
       </dl>
-      <p className="small muted">{college.lastCheckedAt ? `Checked ${formatDate(college.lastCheckedAt)}` : `Checked: ${NO_DATE}`}</p>
+      <p className="small muted">{college.dataCheckedAt ? `Checked ${formatDate(college.dataCheckedAt)}` : `Checked: ${NO_DATE}`}</p>
     </>
   )
 }

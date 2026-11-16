@@ -1,5 +1,5 @@
-import { isLive, type NavItem } from '../../data/navigation'
-import type { StateCounsellingDetail } from '../../data/states'
+import { collegeLink, isLive, type NavItem } from '../../data/navigation'
+import type { StatePageData as StateCounsellingDetail } from '../../data/states'
 import { Icon } from '../Icon'
 import { MenuLink } from '../site/MenuLink'
 import { useRootData } from '../site/config'
@@ -7,7 +7,7 @@ import { Crumbs } from '../shared/Crumbs'
 import { Estimate } from '../shared/Estimate'
 import { FaqList } from '../shared/FaqList'
 import { HOME } from '../shared/home'
-import { checkedOn, formatDate, formatInrShort, formatNumber, NO_DATE, slot } from '../shared/format'
+import { checkedOn, formatDate, formatInrShort, NO_DATE, slot } from '../shared/format'
 
 const link = (label: string, href: string): NavItem => ({ label, href, published: isLive(href) })
 
@@ -105,11 +105,7 @@ export function StatePage({ detail }: { detail: StateCounsellingDetail }) {
 }
 
 function CollegeTable({ detail }: { detail: StateCounsellingDetail }) {
-  const { state, colleges, closingRanks, totalColleges } = detail
-  const { year, round, source } = closingRanks
-  const roundLabel = round === 'STRAY' ? 'Stray round' : `Round ${round}`
-  const checked = colleges.map((c) => c.closingRankCheckedAt).filter((d): d is string => !!d).sort().at(-1) ?? null
-  const rank = (n: number | null) => (n == null ? '–' : formatNumber(n))
+  const { state, colleges, totalColleges } = detail
 
   return (
     <>
@@ -122,29 +118,23 @@ function CollegeTable({ detail }: { detail: StateCounsellingDetail }) {
                 <th>College</th>
                 <th>Type</th>
                 <th className="r">Seats</th>
-                <th className="r">Fees per year</th>
-                <th className="r">General closing rank {year}</th>
-                <th className="r">OBC closing rank {year}</th>
+                <th className="r">Fees, whole course</th>
               </tr>
             </thead>
             <tbody>
               {colleges.map((c) => (
                 <tr key={c.slug}>
                   <td>
-                    <MenuLink item={link(c.name, `/colleges/${c.slug}`)} />
+                    <MenuLink item={collegeLink(c)} />
                   </td>
-                  <td>{OWNERSHIP[c.ownership]}</td>
-                  <td className="r">{c.mbbsSeats}</td>
-                  <td className="r">{c.firstYearFeeInr ? formatInrShort(c.firstYearFeeInr) : slot('fee')}</td>
-                  <td className="r">{rank(c.generalClosingRank)}</td>
-                  <td className="r">{rank(c.obcClosingRank)}</td>
+                  <td>{c.ownership ? OWNERSHIP[c.ownership] : slot('type')}</td>
+                  <td className="r">{slot('number')}</td>
+                  <td className="r">{c.totalCourseFeeInr != null ? formatInrShort(Number(c.totalCourseFeeInr)) : slot('fee')}</td>
                 </tr>
               ))}
             </tbody>
             <caption>
-              {roundLabel} closing All-India ranks, state quota. Source: {source ? `${source.publisher}, ${source.title}` : 'source not recorded'},{' '}
-              {checkedOn(checked)}. {colleges.length} of {totalColleges ?? slot('number')} colleges shown. A dash means no rank is
-              recorded.
+              Closing ranks are not recorded yet. {colleges.length} of {totalColleges ?? slot('number')} colleges shown.
             </caption>
           </table>
         </div>

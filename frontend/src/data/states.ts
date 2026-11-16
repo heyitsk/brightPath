@@ -8,12 +8,37 @@
   been checked. Counselling step dates stay null until the official notice is out; the page
   shows "date not announced yet" and never a guessed date.
 
-  Switching to the real API means changing ONE function: getStateCounselling(). The route
-  loader calls nothing else. The college table comes from colleges.ts, so the same sample
-  colleges show on the college pages, this page and the menus.
+  Switching to the real API means changing ONE function: getStateCounselling(). The college
+  table is not sample: the route loader adds it from GET /colleges/?kind=INDIA&state=<slug>, so
+  the college pages, this page and the menus agree. Closing ranks are not in the API yet
+  (phase 5), so the table does not show them.
 */
-import { getSource, listCollegesByState, type ClosingRank, type IndiaCollegeRow, type Source } from './colleges'
+import type { CollegeCard } from './colleges'
 import type { Faq } from './countries'
+
+/* ---------- 4.2 Sources (sample) ---------- */
+
+export type Source = {
+  id: number
+  kind: 'NTA' | 'MCC' | 'STATE_COUNSELLING' | 'NMC' | 'WDOMS' | 'COLLEGE_WEBSITE' | 'OTHER'
+  title: string
+  publisher: string
+  url: string
+  notes: string | null
+}
+
+const SOURCES: Source[] = [
+  {
+    id: 6,
+    kind: 'STATE_COUNSELLING',
+    title: 'UP NEET UG allotment lists 2025',
+    publisher: 'Directorate General of Medical Education, UP',
+    url: 'https://upneet.gov.in/',
+    notes: null,
+  },
+]
+
+const getSource = (id: number): Source | null => SOURCES.find((s) => s.id === id) ?? null
 
 /* ---------- 4.2 ---------- */
 
@@ -58,12 +83,12 @@ export type StateCounsellingDetail = {
   source: Source | null
   steps: CounsellingStep[]
   faqs: Faq[]
-  /** Which closing ranks the college table shows. Added for the page. */
-  closingRanks: { year: number; round: ClosingRank['round']; source: Source | null }
-  colleges: IndiaCollegeRow[]
   /** Colleges taking part in this state's counselling. null = not counted yet, shown as a [placeholder]. */
   totalColleges: number | null
 }
+
+/** What the state route renders: the sample content plus the listed colleges from the API. */
+export type StatePageData = StateCounsellingDetail & { colleges: CollegeCard[] }
 
 /* ---------- Sample data ---------- */
 
@@ -78,7 +103,7 @@ const UP_COUNSELLING: StateCounselling = {
   whoCanApply: 'Government seats need UP domicile. Private college seats are open to students from any state.',
   status: 'PUBLISHED',
   updatedAt: '2026-09-22',
-  // "UP NEET UG allotment lists 2025" in colleges.ts
+  // "UP NEET UG allotment lists 2025" above
   sourceId: 6,
   checkedAt: '2026-09-22',
   isPublished: true,
@@ -120,7 +145,6 @@ const SAMPLE_STATES = [
     counselling: UP_COUNSELLING,
     steps: UP_STEPS,
     faqs: UP_FAQS,
-    closingRanks: { year: 2025, round: 2 as const, sourceId: 6 },
     totalColleges: null,
   },
 ]
@@ -138,15 +162,12 @@ export async function getStateCounselling(slug: string): Promise<StateCounsellin
     (s) => s.state.slug === slug && s.state.isLive && s.counselling.isPublished && s.counselling.status === 'PUBLISHED',
   )
   if (!found) return null
-  const { year, round, sourceId } = found.closingRanks
   return {
     state: found.state,
     counselling: found.counselling,
-    source: await getSource(found.counselling.sourceId),
+    source: getSource(found.counselling.sourceId),
     steps: [...found.steps].sort((a, b) => a.sort - b.sort),
     faqs: found.faqs.filter((f) => f.isPublished),
-    closingRanks: { year, round, source: await getSource(sourceId) },
-    colleges: await listCollegesByState(slug, year, round),
     totalColleges: found.totalColleges,
   }
 }

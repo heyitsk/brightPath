@@ -1,5 +1,5 @@
 import { Icon } from '../Icon'
-import type { CollegeDetail } from '../../data/colleges'
+import type { CollegePage } from '../../data/colleges'
 import { formatDate, NO_DATE } from '../shared/format'
 
 const PURPOSE_TITLE: Record<string, string> = {
@@ -12,21 +12,24 @@ const PURPOSE_TITLE: Record<string, string> = {
   COLLEGE_WEBSITE: 'College website',
 }
 
-/** "Sources and dates": every source link with the date it was last checked. */
-export function SourcesList({ detail }: { detail: CollegeDetail }) {
+/** "Sources and dates": every source with the date it was last checked. */
+export function SourcesList({ sources }: { sources: CollegePage['sources'] }) {
   return (
     <>
       <h2 id="sources">Sources and dates</h2>
       <ul className="srcs">
-        {detail.sourceLinks.map((l) => {
-          const source = detail.sources.find((s) => s.id === l.sourceId)
-          const title = source?.title ?? PURPOSE_TITLE[l.purpose]
+        {sources.map((s) => {
+          const title = s.title || PURPOSE_TITLE[s.purpose] || s.purpose
           return (
-            <li key={`${l.purpose}-${l.sourceId}`}>
-              <a href={l.url} rel="noopener noreferrer" target="_blank">
-                {title} <Icon name="ext" size={14} />
-              </a>
-              <span className="when">{l.checkedAt ? formatDate(l.checkedAt) : NO_DATE}</span>
+            <li key={`${s.purpose}-${s.title}-${s.url ?? ''}`}>
+              {s.url ? (
+                <a href={s.url} rel="noopener noreferrer" target="_blank">
+                  {title} <Icon name="ext" size={14} />
+                </a>
+              ) : (
+                <span>{title}</span>
+              )}
+              <span className="when">{s.checkedAt ? formatDate(s.checkedAt) : NO_DATE}</span>
             </li>
           )
         })}

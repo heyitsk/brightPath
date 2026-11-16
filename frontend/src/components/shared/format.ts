@@ -1,8 +1,11 @@
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** "2026-10-12" -> "12 Oct 2026". Plain string work, so server and browser always agree. */
+/**
+ * "2026-10-12" or "2026-10-12T09:30:00.000Z" -> "12 Oct 2026". Plain string work on the date
+ * part, so server and browser always agree (the API sends dates and full timestamps).
+ */
 export function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   return `${d} ${MONTHS[m - 1]} ${y}`
 }
 
@@ -63,7 +66,10 @@ const CURRENCY_NAMES: Record<string, string> = {
 
 export const currencyName = (code: string) => CURRENCY_NAMES[code] ?? code
 
-export function courseLength(months: number): string {
+/** "6 years" or "58 months". The API sends whole numbers as string | number; null shows a slot. */
+export function courseLength(value: string | number | null): string {
+  if (value == null) return slot('course length')
+  const months = Number(value)
   if (months % 12 === 0) return `${months / 12} years`
   return `${months} months`
 }

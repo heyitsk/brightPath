@@ -13,7 +13,7 @@ import { CoverBar } from './components/site/CoverBar'
 import { SiteFooter } from './components/site/SiteFooter'
 import { TabBar } from './components/site/TabBar'
 import { SampleBand, TopBar } from './components/site/TopBar'
-import { getNavigation } from './data/navigation'
+import { getNavigation } from './data/navigation.server'
 import stylesheet from './styles/app.css?url'
 import archivoLatin from './styles/fonts/archivo-latin.woff2?url'
 import martianLatin from './styles/fonts/mm-latin.woff2?url'
@@ -28,7 +28,8 @@ export const links: Route.LinksFunction = () => [
 /**
  * Site config (brand, contact slots, finder gate size, disclaimer texts) and menu data
  * for every page. Disclaimer and regulator wording must come from /site/config, never be
- * typed into the frontend. Navigation is SAMPLE data until GET /navigation/explore exists.
+ * typed into the frontend. Navigation labels are SAMPLE until GET /navigation/explore exists;
+ * getNavigation() never throws, so only a /site/config failure stops the page.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   // The admin area is client-only and must keep working when the site API is down.
