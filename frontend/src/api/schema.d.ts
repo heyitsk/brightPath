@@ -102,7 +102,7 @@ export interface paths {
         };
         /**
          * List colleges
-         * @description The college directory. Only colleges that staff have marked ready are listed, and a foreign college only once its country is live. Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course fee in rupees and the date its data was last checked. `facets` gives the filter options with counts. Supports `ETag` / `If-None-Match`. Unknown country or state slugs simply match nothing.
+         * @description The college directory. Only colleges that staff have marked ready are listed, and a foreign college only once its country is live. Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course and first-year fee in rupees, the MBBS seats (Indian colleges) and the date its data was last checked. `facets` gives the filter options with counts. Supports `ETag` / `If-None-Match`. Unknown country or state slugs simply match nothing.
          */
         get: operations["getColleges"];
         put?: never;
@@ -1619,6 +1619,8 @@ export interface operations {
                             heroImageUrl: string | null;
                             courseLengthMonths: (string | number) | null;
                             totalCourseFeeInr: (string | number) | null;
+                            firstYearFeeInr: (string | number) | null;
+                            mbbsSeats: (string | number) | null;
                             /** @description The coloured chips on a college card */
                             badges: {
                                 /** @enum {string} */
@@ -1895,6 +1897,8 @@ export interface operations {
                                 heroImageUrl: string | null;
                                 courseLengthMonths: (string | number) | null;
                                 totalCourseFeeInr: (string | number) | null;
+                                firstYearFeeInr: (string | number) | null;
+                                mbbsSeats: (string | number) | null;
                                 /** @description The coloured chips on a college card */
                                 badges: {
                                     /** @enum {string} */
@@ -13924,6 +13928,8 @@ export interface operations {
                                 [key: string]: string | number;
                             } | null;
                             createdById: string | null;
+                            /** @description Name of the staff member who uploaded the file. null if unknown (e.g. loaded from the command line). */
+                            createdByName: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
@@ -14015,6 +14021,7 @@ export interface operations {
             query: {
                 kind: "COLLEGES" | "FEES";
                 action?: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                warnings?: boolean;
                 limit?: string | number;
                 offset?: string | number;
             };
@@ -14079,6 +14086,8 @@ export interface operations {
                                 [key: string]: string | number;
                             } | null;
                             createdById: string | null;
+                            /** @description Name of the staff member who uploaded the file. null if unknown (e.g. loaded from the command line). */
+                            createdByName: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
@@ -14095,6 +14104,8 @@ export interface operations {
                                 SKIP: string | number;
                                 ERROR: string | number;
                             };
+                            /** @description Rows in the whole file with at least one warning (not narrowed by the filters) */
+                            warningsCount: string | number;
                             /** @description New rows grouped, e.g. per country (colleges) or per college (fees) */
                             groups: {
                                 [key: string]: string | number;
@@ -14107,7 +14118,7 @@ export interface operations {
                             canSave: boolean;
                             /** @description True when some rows have problems. Saving then needs `skipBadRows`. */
                             hasErrors: boolean;
-                            /** @description Rows matching the `action` filter */
+                            /** @description Rows matching the `action` and `warnings` filters */
                             itemsTotal: string | number;
                             offset: string | number;
                             /** @description Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action` */
@@ -14318,6 +14329,7 @@ export interface operations {
         parameters: {
             query?: {
                 action?: "CREATE" | "UPDATE" | "UNCHANGED" | "SKIP" | "ERROR";
+                warnings?: boolean;
                 limit?: string | number;
                 offset?: string | number;
             };
@@ -14357,6 +14369,8 @@ export interface operations {
                                 [key: string]: string | number;
                             } | null;
                             createdById: string | null;
+                            /** @description Name of the staff member who uploaded the file. null if unknown (e.g. loaded from the command line). */
+                            createdByName: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
@@ -14373,6 +14387,8 @@ export interface operations {
                                 SKIP: string | number;
                                 ERROR: string | number;
                             };
+                            /** @description Rows in the whole file with at least one warning (not narrowed by the filters) */
+                            warningsCount: string | number;
                             /** @description New rows grouped, e.g. per country (colleges) or per college (fees) */
                             groups: {
                                 [key: string]: string | number;
@@ -14385,7 +14401,7 @@ export interface operations {
                             canSave: boolean;
                             /** @description True when some rows have problems. Saving then needs `skipBadRows`. */
                             hasErrors: boolean;
-                            /** @description Rows matching the `action` filter */
+                            /** @description Rows matching the `action` and `warnings` filters */
                             itemsTotal: string | number;
                             offset: string | number;
                             /** @description Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action` */
@@ -14729,6 +14745,8 @@ export interface operations {
                                 [key: string]: string | number;
                             } | null;
                             createdById: string | null;
+                            /** @description Name of the staff member who uploaded the file. null if unknown (e.g. loaded from the command line). */
+                            createdByName: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */

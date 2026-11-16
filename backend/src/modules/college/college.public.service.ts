@@ -27,7 +27,7 @@ const cardInclude = {
   indiaProfile: true,
   abroadProfile: true,
   sourceLinks: { select: { checkedAt: true } },
-  feeLines: { select: { checkedAt: true } },
+  feeLines: { select: { checkedAt: true, yearNumber: true, tuition: true, hostel: true, other: true, currency: true } },
 } satisfies Prisma.CollegeInclude;
 type CardRow = Prisma.CollegeGetPayload<{ include: typeof cardInclude }>;
 
@@ -71,10 +71,18 @@ async function noticesFor(colleges: Array<{ id: string; countryId: string | null
 
 const alertOf = (notices: Notice[]): Severity => notices.reduce<Severity>((hi, n) => (SEVERITY_RANK[n.severity] > SEVERITY_RANK[hi] ? n.severity : hi), "NONE");
 
-function toCard(c: CardRow, notices: Notice[]) {
+/** Year 1 fee in rupees at today's rates, or null when there is no year 1 row or its currency has no rate. */
+function firstYearFeeInr(c: CardRow, rates: ReadonlyMap<string, number>): number | null {
+  const f = c.feeLines.find((x) => x.yearNumber === 1);
+  return f ? lineTotalInr({ yearNumber: 1, tuition: num(f.tuition), hostel: num(f.hostel), other: num(f.other), currency: f.currency }, rates) : null;
+}
+
+function toCard(c: CardRow, notices: Notice[], rates: ReadonlyMap<string, number>) {
   return {
     slug: c.slug, kind: c.kind, name: c.name, shortName: c.shortName, city: c.city, country: c.country, state: c.state, ownership: c.ownership,
     establishedYear: c.establishedYear, heroImageUrl: c.heroImageUrl, courseLengthMonths: c.courseLengthMonths, totalCourseFeeInr: c.totalCourseFeeInr,
+    firstYearFeeInr: firstYearFeeInr(c, rates),
+    mbbsSeats: c.kind === "INDIA" ? (c.indiaProfile?.mbbsSeats ?? null) : null,
     badges: {
       nmcAlert: alertOf(notices),
       nmcRecognised: c.kind === "INDIA" ? (c.indiaProfile?.nmcRecognised ?? null) : null,
@@ -86,8 +94,13 @@ function toCard(c: CardRow, notices: Notice[]) {
 }
 
 async function cards(rows: CardRow[]) {
-  const notices = await noticesFor(rows.map((r) => ({ id: r.id, countryId: r.countryId })));
-  return rows.map((r) => toCard(r, notices.get(r.id) ?? []));
+  const currencies = [...new Set(rows.flatMap((r) => r.feeLines.filter((f) => f.yearNumber === 1 && f.currency !== "INR").map((f) => f.currency)))];
+  const [notices, rateRows] = await Promise.all([
+    noticesFor(rows.map((r) => ({ id: r.id, countryId: r.countryId }))),
+    currencies.length ? prisma.fxRate.findMany({ where: { currency: { in: currencies } } }) : [],
+  ]);
+  const rates = new Map(rateRows.map((r) => [r.currency, num(r.rateToInr)]));
+  return rows.map((r) => toCard(r, notices.get(r.id) ?? [], rates));
 }
 
 // ---- list --------------------------------------------------------------------------------------

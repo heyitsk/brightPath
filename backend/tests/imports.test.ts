@@ -193,6 +193,40 @@ describe("the upload -> preview -> save workflow", () => {
     expect((await call(`/admin/imports/${id}?action=NOPE`, { headers: h })).status).toBe(422);
   });
 
+  test("preview counts the rows with warnings and can show only those, alone or together with an action", async () => {
+    const h = await as();
+    await newCollege(h, "College 1", { city: "Moscow" }); // the file's city differs -> UNCHANGED with a warning
+    const up = await upload(h, "COLLEGES", csv("Country,College,City,MBBS seats\nRussia,College 1,Kazan,\nRussia,College 2,Kazan,100\nRussia,College 3,Kazan,\nAtlantis,College 4,X,\n"));
+    const id = body(up).batch.id;
+    expect(body(up).preview.warningsCount).toBe(2);
+    const q = async (qs: string) => body(await call(`/admin/imports/${id}${qs}`, { headers: h })).preview;
+    const only = await q("?warnings=true");
+    expect(only.items.map((i: any) => i.line)).toEqual([3, 2]); // CREATE before UNCHANGED, as in the unfiltered order
+    expect(only.items.every((i: any) => i.warnings.length > 0)).toBe(true);
+    expect(only).toMatchObject({ itemsTotal: 2, warningsCount: 2, totalRows: 4 });
+    expect(await q("?warnings=true&action=CREATE")).toMatchObject({ itemsTotal: 1, warningsCount: 2 });
+    expect(await q("?warnings=true&limit=1&offset=1")).toMatchObject({ itemsTotal: 2, offset: 1 });
+    expect((await q("?warnings=false")).itemsTotal).toBe(4);
+    expect((await q("")).itemsTotal).toBe(4);
+    expect(body(await upload(h, "COLLEGES", csv("Country,College,City,MBBS seats\nRussia,College 5,Kazan,100\nRussia,College 6,Kazan,\n"), "b.csv", "&warnings=true")).preview).toMatchObject({ itemsTotal: 1, warningsCount: 1 });
+    expect((await call(`/admin/imports/${id}?warnings=maybe`, { headers: h })).status).toBe(422);
+  });
+
+  test("every upload says who uploaded it: on upload, in the list, on the detail and after saving", async () => {
+    const u = await createStaff("EDITOR");
+    emails.push(u.email);
+    const h = await loginAs(u.email);
+    const staff = await prisma.staffUser.findUniqueOrThrow({ where: { email: u.email } });
+    const up = await upload(h, "COLLEGES", csv("Country,College,City\nRussia,College 1,Kazan\n"));
+    const id = body(up).batch.id;
+    expect(body(up).batch).toMatchObject({ createdById: staff.id, createdByName: staff.name });
+    expect(body(await call(`/admin/imports/${id}`, { headers: h })).batch.createdByName).toBe(staff.name);
+    expect(body(await commit(h, id)).batch.createdByName).toBe(staff.name);
+    await prisma.importBatch.create({ data: { kind: "COLLEGES", filename: "cli.csv", fileSha256: "x", status: "COMMITTED" } }); // loaded from the command line
+    const list = body(await call("/admin/imports", { headers: await as() })).items as any[];
+    expect(list.map((b) => [b.filename, b.createdByName])).toEqual([["cli.csv", null], ["file.csv", staff.name]]);
+  });
+
   test("an unsaved upload can be discarded; a saved one is kept as a record", async () => {
     const h = await as();
     const id = body(await upload(h, "COLLEGES", sheet())).batch.id;

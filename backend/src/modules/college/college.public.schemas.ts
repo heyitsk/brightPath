@@ -28,6 +28,8 @@ export const CollegeCardSchema = t.Object(
     heroImageUrl: nullable(t.String()),
     courseLengthMonths: nullable(t.Integer()),
     totalCourseFeeInr: nullable(t.Integer({ description: "Whole-course fee in rupees at the current exchange rates" })),
+    firstYearFeeInr: nullable(t.Integer({ description: "Year 1 fee (tuition + hostel + other) in rupees at the current exchange rates. null when there is no year 1 fee row or no rate for its currency." })),
+    mbbsSeats: nullable(t.Integer({ description: "INDIA colleges: number of MBBS seats. null for foreign colleges." })),
     badges: t.Object(
       {
         nmcAlert: NmcAlertSchema,

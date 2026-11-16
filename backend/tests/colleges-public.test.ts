@@ -259,6 +259,26 @@ describe("the list", () => {
     expect(r.items[2]).toMatchObject({ kind: "INDIA", state: { code: "MH" }, country: null, badges: { nmcRecognised: true, wdomsListed: null, meetsNmc2021: null } });
   });
 
+  test("cards carry the first-year fee in rupees and, for Indian colleges, the MBBS seats", async () => {
+    await prisma.college.deleteMany();
+    await make({ name: "India Card", kind: "INDIA", state: "MH" }); // INR 5000 + 1000 + 500
+    await make({ name: "Russia Card" }); // USD 6500 at 88.5
+    await make({ name: "No Rate Card", currency: "KZT" }); // no KZT rate stored
+    const noYearOne = await make({ name: "No Year One" });
+    await prisma.collegeFeeLine.deleteMany({ where: { collegeId: noYearOne.id, yearNumber: 1 } });
+    const items = body(await call(listPath())).items as any[];
+    const card = (slug: string) => { const c = items.find((i) => i.slug === slug); return [c.firstYearFeeInr, c.mbbsSeats]; };
+    expect(card("india-card")).toEqual([6500, 150]);
+    expect(card("russia-card")).toEqual([575250, null]);
+    expect(card("no-rate-card")).toEqual([null, null]);
+    expect(card("no-year-one")).toEqual([null, null]);
+    await prisma.fxRate.update({ where: { currency: "USD" }, data: { rateToInr: 90 } });
+    expect(body(await call(listPath("?q=Russia"))).items[0].firstYearFeeInr).toBe(585000); // follows today's rate
+    const nearby = body(await call("/colleges/russia-card")).college.nearby as any[];
+    expect(nearby.map((n) => [n.slug, n.firstYearFeeInr, n.mbbsSeats])).toEqual([["no-rate-card", null, null], ["no-year-one", null, null]]);
+    expect(nearby.every((n) => "firstYearFeeInr" in n && "mbbsSeats" in n)).toBe(true);
+  });
+
   test("filters: kind, country, state, ownership, text, budget, and combinations", async () => {
     await fixture();
     expect(await slugsOf("?kind=INDIA")).toEqual(["delta-medical-college", "epsilon-medical-college"]);

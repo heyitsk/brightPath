@@ -26,6 +26,7 @@ const BatchSchema = t.Object(
     counts: t.Union([Counts, t.Null()], { description: "Row counts by action (at upload time, or at save time once saved)" }),
     result: t.Union([t.Record(t.String(), t.Integer()), t.Null()], { description: "After saving: what was written, e.g. `{ created, updated }`" }),
     createdById: nullable(t.String()),
+    createdByName: nullable(t.String({ description: "Name of the staff member who uploaded the file. null if unknown (e.g. loaded from the command line)." })),
     createdAt: iso,
     committedAt: t.Union([iso, t.Null()]),
   },
@@ -52,12 +53,13 @@ const PreviewSchema = t.Object(
     sheet: t.String(),
     totalRows: t.Integer(),
     counts: Counts,
+    warningsCount: t.Integer({ description: "Rows in the whole file with at least one warning (not narrowed by the filters)" }),
     groups: t.Record(t.String(), t.Integer(), { description: "New rows grouped, e.g. per country (colleges) or per college (fees)" }),
     ignoredColumns: t.Array(t.String(), { description: "Header cells that matched no known column; usually a typo" }),
     notices: t.Array(t.String(), { description: "File-level messages to show above the preview" }),
     canSave: t.Boolean({ description: "True when saving would create or change something" }),
     hasErrors: t.Boolean({ description: "True when some rows have problems. Saving then needs `skipBadRows`." }),
-    itemsTotal: t.Integer({ description: "Rows matching the `action` filter" }),
+    itemsTotal: t.Integer({ description: "Rows matching the `action` and `warnings` filters" }),
     offset: t.Integer(),
     items: t.Array(PreviewItemSchema, { description: "Errors first, then skipped, updated, created, unchanged; or by row number when filtered by `action`" }),
   },
@@ -66,6 +68,7 @@ const PreviewSchema = t.Object(
 
 const previewQuery = {
   action: t.Optional(ActionSchema),
+  warnings: t.Optional(t.Boolean({ description: "true = only rows that have at least one warning. Combines with `action`." })),
   limit: t.Optional(t.Integer({ minimum: 1, maximum: 500, description: "Rows per page (default 100)" })),
   offset: t.Optional(t.Integer({ minimum: 0, description: "Rows to skip (default 0)" })),
 };
