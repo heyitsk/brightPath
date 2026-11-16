@@ -10,6 +10,7 @@ export type AdminSection = { label: string; href?: string }
 const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'Colleges', href: '/admin/colleges', roles: ['EDITOR'] },
   { label: 'Exchange rates', href: '/admin/fx-rates', roles: ['EDITOR'] },
+  { label: 'Bulk upload', href: '/admin/imports', roles: ['EDITOR'] },
   { label: 'States', href: '/admin/states', roles: ['EDITOR'] },
   { label: 'Countries', href: '/admin/countries', roles: ['EDITOR'] },
   { label: 'Sources', href: '/admin/sources', roles: ['EDITOR'] },

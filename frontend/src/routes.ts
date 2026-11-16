@@ -36,6 +36,8 @@ export default [
     route('colleges/:id', 'routes/admin/college-edit.tsx'),
     route('colleges/:id/delete', 'routes/admin/college-delete.tsx'),
     route('fx-rates', 'routes/admin/fx-rates.tsx'),
+    route('imports', 'routes/admin/imports.tsx'),
+    route('imports/:id', 'routes/admin/import.tsx'),
     // One set of pages for every CRUD section (states, countries, sources, nmc-notices).
     route(':section', 'routes/admin/section-list.tsx'),
     route(':section/new', 'routes/admin/section-new.tsx'),
