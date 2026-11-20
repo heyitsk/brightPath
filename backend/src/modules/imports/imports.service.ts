@@ -37,6 +37,8 @@ async function parseUpload(kind: UploadKind, filename: string, bytes: Uint8Array
 
 export interface PreviewQuery {
   action?: PlanAction;
+  /** true = only rows that have at least one warning. Combines with `action`. */
+  warnings?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -45,6 +47,8 @@ function buildPreview(plan: AnyPlan, payload: Payload, notices: string[], q: Pre
   const limit = q.limit ?? 100;
   const offset = q.offset ?? 0;
   let items = plan.items.map(toPreview);
+  const warningsCount = items.reduce((n, i) => n + (i.warnings.length > 0 ? 1 : 0), 0);
+  if (q.warnings) items = items.filter((i) => i.warnings.length > 0);
   if (q.action) items = items.filter((i) => i.action === q.action).sort((a, b) => a.line - b.line);
   else items = items.sort((a, b) => ACTION_PRIORITY[a.action] - ACTION_PRIORITY[b.action] || a.line - b.line);
   const notes = [...notices];
@@ -53,6 +57,7 @@ function buildPreview(plan: AnyPlan, payload: Payload, notices: string[], q: Pre
     sheet: payload.sheet,
     totalRows: payload.rows.length,
     counts: plan.counts,
+    warningsCount,
     groups: plan.groups,
     ignoredColumns: payload.ignoredColumns,
     notices: notes,
@@ -67,12 +72,22 @@ function buildPreview(plan: AnyPlan, payload: Payload, notices: string[], q: Pre
 type BatchRow = Prisma.ImportBatchGetPayload<object>;
 type Stats = { counts?: Record<PlanAction, number>; result?: Record<string, number> } | null;
 
-function toBatchDto(b: BatchRow) {
+/** Names of the staff who uploaded these batches, by staff id. One query for a whole list. */
+async function uploaderNames(batches: BatchRow[]): Promise<Map<string, string>> {
+  const ids = [...new Set(batches.map((b) => b.createdById).filter((x): x is string => x !== null))];
+  if (!ids.length) return new Map();
+  const staff = await prisma.staffUser.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+  return new Map(staff.map((s) => [s.id, s.name]));
+}
+
+const batchDto = async (b: BatchRow) => toBatchDto(b, await uploaderNames([b]));
+
+function toBatchDto(b: BatchRow, names: ReadonlyMap<string, string>) {
   const stats = (b.stats ?? null) as Stats;
   return {
     id: b.id, kind: b.kind, filename: b.filename, status: b.status,
     counts: stats?.counts ?? null, result: stats?.result ?? null,
-    createdById: b.createdById, createdAt: b.createdAt.toISOString(), committedAt: b.committedAt ? b.committedAt.toISOString() : null,
+    createdById: b.createdById, createdByName: b.createdById ? (names.get(b.createdById) ?? null) : null, createdAt: b.createdAt.toISOString(), committedAt: b.committedAt ? b.committedAt.toISOString() : null,
   };
 }
 
@@ -102,7 +117,7 @@ export async function createImport(actor: AuditActor, kind: UploadKind, filename
     },
   });
   await audit(prisma, { actor, action: "import.upload", entityType: "ImportBatch", entityId: batch.id, after: { kind, filename, rows: payload.rows.length, counts: plan.counts } });
-  return { batch: toBatchDto(batch), preview: buildPreview(plan, payload, notices, q) };
+  return { batch: await batchDto(batch), preview: buildPreview(plan, payload, notices, q) };
 }
 
 /** The preview of a batch that is not saved yet, recomputed against today's data. A saved batch has no preview, only its result. */
@@ -115,7 +130,7 @@ export async function getImport(id: string, q: PreviewQuery = {}) {
     preview = buildPreview(await planFor(batch.kind, payload), payload, [], q);
   }
   const errors = (batch.errors ?? []) as Array<{ line: number; label: string; message: string | null }>;
-  return { batch: toBatchDto(batch), preview, errors: batch.status === "COMMITTED" ? errors : [] };
+  return { batch: await batchDto(batch), preview, errors: batch.status === "COMMITTED" ? errors : [] };
 }
 
 export async function listImports(q: { kind?: "COLLEGES" | "FEES" | "MOCK_SAMPLE"; status?: BatchRow["status"]; limit?: number; cursor?: string }) {
@@ -125,7 +140,8 @@ export async function listImports(q: { kind?: "COLLEGES" | "FEES" | "MOCK_SAMPLE
     orderBy: { id: "desc" }, take: limit + 1,
   });
   const page = rows.slice(0, limit);
-  return { items: page.map(toBatchDto), nextCursor: rows.length > limit ? page[page.length - 1]!.id : null };
+  const names = await uploaderNames(page);
+  return { items: page.map((b) => toBatchDto(b, names)), nextCursor: rows.length > limit ? page[page.length - 1]!.id : null };
 }
 
 // ---- save ----------------------------------------------------------------------------------------
@@ -160,7 +176,7 @@ export async function commitImport(actor: AuditActor, id: string, opts: { skipBa
     },
     { timeout: 120_000, maxWait: 10_000 },
   );
-  return { batch: toBatchDto((await prisma.importBatch.findUniqueOrThrow({ where: { id } }))), result };
+  return { batch: await batchDto(await prisma.importBatch.findUniqueOrThrow({ where: { id } })), result };
 }
 
 /** Throws an unsaved import away. Saved imports are history and stay. */

@@ -88,6 +88,14 @@ export function parseEnv(source: Source) {
     SESSION_TTL_DAYS: int("SESSION_TTL_DAYS", 7, 1),
     /** Salt for hashing client IPs before they are stored. Must be set in production. */
     IP_HASH_SALT: str("IP_HASH_SALT", NODE_ENV === "production" ? "" : "dev-only-ip-salt"),
+    /** News tool (plan §15): the worker schedules fetches only while this is on. */
+    NEWS_SCHEDULER_ENABLED: bool("NEWS_SCHEDULER_ENABLED", NODE_ENV !== "test"),
+    /** Sent to government sites so their administrators can see who is reading and reach us. */
+    NEWS_CONTACT_EMAIL: str("NEWS_CONTACT_EMAIL", "news-bot@brightpath.invalid"),
+    /** Minimum gap between two requests to the same host. */
+    NEWS_MIN_HOST_DELAY_MS: int("NEWS_MIN_HOST_DELAY_MS", NODE_ENV === "test" ? 0 : 5000, 0),
+    /** Give up on a page after this long. */
+    NEWS_FETCH_TIMEOUT_MS: int("NEWS_FETCH_TIMEOUT_MS", 20_000, 1000),
   };
 
   if (problems.length > 0) throw new EnvError(problems);

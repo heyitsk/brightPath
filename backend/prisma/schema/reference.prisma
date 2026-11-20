@@ -28,19 +28,21 @@ enum NmcNoticeScope {
 
 /// Indian states and union territories. Never deleted (colleges will reference them): hide with isLive.
 model State {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  slug      String    @unique // public URL part; immutable after creation
-  name      String
+  id          String       @id @default(uuid(7)) @db.Uuid
+  slug        String       @unique // public URL part; immutable after creation
+  name        String
   /// Short postal-style code, e.g. "UP". Unique.
-  code      String    @unique
+  code        String       @unique
   /// Shown in menus / counselling pages once real data exists.
-  isLive    Boolean   @default(false)
-  sortOrder Int       @default(1000)
+  isLive      Boolean      @default(false)
+  sortOrder   Int          @default(1000)
   /// Lower-case alternative spellings used by the plain-words search (e.g. "up").
-  aliases   String[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  colleges  College[]
+  aliases     String[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  colleges    College[]
+  newsSources NewsSource[]
+  newsItems   NewsItem[]
 
   @@index([isLive, sortOrder])
   @@map("states")

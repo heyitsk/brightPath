@@ -1,0 +1,44 @@
+{
+  "IsSuccess": true,
+  "Message": "Data Retrieved Successfully !",
+  "StatusCode": 200,
+  "Data": {
+    "LatestUpdateList": [
+      {
+        "Id": 244807,
+        "Achievement": "Important Notice - Mentor-Mentee Programme with Department-wise Mentor Directory and Mobile Numbers (Updated November 2026)",
+        "AchievementDate": "2026-11-20T00:00:00",
+        "PdfFIleName": null,
+        "Url": null
+      },
+      {
+        "Id": 244809,
+        "Achievement": "Assistant Professor 2021 & 2024 Documents Verfication Schedule ",
+        "AchievementDate": "2026-11-20T00:00:00",
+        "PdfFIleName": null,
+        "Url": null
+      },
+      {
+        "Id": 244810,
+        "Achievement": "Direction to PMC for Assistant Professor 2024 for Medical Health Check Up",
+        "AchievementDate": "2026-11-20T00:00:00",
+        "PdfFIleName": null,
+        "Url": null
+      },
+      {
+        "Id": 244811,
+        "Achievement": "ATTESTATION FORM",
+        "AchievementDate": "2026-11-20T00:00:00",
+        "PdfFIleName": null,
+        "Url": null
+      },
+      {
+        "Id": 244812,
+        "Achievement": "Affidavit",
+        "AchievementDate": "2026-11-20T00:00:00",
+        "PdfFIleName": null,
+        "Url": null
+      }
+    ]
+  }
+}

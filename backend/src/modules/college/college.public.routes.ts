@@ -25,7 +25,7 @@ export const collegePublicRoutes = new Elysia({ prefix: "/colleges", tags: ["Col
         summary: "List colleges",
         description:
           "The college directory. Only colleges that staff have marked ready are listed, and a foreign college only once its country is live. " +
-          "Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course fee in rupees and the date its data was last checked. " +
+          "Each item is a card with the chips (NMC alert, NMC recognition, WDOMS, NMC 2021 rules), the whole-course and first-year fee in rupees, the MBBS seats (Indian colleges) and the date its data was last checked. " +
           "`facets` gives the filter options with counts. Supports `ETag` / `If-None-Match`. Unknown country or state slugs simply match nothing.",
       },
       response: { 200: CollegeListSchema, ...errorResponses(422, 429) },
