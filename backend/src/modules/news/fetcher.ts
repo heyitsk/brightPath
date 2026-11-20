@@ -32,6 +32,17 @@ export function setFetchImplementation(next?: FetchImpl) {
   robotsCache.clear();
 }
 
+/** Some older government sites are not UTF-8. Use the declared charset (header, then `<meta>`), falling back to UTF-8. */
+export function decodeBody(bytes: ArrayBuffer, contentType: string): string {
+  const head = new TextDecoder("latin1").decode(bytes.slice(0, 2048));
+  const declared = /charset=["']?([\w-]+)/i.exec(contentType)?.[1] ?? /<meta[^>]+charset=["']?([\w-]+)/i.exec(head)?.[1] ?? "utf-8";
+  try {
+    return new TextDecoder(declared).decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+}
+
 // ---- one request at a time per host, with a gap ---------------------------------------
 
 const hostQueue = new Map<string, Promise<unknown>>();
@@ -136,8 +147,9 @@ async function request(url: string, options: FetchOptions): Promise<FetchResult>
       if (!res.ok) return { kind: "error", status: res.status, url, message: `The site answered HTTP ${res.status}.` };
       const declared = Number(res.headers.get("content-length") ?? 0);
       if (declared > MAX_BODY_BYTES) return { kind: "error", status: res.status, url, message: "The page is larger than 5 MB, so it was not read." };
-      const body = await res.text();
-      if (body.length > MAX_BODY_BYTES) return { kind: "error", status: res.status, url, message: "The page is larger than 5 MB, so it was not read." };
+      const bytes = await res.arrayBuffer();
+      const body = decodeBody(bytes, res.headers.get("content-type") ?? "");
+      if (bytes.byteLength > MAX_BODY_BYTES) return { kind: "error", status: res.status, url, message: "The page is larger than 5 MB, so it was not read." };
       return {
         kind: "ok",
         status: res.status,

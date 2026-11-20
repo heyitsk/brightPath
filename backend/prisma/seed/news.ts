@@ -5,8 +5,8 @@ import { prisma } from "../../src/lib/prisma";
 // Inserts only what is missing (matched by slug): sources staff have since edited are left alone,
 // so re-running the seed is safe. Needs the states from the reference seed.
 //
-// Only sources whose kind has an adapter are switched on. The rest are listed so staff can see
-// them, but stay off until their adapter exists (HTML: step N2, JavaScript pages: step N5).
+// A source is switched on only when it can be read: a feed, or an HTML site with settings (HTML_SETUP below).
+// The rest are listed so staff can see them, but stay off (JavaScript pages: step N5).
 
 type SourceSeed = {
   slug: string;
@@ -67,26 +67,70 @@ export const NEWS_SOURCES: SourceSeed[] = [
   { slug: "karnataka-kea", name: "Karnataka Examinations Authority", state: "KA", kind: "HTML_LIST", listUrl: "https://kea.kar.nic.in/", siteUrl: "https://kea.kar.nic.in/", notes: `The site is under maintenance (owner, 2026-11-21); it timed out in testing. Re-test, then ${N2.toLowerCase()}` },
 ];
 
+/**
+ * How to read each HTML site (step N2): where on the page the notices are, and the oddities of that
+ * site. Worked out from the real pages on 2026-11-21 and checked by the saved-page tests
+ * (`tests/news-html.test.ts`). `scope` is a CSS selector; see `adapters/html-list.ts` for every setting.
+ * Staff can change any of this later in the admin screen; the seed never overwrites an edited source.
+ */
+type HtmlSetup = { listUrl?: string; kind?: NewsSourceKind; config: Record<string, unknown>; active?: boolean; notes: string };
+
+const READ = (what: string) => `Read from the page (${what}). Not every notice is relevant: the relevance rules come in step N4.`;
+
+export const HTML_SETUP: Record<string, HtmlSetup> = {
+  "bihar-bceceb": { config: { scope: "#marquee_replacement", row: "li", maxItems: 150 }, notes: READ("the scrolling notice list; every row has a date; PG and dental notices are mixed in") },
+  "haryana-dmer": { config: { scope: "ul.demo1", maxItems: 150, allowInsecureTls: true }, notes: READ("the notice list; every row has a date; also lists scholarships and recruitment") + " The site's certificate chain is incomplete, so reading it without certificate checks is switched on for this source only." },
+  "jharkhand-jceceb": { config: { scope: ".chat-widget-main", row: "div.chat-widget-right" }, notes: READ("the Important Notice panel; the date is inside the title") },
+  "jk-bopee": { config: { scope: "div.news-track" }, notes: READ("the news ticker; every row has a date") },
+  "puducherry-centac": { config: { scope: "#nav-overall_news-home", maxItems: 60 }, notes: READ("the Overall News tab, newest 60 of over 1,000; titles start with [dd-mm-yyyy]; PG and UG are mixed") },
+  "central-nmc": { config: { scope: "div.notice-scroll-full" }, notes: READ("the What's New box; titles start with dd/mm/yyyy") },
+  "chhattisgarh-dme": { config: { scope: "#page-title" }, notes: READ("the notice strip; Hindi and English titles; the page shows today's date beside every link, so dates are only taken where unambiguous") },
+  "andhra-drntr": { config: { scope: "div.row.py-5", maxItems: 150 }, notes: READ("the notification lists; mostly PDFs without dates; PG, nursing and recruitment are mixed in") },
+  "andhra-apdhte": { config: { scope: "table", maxItems: 100, allowInsecureTls: true }, notes: READ("the tables of circulars and allotments; mostly engineering counselling") + " The site's certificate has expired, so reading it without certificate checks is switched on for this source only." },
+  "kerala-cee": { config: { scope: "div.ms-2" }, notes: READ("the notices box; no dates on the page") },
+  "goa-dte": { config: { scope: "div.view-content" }, notes: READ("the latest notices list; no dates on the page") },
+  "manipur-health": { config: { scope: "div.row", skipText: ["screen reader", "skip to", "sitemap", "accessib"] }, notes: READ("the news list; no dates on the page") },
+  "meghalaya-health": { config: { scope: "li", onlyHref: ["/news/"], dateFromUrl: "(?<y>\\d{4})-(?<m>\\d{2})-(?<d>\\d{2})-" }, notes: READ("only links into /news/; the date is the start of the file name; mostly recruitment") },
+  "odisha-ojee": { config: { scope: "ul.slides" }, notes: READ("the latest-news slider; no dates on the page; mostly AYUSH") },
+  "tamilnadu-selection": { config: { scope: "#notification", maxItems: 100 }, notes: READ("the notification list; about a third of rows carry dates; Tamil and English titles") },
+  "tripura-dme": { listUrl: "https://dme.tripura.gov.in/notification", config: { scope: "table" }, notes: READ("the Notifications page (not the home page); no dates on the page; nursing and PG are mixed in") },
+  "uttarakhand-hnbumu": { config: { scope: "table", maxItems: 100 }, notes: READ("the notices tables; no dates on the page; mostly university matters") },
+  "central-nta-neet": { config: { scope: "div.gen-list" }, active: false, notes: READ("the public notices tabs; about half the titles carry a date") + " OFF: the site answers our bot with HTTP 403 (a normal browser is let in). We identify ourselves honestly and do not pretend to be a browser, so this needs NTA's permission or a different route." },
+  "maharashtra-cet-cell": { listUrl: "https://cetcell.mahacet.org/notices/", config: { scope: "table", row: "tr", titleSelector: 'td[data-column="Subject"]', dateSelector: 'td[data-column="Date"]' }, notes: READ("the Notices page (not the home page): a table with subject and date columns; mostly engineering and other CETs") },
+  "chandigarh-gmch": { listUrl: "https://gmch.gov.in/public-notices", config: { scope: "table" }, notes: READ("the Public Notices page; mostly hospital matters, so most of it will be filtered out in N4") },
+
+  // Looked at on 2026-11-21 and not readable as plain pages: the notices are not in the page the server sends.
+  "assam-dme": { kind: "HTML_JS", config: {}, active: false, notes: "The notice pages (e.g. /document/admission-notices-orders) contain no notice links in the HTML the server sends; they are filled in by JavaScript. Needs step N5." },
+  "central-mcc": { kind: "HTML_JS", config: {}, active: false, notes: "The home page has no notice links in the HTML the server sends (the notices are filled in by JavaScript). Needs step N5." },
+  "westbengal-wbmcc": { kind: "HTML_JS", config: {}, active: false, notes: "The home page has no notice links in the HTML the server sends. Needs step N5." },
+  "up-neet": { kind: "HTML_JS", config: {}, active: false, notes: "The notices page (/NewandNotification.aspx) opens each PDF through an ASP.NET postback button, not a link, so there is no address to read. Needs step N5." },
+};
+
 export async function seedNewsSources() {
   const states = await prisma.state.findMany({ select: { id: true, code: true } });
   const stateByCode = new Map(states.map((s) => [s.code, s.id]));
   let created = 0;
+  let upgraded = 0;
   for (const s of NEWS_SOURCES) {
-    const exists = await prisma.newsSource.findUnique({ where: { slug: s.slug }, select: { id: true } });
-    if (exists) continue;
-    await prisma.newsSource.create({
-      data: {
-        slug: s.slug,
-        name: s.name,
-        stateId: s.state ? (stateByCode.get(s.state) ?? null) : null,
-        kind: s.kind,
-        listUrl: s.listUrl,
-        siteUrl: s.siteUrl,
-        isActive: s.active ?? false,
-        notes: s.notes ?? null,
-      },
-    });
-    created++;
+    const setup = HTML_SETUP[s.slug];
+    const data = {
+      kind: setup?.kind ?? s.kind,
+      listUrl: setup?.listUrl ?? s.listUrl,
+      config: (setup?.config ?? {}) as object,
+      isActive: setup ? (setup.active ?? Object.keys(setup.config).length > 0) : (s.active ?? false),
+      notes: setup?.notes ?? s.notes ?? null,
+    };
+    const exists = await prisma.newsSource.findUnique({ where: { slug: s.slug }, select: { id: true, config: true, kind: true } });
+    if (!exists) {
+      await prisma.newsSource.create({ data: { slug: s.slug, name: s.name, stateId: s.state ? (stateByCode.get(s.state) ?? null) : null, siteUrl: s.siteUrl, ...data } });
+      created++;
+    } else if (setup && JSON.stringify(exists.config ?? {}) === "{}" && (Object.keys(setup.config).length > 0 || (setup.kind !== undefined && setup.kind !== exists.kind))) {
+      // Step N2 settings for a source created by the step N1 seed (still unconfigured, or still of the
+      // old kind). A source whose settings staff have already edited is never touched, and a source
+      // that is already up to date is left alone, so running the seed twice changes nothing.
+      await prisma.newsSource.update({ where: { id: exists.id }, data: { ...data, etag: null, lastModified: null } });
+      upgraded++;
+    }
   }
-  return { created, total: NEWS_SOURCES.length };
+  return { created, upgraded, total: NEWS_SOURCES.length };
 }

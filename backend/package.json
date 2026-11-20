@@ -8,6 +8,7 @@
     "@prisma/client": "^7.10.1",
     "@sinclair/typebox": "0.34.52",
     "bullmq": "^6.7.0",
+    "cheerio": "^1.2.0",
     "csv-parse": "^7.0.3",
     "dotenv": "^18.0.9",
     "elysia": "1.4.30",
@@ -34,7 +35,8 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "bun run prisma/seed.ts",
     "admin:bootstrap": "bun run scripts/bootstrap-admin.ts",
-    "news:probe": "bun run scripts/news-probe.ts"
+    "news:probe": "bun run scripts/news-probe.ts",
+    "news:golden": "bun run scripts/news-golden.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

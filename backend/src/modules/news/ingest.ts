@@ -80,7 +80,7 @@ export type Extraction =
 export async function fetchAndExtract(source: NewsSource, opts: { conditional: boolean; now?: Date }): Promise<Extraction> {
   const adapter = adapterFor(source.kind);
   if (!adapter) {
-    return { ok: false, outcome: "ERROR", httpStatus: null, error: `Sources of kind ${source.kind} cannot be read yet (that adapter is built in a later step).` };
+    return { ok: false, outcome: "ERROR", httpStatus: null, error: `Sources of kind ${source.kind} cannot be read yet (that reader is built in a later step).` };
   }
   const config = (source.config ?? {}) as Record<string, unknown>;
   const url = requestUrl(source);

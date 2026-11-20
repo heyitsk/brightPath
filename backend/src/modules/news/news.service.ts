@@ -14,7 +14,7 @@ import { enqueueFetchNow, syncNewsSchedules } from "./news.queue";
 type SourceWithState = NewsSource & { state: Pick<State, "id" | "name" | "code"> | null };
 const withState = { state: { select: { id: true, name: true, code: true } } } as const;
 
-const UNSUPPORTED = "Sources of this kind cannot be read yet. HTML pages arrive in step N2 and JavaScript pages in step N5.";
+const UNSUPPORTED = "Pages whose notices are filled in by JavaScript cannot be read yet. Use RSS, WordPress or HTML_LIST, or wait for the browser-based reader (step N5).";
 
 export function toSourceDto(s: SourceWithState, counts?: { items: number; pending: number }) {
   return {

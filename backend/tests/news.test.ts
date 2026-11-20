@@ -321,7 +321,7 @@ describe("runSource", () => {
   });
 
   test("a source of a kind with no adapter fails clearly and does not crash", async () => {
-    const source = await makeSource({ kind: "HTML_LIST" });
+    const source = await makeSource({ kind: "HTML_JS" });
     const r = await runSource(source.id, NOW);
     expect(r.outcome).toBe("ERROR");
     expect(r.error).toContain("cannot be read yet");
@@ -427,10 +427,10 @@ describe("admin news sources: registry", () => {
     expect(dup.status).toBe(422);
     expect((dup.body as any).error.fields[0].path).toBe("slug");
 
-    const html = await call("/admin/news/sources", { method: "POST", headers: h, json: body({ slug: "html-one", kind: "HTML_LIST", isActive: true }) });
+    const html = await call("/admin/news/sources", { method: "POST", headers: h, json: body({ slug: "html-one", kind: "HTML_JS", isActive: true }) });
     expect(html.status).toBe(422);
     expect((html.body as any).error.fields[0].path).toBe("isActive");
-    const created = await call("/admin/news/sources", { method: "POST", headers: h, json: body({ slug: "html-two", kind: "HTML_LIST" }) });
+    const created = await call("/admin/news/sources", { method: "POST", headers: h, json: body({ slug: "html-two", kind: "HTML_JS" }) });
     expect(created.status).toBe(201);
     expect((created.body as any).source.canFetch).toBe(false);
     const id = (created.body as any).source.id;
@@ -479,7 +479,7 @@ describe("admin news sources: test, run, history", () => {
     expect(r.status).toBe(202);
     expect(r.body).toEqual({ queued: true });
     expect(await newsQueue().getJob(`manual-${s.id}`)).toBeTruthy();
-    const html = await makeSource({ kind: "HTML_LIST", isActive: false });
+    const html = await makeSource({ kind: "HTML_JS", isActive: false });
     expect((await call(`/admin/news/sources/${html.id}/run`, { method: "POST", headers: h })).status).toBe(422);
     expect((await call(`/admin/news/sources/01900000-0000-7000-8000-000000000000/run`, { method: "POST", headers: h })).status).toBe(404);
   });
