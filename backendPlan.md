@@ -19,7 +19,7 @@ Companion file: [`history.md`](history.md) records every decision and its reason
 | 6 | Staff admin | Staff login with roles, data entry, CSV import, audit log, enquiry handling |
 
 ### Out of scope now (PDF §7)
-B2B referral portal, commissions/payments, AI chatbot, news section, separate recognised-colleges directory tool, CRM integration (enquiries must stay exportable so a CRM move is "one step"), NEET PG pages (menu only), student accounts/OTP login.
+B2B referral portal, commissions/payments, AI chatbot, separate recognised-colleges directory tool, CRM integration (enquiries must stay exportable so a CRM move is "one step"), NEET PG pages (menu only), student accounts/OTP login.
 
 ---
 
@@ -322,6 +322,10 @@ Each phase ends **shippable and demo-able**: migrations applied, tests green, `d
 - Cache invalidation review, rate-limit tuning, security checklist (headers, CORS, cookies, dependency audit), backups and restore test, load test of finder/rank endpoints, runbook (failed deliveries, rotating secrets, data refresh each counselling season), deployment config, monitoring/alerting hooks.
 - **Done when:** a written launch checklist is signed off.
 
+### Phase 9 — News tool (added 2026-11-21; built next at the owner's request, independent of Phases 5–8)
+- Full design in §15. Steps, each on its own go-ahead: **N1** schema + source registry + fetch/extract framework + RSS and WordPress adapters + worker + probe script; **N2** HTML adapters and onboarding of the ~21 server-rendered sites, with saved-HTML fixture tests; **N3** review queue API (approve / edit / reject / unpublish, bulk actions, audit) + public `GET /news`; **N4** relevance rules, dedupe, source health and alerts; **N5** (optional) headless-browser fetcher for the 3 or 4 JavaScript-only sites.
+- **Done when:** a new notice appearing on a source site shows up in the admin review queue within one fetch cycle, an editor can fix its wording and publish it, it appears on `GET /news` with a link to the official original, and a broken source is visible in the admin source list.
+
 Suggested order is by dependency and by priority (rank predictor before finder). Phases 3 and 4 are independent and could swap or run in parallel if the NTA files arrive late.
 
 ---
@@ -368,7 +372,9 @@ Counsellor alert emails and finder gate size are **settings in the DB**, not env
 |---|---|
 | 2025/2026 NTA data less granular than 2024, so rank ranges are wider or approximated | Method recorded per year (`basis`), disclosed in the UI, never presented as exact; range shown, not a point |
 | Wrong or stale fees/closing ranks = real harm to students | Mandatory source + `checkedAt`, publish gate, stale report, disclaimer on every payload |
-| Copying competitor data (PDF forbids copying text/design) | Import accepts facts only; descriptions are written by staff; imported rows start `UNVERIFIED`; no automated scraping built |
+| Copying competitor data (PDF forbids copying text/design) | Import accepts facts only; descriptions are written by staff; imported rows start `UNVERIFIED`; no scraping of competitors. The news tool (§15) reads only the official government sites the owner listed and never publishes without a staff click |
+| News scraper breaks silently when a government site changes its layout | Per-source health (last success, items found, consecutive failures); "0 items where there used to be many" raises a warning; saved-HTML fixture tests per site; sources are editable data, not code (§15) |
+| A wrong or misread notice reaches students | Nothing auto-publishes; staff write or edit the summary; every item links to the official original with "published on" and "checked on" dates (§15) |
 | NMC/WDOMS wording errors | Terms fixed in an enum/label dictionary served by the API: "Recognised by NMC" (India only); "Listed in WDOMS", "Meets NMC 2021 rules", "NMC alert" (abroad) |
 | Google Sheets or Resend outage | Enquiry saved first; per-channel queue retries; failed-delivery list; no student-visible failure |
 | Duplicate/spam enquiries | Idempotency key, honeypot, rate limits, optional Turnstile, repeat flag |
@@ -381,3 +387,70 @@ Counsellor alert emails and finder gate size are **settings in the DB**, not env
 
 ## 14. Defaults I chose without asking (owner may overturn; all logged in `history.md`)
 Staff login by email+password with sessions (not JWT); editors may publish (no second-person approval); 24-month enquiry retention; 90-day staleness window; free finder results = 2 per group; stretch band = +15%; no phone OTP and Turnstile off by default; Indian mobile numbers only; imports stored locally in dev and S3-compatible in prod; menu links stay in the frontend.
+
+---
+
+## 15. News tool (Phase 9)
+
+### 15.1 What it does
+Watches the official admission/counselling sites the owner listed, turns each new notice into a **candidate** in an admin review queue, and lets counsellors or editors verify, reword and publish it to a public News page. Happy path: a state site posts a counselling notice → within a few hours it is in the queue → staff open it, check it against the original, fix the wording, click publish → it is live on `/news` (and filterable by state).
+
+### 15.2 What I found by probing the 30 sites (2026-11-21, from the dev machine)
+| Finding | Count / sites | Consequence |
+|---|---|---|
+| Working feed that carries real notices | Only `amruhp.ac.in` (Himachal; RSS and WordPress JSON both work). `cetcell.mahacet.org` has a valid but **empty** feed; `knruhs.telangana.gov.in`'s feed lists site pages ("Physiotherapy", "Hello world!"), not notices. `mcc.nic.in`, `neet.nta.nic.in`, `ojee.nic.in`, `wbmcc.nic.in` are WordPress with the JSON API switched off and `/feed/` erroring (all tested in N1) | RSS and WordPress adapters (built in N1) serve one live source today; the rest need the HTML adapter (N2). An earlier version of this table over-counted feeds |
+| Server-rendered HTML notice lists (no feed) | about 21 sites, e.g. Bihar, Haryana, Tamil Nadu, Kerala, Goa, Jharkhand, J&K, Meghalaya, Tripura, UP, Assam, Telangana, Pondicherry, AP DHTE | HTML adapter with per-site selectors and a generic fallback |
+| JavaScript-rendered or near-empty pages | `bfuhs.ac.in`, `medadmgujarat.org`, `mc.mizoram.gov.in`, `dme.mponline.gov.in` | Need a headless browser (N5) or the site's hidden JSON endpoint; postponed |
+| Unreachable | `ntruhs.ap.nic.in`, `hpupshimla.in` (domain does not resolve), `kea.kar.nic.in` (times out; may only answer Indian IPs), `education.rajasthan.gov.in` (old TLS renegotiation, needs a special client setting), `dtenagaland.org.in` (HTTP 410 Gone) | **Owner replied 2026-11-21 with replacements** for AP (`drntr.uhsap.in/index/`), HP (`hpsmc.org`) and Nagaland (`nmc.nagaland.gov.in`); all three respond. KEA and Rajasthan to be re-tested from the deployed host |
+| Notices are noisy | Same pages mix MBBS with PG, BAMS/BHMS, nursing, recruitment, tenders, COVID-era archives | Relevance scoring and a "Filtered" tab (§15.5) |
+| Dates are usually not in the link text | Only a minority of links carry a date | Date comes from the page row, the PDF, or `firstSeenAt` as the fallback; the item always shows which one |
+| One site lists 1,000+ links on a page (`centacpuducherry.in`) | | First-run baseline cap (§15.6) so staff are not flooded |
+
+### 15.3 Tools and libraries
+No paid API or third-party scraping service is needed. Everything fits the existing stack (Bun, Elysia, Prisma, BullMQ/Redis, pino):
+- **Fetch:** Bun `fetch` with timeouts, identifying User-Agent, conditional GET (ETag / If-Modified-Since), per-host rate limit.
+- **HTML parsing:** `cheerio` (CSS selectors, no browser). **Feeds:** `fast-xml-parser` (RSS/Atom). **WordPress:** `/wp-json/wp/v2/posts` JSON.
+- **Scheduling:** BullMQ repeatable jobs in the existing `worker.ts` (default every 3 hours per source; a setting to go hourly in counselling season).
+- **Later, only if needed:** `playwright` in a separate worker image for JS-only sites (N5); a PDF text reader to pull a date/title from a notice PDF.
+- **Not used:** an LLM (consistent with the plain-words search rule, D-rule in `history.md`); hosted services such as RSS.app, PageCrawl or changedetection.io (they detect page-level changes, not a clean list of new notices, add cost or another service to run, and would sit outside the review model). Revisit only if in-house parsing proves too costly to maintain.
+
+### 15.4 Data model (new tables; migration in N1)
+- `NewsSource(id, name, stateId?, kind: RSS|WP_REST|HTML_LIST|HTML_JS, listUrl, config JSON (item/link/date selectors, date format, URL prefix, TLS-legacy flag), isActive, fetchIntervalMin, lastRunAt, lastSuccessAt, lastItemCount, consecutiveFailures, lastError, status: OK|DEGRADED|BROKEN)` — admin-editable, so fixing a selector or adding a site needs no deploy.
+- `NewsItem(id, sourceId, stateId?, title, originalUrl, urlHash UNIQUE with sourceId, publishedAt?, publishedAtBasis: SOURCE|PDF|FIRST_SEEN, firstSeenAt, relevanceScore, category: COUNSELLING|SCHEDULE|SEAT_MATRIX|MERIT_LIST|REGISTRATION|RESULT|FEE|OTHER, status: PENDING|PUBLISHED|REJECTED|FILTERED|BASELINE|UNPUBLISHED, summary (staff-written), publicTitle?, isPinned, reviewedById, reviewedAt, publishedById, publishedAt, slug)`.
+- `NewsFetchRun(id, sourceId, startedAt, durationMs, httpStatus, itemsFound, itemsNew, error)` — trimmed after 30 days.
+- Reuses `State` (a source belongs to a state), `StaffUser`, the audit log, and the settings registry.
+
+### 15.5 Pipeline
+1. **Fetch** a source (respecting its interval, robots.txt, one request at a time per host, 15 s timeout, exponential back-off).
+2. **Extract** candidates `{title, url, date?}` using the source's adapter. A generic harvester (links whose text matches counselling words, PDF links, dated rows) is the fallback for sites with no tuned selectors.
+3. **Normalise** URLs (absolute, no tracking params, no fragments) and compute `urlHash`; a repeat in the same source is skipped. Same title + same PDF name under a new URL is flagged as a likely repeat, not dropped.
+4. **Score** with plain keyword rules: positives (MBBS, UG, NEET, counselling, allotment, seat matrix, merit list, round, choice filling, registration, schedule), negatives (PG, MD/MS, BAMS, BHMS, nursing, B.Sc, recruitment, tender, COVID, archive). Title-and-link only, no LLM. Category is assigned by the same rules. Low-score items go to `FILTERED`, which is a visible tab, so nothing is silently lost and the rules can be tuned from real misses.
+5. **Queue**: the rest become `PENDING` and appear in the admin review list. Optional email/dashboard badge for counsellors when new items arrive.
+6. **Review**: staff open the original, optionally edit `publicTitle`, write a 1–2 line `summary`, set category/state/pin, then **Publish** or **Reject**. Published items can be unpublished. Every action is audited.
+7. **Public**: `GET /news` (paginated; filters `state`, `category`; newest first, pinned first) and `GET /news/{slug}`. Each item shows the source name, "Published on" (with its basis), "Checked on", and a link to the official original. The site does not mirror or host the PDFs.
+
+### 15.6 Rules that protect quality
+- **Nothing auto-publishes.** Ever. (Matches the college ready-gate philosophy.)
+- **First-run baseline:** the first successful fetch of a source marks everything older than 60 days, and anything beyond the newest 20, as `BASELINE` (hidden, searchable), so a 1,000-link page does not create 1,000 tasks.
+- **Source health:** `DEGRADED` after 3 failures, `BROKEN` after 10 or when a source that returned items now returns 0 for 3 runs. Admin source list shows the status and last error; a settings-defined alert email is notified on `BROKEN`.
+- **Politeness:** identifying User-Agent with a contact address (env), robots.txt honoured, minimum 5 s between requests to one host, nothing heavier than the list page plus conditional GETs.
+- **Staff-written summaries:** we link to and summarise official notices; we do not copy their text wholesale.
+- **Dates are honest:** `publishedAtBasis` says whether the date came from the source, the PDF or our first sighting.
+
+### 15.7 Admin API (Admin · News; role to confirm, default COUNSELLOR and above for review, EDITOR and above for sources)
+`GET /admin/news` (filters: status, state, category, source, search, `isNew`) · `GET /admin/news/{id}` · `PATCH /admin/news/{id}` (edit wording, category, state, pin) · `POST /admin/news/{id}/publish|reject|unpublish|restore` · `POST /admin/news/bulk` (reject/restore many) · `GET/POST/PATCH/DELETE /admin/news/sources` · `POST /admin/news/sources/{id}/test` (dry run: fetch + extract, show what would be found, store nothing) · `POST /admin/news/sources/{id}/run` (fetch now) · `GET /admin/news/sources/{id}/runs` · `GET /admin/news/stats` (pending count per state, broken sources).
+Public: `GET /news`, `GET /news/{slug}`, plus `latestNews` (top 3) added to the homepage/state-page payloads when the frontend wants it.
+
+### 15.8 Testing
+Saved HTML/RSS snapshots of every onboarded site as fixtures (no live network in tests); one contract test per adapter; table-driven corpus for relevance scoring; dedupe, baseline and health-state tests; publish-flow and role matrix tests; a `bun run news:probe <source>` script for live checks by hand.
+
+### 15.9 Config
+Env: `NEWS_USER_AGENT`, `NEWS_CONTACT_EMAIL`, `NEWS_MIN_HOST_DELAY_MS`. Settings in the DB: default fetch interval, "counselling season" fast interval, alert email, relevance threshold, baseline limits.
+
+### 15.10 Central sources added by the owner (2026-11-21)
+`mcc.nic.in` (WordPress; JSON API disabled and `/feed/` errors, tested in N1, so HTML adapter), `neet.nta.nic.in` (WordPress, ~49 notice links, 43 PDFs, about half dated; the best-structured of all), `nmc.org.in` (not WordPress, `/feed/` and `/wp-json` both 404, so HTML adapter). These are central sources (no state). With Nagaland dropped by the owner (2026-11-21), the registry holds **32 sources**: 1 live feed (Himachal), 1 feed that is off (Telangana), 25 HTML lists waiting for N2 (including Karnataka, under maintenance, and the three central bodies), and 5 JavaScript pages waiting for N5.
+
+### 15.11 Replacement sources: what they turned out to be
+- `drntr.uhsap.in/index/` (Andhra Pradesh): server-rendered, about 140 notice links, mostly PDFs, mixed with PG; works with the HTML adapter.
+- **Update 2026-11-21 (second reply):** Himachal is now `amruhp.ac.in` (Atal Medical and Research University; WordPress, about 236 notice links, 180 PDFs, MBBS/BDS prospectus and counselling links), replacing `hpsmc.org`, which is dropped. Rajasthan is now `medicaleducation.rajasthan.gov.in/home`, which is JavaScript-rendered (no links in the raw page), so it joins the N5 group. Karnataka (`kea.kar.nic.in`) is under maintenance: registered but `isActive = false` until it is back. Andhra Pradesh stays on `drntr.uhsap.in` (it works).
+- `hpsmc.org` (dropped) and `nmc.nagaland.gov.in` (kept as given, still unconfirmed): from their link text ("Provisional Registration", "Registration Rules", "Re-registration", "Election Notification") these look like the **state medical councils** (doctor registration), not the admission and counselling bodies. They will mostly produce notices that the relevance rules filter out. Kept as sources as given; owner asked to confirm whether the actual HP and Nagaland counselling sites are wanted instead.

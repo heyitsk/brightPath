@@ -1097,6 +1097,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/news/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List news sources
+         * @description Every official site that is watched, switched-on ones first, with health and counts. `attentionCount` is how many switched-on sources are not healthy (for a badge). No paging: the list is a few dozen rows. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNewsSources"];
+        put?: never;
+        /**
+         * Add a news source
+         * @description Registers a site to watch. It starts switched off: use `POST /admin/news/sources/{id}/test` to see what would be found, then switch it on with `PATCH`. A source whose kind cannot be fetched yet cannot be switched on. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNewsSources"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/news/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a news source
+         * @description One source with its health and counts. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNewsSourcesById"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a news source
+         * @description Only a source with no stored notices can be deleted (409 otherwise); switch it off instead. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        delete: operations["deleteAdminNewsSourcesById"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a news source
+         * @description Send only the fields to change. Changing the address, kind or settings clears the stored change markers. Switching a source back on gives it a clean health record. The slug cannot change. Audited. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        patch: operations["patchAdminNewsSourcesById"];
+        trace?: never;
+    };
+    "/admin/news/sources/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a news source
+         * @description Fetches the source now and reads it exactly as a scheduled run would, then shows what was found and which notices are new. Stores nothing and does not change the source's health. Slow sites can take up to 20 seconds. The site's robots.txt and the polite request delay still apply. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNewsSourcesByIdTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/news/sources/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch a news source now
+         * @description Queues an immediate fetch (also for a switched-off source). Answers 202 at once; the result shows up in the source's health and run history within a minute. Repeated clicks while one is waiting count as one. 422 if the source's kind cannot be fetched yet; 503 if the job queue is down. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        post: operations["postAdminNewsSourcesByIdRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/news/sources/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent fetch runs of a source
+         * @description The last 30 days of fetch attempts, newest first, so staff can see why a source is unhealthy. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         */
+        get: operations["getAdminNewsSourcesByIdRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -14836,6 +14948,1461 @@ export interface operations {
             };
             /** @description Conflicts with the current state of the data */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNewsSources: {
+        parameters: {
+            query?: {
+                kind?: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                status?: "OK" | "DEGRADED" | "BROKEN";
+                stateId?: string;
+                isActive?: boolean;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            name: string;
+                            /** @description The state this source speaks for; null for a central body (MCC, NTA, NMC) */
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                            /** @description The page, feed or API address that is fetched */
+                            listUrl: string;
+                            /** @description The site's home page */
+                            siteUrl: string | null;
+                            config: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Scheduled fetching is on. A source whose kind cannot be fetched yet cannot be switched on. */
+                            isActive: boolean;
+                            /** @description Minutes between fetches */
+                            fetchIntervalMin: string | number;
+                            notes: string | null;
+                            /** @description False while the source's kind has no adapter yet */
+                            canFetch: boolean;
+                            /** @enum {string} */
+                            status: "OK" | "DEGRADED" | "BROKEN";
+                            /** Format: date-time */
+                            lastRunAt: string | null;
+                            /** Format: date-time */
+                            lastSuccessAt: string | null;
+                            /** @description Notices found on the last run that found any */
+                            lastItemCount: string | number;
+                            consecutiveFailures: string | number;
+                            /** @description Runs in a row that found nothing although earlier runs found notices */
+                            consecutiveEmptyRuns: string | number;
+                            /** @description Plain-words reason the last run failed; null after a good run */
+                            lastError: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the first read recorded what was already on the site; null until something has been found
+                             */
+                            baselineAt: string | null;
+                            /** @description Notices stored for this source, in any status */
+                            itemCount: string | number;
+                            /** @description Notices waiting for staff review */
+                            pendingCount: string | number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        attentionCount: string | number;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNewsSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Lower-case URL part (letters, digits, single hyphens). Cannot be changed after creation.
+                     * @example uttar-pradesh
+                     */
+                    slug: string;
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * @description Lower-case URL part (letters, digits, single hyphens). Cannot be changed after creation.
+                     * @example uttar-pradesh
+                     */
+                    slug: string;
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+                "multipart/form-data": {
+                    /**
+                     * @description Lower-case URL part (letters, digits, single hyphens). Cannot be changed after creation.
+                     * @example uttar-pradesh
+                     */
+                    slug: string;
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One official site that is watched for notices */
+                        source: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            name: string;
+                            /** @description The state this source speaks for; null for a central body (MCC, NTA, NMC) */
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                            /** @description The page, feed or API address that is fetched */
+                            listUrl: string;
+                            /** @description The site's home page */
+                            siteUrl: string | null;
+                            config: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Scheduled fetching is on. A source whose kind cannot be fetched yet cannot be switched on. */
+                            isActive: boolean;
+                            /** @description Minutes between fetches */
+                            fetchIntervalMin: string | number;
+                            notes: string | null;
+                            /** @description False while the source's kind has no adapter yet */
+                            canFetch: boolean;
+                            /** @enum {string} */
+                            status: "OK" | "DEGRADED" | "BROKEN";
+                            /** Format: date-time */
+                            lastRunAt: string | null;
+                            /** Format: date-time */
+                            lastSuccessAt: string | null;
+                            /** @description Notices found on the last run that found any */
+                            lastItemCount: string | number;
+                            consecutiveFailures: string | number;
+                            /** @description Runs in a row that found nothing although earlier runs found notices */
+                            consecutiveEmptyRuns: string | number;
+                            /** @description Plain-words reason the last run failed; null after a good run */
+                            lastError: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the first read recorded what was already on the site; null until something has been found
+                             */
+                            baselineAt: string | null;
+                            /** @description Notices stored for this source, in any status */
+                            itemCount: string | number;
+                            /** @description Notices waiting for staff review */
+                            pendingCount: string | number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNewsSourcesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One official site that is watched for notices */
+                        source: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            name: string;
+                            /** @description The state this source speaks for; null for a central body (MCC, NTA, NMC) */
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                            /** @description The page, feed or API address that is fetched */
+                            listUrl: string;
+                            /** @description The site's home page */
+                            siteUrl: string | null;
+                            config: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Scheduled fetching is on. A source whose kind cannot be fetched yet cannot be switched on. */
+                            isActive: boolean;
+                            /** @description Minutes between fetches */
+                            fetchIntervalMin: string | number;
+                            notes: string | null;
+                            /** @description False while the source's kind has no adapter yet */
+                            canFetch: boolean;
+                            /** @enum {string} */
+                            status: "OK" | "DEGRADED" | "BROKEN";
+                            /** Format: date-time */
+                            lastRunAt: string | null;
+                            /** Format: date-time */
+                            lastSuccessAt: string | null;
+                            /** @description Notices found on the last run that found any */
+                            lastItemCount: string | number;
+                            consecutiveFailures: string | number;
+                            /** @description Runs in a row that found nothing although earlier runs found notices */
+                            consecutiveEmptyRuns: string | number;
+                            /** @description Plain-words reason the last run failed; null after a good run */
+                            lastError: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the first read recorded what was already on the site; null until something has been found
+                             */
+                            baselineAt: string | null;
+                            /** @description Notices stored for this source, in any status */
+                            itemCount: string | number;
+                            /** @description Notices waiting for staff review */
+                            pendingCount: string | number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteAdminNewsSourcesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Conflicts with the current state of the data */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchAdminNewsSourcesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name?: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind?: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl?: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+                "application/x-www-form-urlencoded": {
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name?: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind?: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl?: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+                "multipart/form-data": {
+                    /** @example Atal Medical and Research University, Himachal Pradesh */
+                    name?: string;
+                    /**
+                     * Format: uuid
+                     * @description Leave null for a central body
+                     */
+                    stateId?: string | null;
+                    /** @enum {string} */
+                    kind?: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    listUrl?: string;
+                    /**
+                     * @description Full http(s) link to the official page or document
+                     * @example https://www.nmc.org.in/
+                     */
+                    siteUrl?: string | null;
+                    /** @description Adapter settings. `apiUrl` (WP_REST: the exact JSON address), `allowInsecureTls` (true to read a site with a broken certificate chain). HTML selectors arrive in step N2. */
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Default false for a new source: test it first, then switch it on */
+                    isActive?: boolean;
+                    /** @description Minutes between fetches (15 to 1440, default 180) */
+                    fetchIntervalMin?: string | number;
+                    /** @description Internal notes for staff */
+                    notes?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description One official site that is watched for notices */
+                        source: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            name: string;
+                            /** @description The state this source speaks for; null for a central body (MCC, NTA, NMC) */
+                            state: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                code: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "RSS" | "WP_REST" | "HTML_LIST" | "HTML_JS";
+                            /** @description The page, feed or API address that is fetched */
+                            listUrl: string;
+                            /** @description The site's home page */
+                            siteUrl: string | null;
+                            config: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Scheduled fetching is on. A source whose kind cannot be fetched yet cannot be switched on. */
+                            isActive: boolean;
+                            /** @description Minutes between fetches */
+                            fetchIntervalMin: string | number;
+                            notes: string | null;
+                            /** @description False while the source's kind has no adapter yet */
+                            canFetch: boolean;
+                            /** @enum {string} */
+                            status: "OK" | "DEGRADED" | "BROKEN";
+                            /** Format: date-time */
+                            lastRunAt: string | null;
+                            /** Format: date-time */
+                            lastSuccessAt: string | null;
+                            /** @description Notices found on the last run that found any */
+                            lastItemCount: string | number;
+                            consecutiveFailures: string | number;
+                            /** @description Runs in a row that found nothing although earlier runs found notices */
+                            consecutiveEmptyRuns: string | number;
+                            /** @description Plain-words reason the last run failed; null after a good run */
+                            lastError: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the first read recorded what was already on the site; null until something has been found
+                             */
+                            baselineAt: string | null;
+                            /** @description Notices stored for this source, in any status */
+                            itemCount: string | number;
+                            /** @description Notices waiting for staff review */
+                            pendingCount: string | number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNewsSourcesByIdTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What a real fetch would find. Nothing was stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        /** @description Plain-words reason the test failed */
+                        error: string | null;
+                        httpStatus: (string | number) | null;
+                        /** @description The address that was actually requested */
+                        requestedUrl: string;
+                        itemsFound: string | number;
+                        /** @description Found but not stored yet for this source */
+                        itemsNew: string | number;
+                        /** @description The first 30 notices, newest first as the site lists them */
+                        items: {
+                            title: string;
+                            url: string;
+                            sourcePublishedAt: string | null;
+                            /** @enum {string} */
+                            dateBasis: "SOURCE" | "PDF" | "FIRST_SEEN";
+                            snippet: string | null;
+                            isNew: boolean;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminNewsSourcesByIdRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        queued: true;
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed. See `error.fields` for each problem */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Error */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminNewsSourcesByIdRuns: {
+        parameters: {
+            query?: {
+                limit?: string | number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            durationMs: string | number;
+                            /** @enum {string} */
+                            outcome: "OK" | "NOT_MODIFIED" | "ERROR" | "BLOCKED_BY_ROBOTS";
+                            httpStatus: (string | number) | null;
+                            itemsFound: string | number;
+                            itemsNew: string | number;
+                            error: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in but not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @description Stable machine-readable code, e.g. `VALIDATION_FAILED`, `RATE_LIMITED`, `ACCOUNT_LOCKED`, `NOT_PUBLISHED_YET` */
+                            code: string;
+                            /** @description Human-readable summary, e.g. `Please fix 2 things below.` */
+                            message: string;
+                            /** @description Per-field problems. Present for validation errors. */
+                            fields?: {
+                                /** @description Dotted path of the offending field, e.g. `phone` or `items.0.name` */
+                                path: string;
+                                /** @description Human-readable explanation, safe to show next to the field */
+                                message: string;
+                            }[];
+                            /** @description Echoes the `X-Request-Id` response header. Quote it when reporting a problem. */
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

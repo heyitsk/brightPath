@@ -1,0 +1,169 @@
+// Phase 9: news tool (plan §15). Official government notices are fetched into a review queue;
+// staff verify and publish them. Nothing publishes by itself (D-134).
+
+enum NewsSourceKind {
+  /// RSS 2.0 or Atom feed.
+  RSS
+  /// WordPress JSON API (`/wp-json/wp/v2/posts`).
+  WP_REST
+  /// Server-rendered HTML list page, read with per-site selectors (step N2).
+  HTML_LIST
+  /// Page that needs a headless browser (step N5).
+  HTML_JS
+}
+
+enum NewsSourceStatus {
+  OK
+  /// Several failed runs in a row.
+  DEGRADED
+  /// Many failed runs, or it keeps returning nothing where it used to return items.
+  BROKEN
+}
+
+enum NewsItemStatus {
+  /// Waiting for staff review.
+  PENDING
+  PUBLISHED
+  REJECTED
+  /// Judged irrelevant by the keyword rules (step N4); visible in its own tab.
+  FILTERED
+  /// Already on the site when the source was first read; kept out of the queue.
+  BASELINE
+  UNPUBLISHED
+}
+
+enum NewsCategory {
+  COUNSELLING
+  SCHEDULE
+  SEAT_MATRIX
+  MERIT_LIST
+  REGISTRATION
+  RESULT
+  FEE
+  OTHER
+}
+
+enum NewsDateBasis {
+  /// The date came from the source (feed, page row).
+  SOURCE
+  /// The date was read from the notice PDF.
+  PDF
+  /// The source gave no date; this is when we first saw the notice.
+  FIRST_SEEN
+}
+
+enum NewsRunOutcome {
+  OK
+  /// The server said nothing changed (conditional GET).
+  NOT_MODIFIED
+  ERROR
+  /// robots.txt forbids reading the page.
+  BLOCKED_BY_ROBOTS
+}
+
+/// One official site (or feed) that is watched for notices. Edited by staff, so a broken site
+/// can be fixed without a deploy (D-136).
+model NewsSource {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  slug             String         @unique
+  name             String
+  /// The state this source speaks for; null for central bodies (MCC, NTA, NMC).
+  stateId          String?        @db.Uuid
+  state            State?         @relation(fields: [stateId], references: [id], onDelete: SetNull)
+  kind             NewsSourceKind
+  /// The page, feed or API address that is fetched.
+  listUrl          String
+  /// The public home page, shown to staff and linked from published items.
+  siteUrl          String?
+  /// Adapter settings: selectors for HTML sources, `allowInsecureTls`, and so on.
+  config           Json           @default("{}")
+  isActive         Boolean        @default(true)
+  /// Minutes between fetches.
+  fetchIntervalMin Int            @default(180)
+  notes            String?
+
+  // ---- health (D-140) ----
+  status               NewsSourceStatus @default(OK)
+  lastRunAt            DateTime?
+  lastSuccessAt        DateTime?
+  /// How many candidates the last successful run found on the page.
+  lastItemCount        Int              @default(0)
+  consecutiveFailures  Int              @default(0)
+  /// Runs in a row that found nothing although earlier runs found items.
+  consecutiveEmptyRuns Int              @default(0)
+  lastError            String?
+  /// Set after the first successful read, which only records what was already there (D-138).
+  baselineAt           DateTime?
+  etag                 String?
+  lastModified         String?
+
+  createdById String?        @db.Uuid
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  items       NewsItem[]
+  runs        NewsFetchRun[]
+
+  @@index([isActive, stateId])
+  @@map("news_sources")
+}
+
+/// A notice found on a source. A candidate until staff publish it.
+model NewsItem {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  sourceId          String        @db.Uuid
+  source            NewsSource    @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  /// Copied from the source, so staff can change a notice's state without touching the source.
+  stateId           String?       @db.Uuid
+  state             State?        @relation(fields: [stateId], references: [id], onDelete: SetNull)
+  /// Title as found on the official page.
+  title             String
+  originalUrl       String
+  /// SHA-256 of the normalised address; unique per source, so a notice is stored once.
+  urlHash           String
+  /// A short plain-text excerpt (feeds usually carry one) to help the reviewer.
+  snippet           String?
+  /// The date the source gives for the notice.
+  sourcePublishedAt DateTime?
+  dateBasis         NewsDateBasis @default(FIRST_SEEN)
+  firstSeenAt       DateTime      @default(now())
+
+  relevanceScore Int            @default(0)
+  category       NewsCategory   @default(OTHER)
+  status         NewsItemStatus @default(PENDING)
+
+  // ---- written by staff (step N3) ----
+  publicTitle   String?
+  summary       String?
+  isPinned      Boolean   @default(false)
+  slug          String?   @unique
+  reviewedById  String?   @db.Uuid
+  reviewedAt    DateTime?
+  /// When staff published it on the site.
+  publishedAt   DateTime?
+  publishedById String?   @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceId, urlHash])
+  @@index([status, firstSeenAt])
+  @@index([status, stateId, publishedAt])
+  @@map("news_items")
+}
+
+/// One fetch attempt, kept for 30 days so staff can see why a source is unhealthy.
+model NewsFetchRun {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  sourceId   String         @db.Uuid
+  source     NewsSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  startedAt  DateTime       @default(now())
+  durationMs Int
+  outcome    NewsRunOutcome
+  httpStatus Int?
+  itemsFound Int            @default(0)
+  itemsNew   Int            @default(0)
+  error      String?
+
+  @@index([sourceId, startedAt])
+  @@map("news_fetch_runs")
+}

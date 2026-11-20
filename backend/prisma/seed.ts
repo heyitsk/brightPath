@@ -2,10 +2,12 @@
 // Each phase adds its own seed function here (Phase 2: states/countries, ...).
 import { logger } from "../src/lib/logger";
 import { prisma } from "../src/lib/prisma";
+import { seedNewsSources } from "./seed/news";
 import { seedReferenceData } from "./seed/reference";
 
 const seeds: Array<{ name: string; run: () => Promise<unknown> }> = [
   { name: "reference-data", run: seedReferenceData },
+  { name: "news-sources", run: seedNewsSources },
 ];
 
 for (const seed of seeds) {

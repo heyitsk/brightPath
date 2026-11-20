@@ -12,6 +12,7 @@
     "dotenv": "^18.0.9",
     "elysia": "1.4.30",
     "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.12.1",
     "ioredis": "^6.0.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
@@ -32,7 +33,8 @@
     "test:watch": "NODE_ENV=test bun test --watch",
     "db:reset": "prisma migrate reset",
     "db:seed": "bun run prisma/seed.ts",
-    "admin:bootstrap": "bun run scripts/bootstrap-admin.ts"
+    "admin:bootstrap": "bun run scripts/bootstrap-admin.ts",
+    "news:probe": "bun run scripts/news-probe.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
