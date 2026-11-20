@@ -323,7 +323,7 @@ Each phase ends **shippable and demo-able**: migrations applied, tests green, `d
 - **Done when:** a written launch checklist is signed off.
 
 ### Phase 9 — News tool (added 2026-11-21; built next at the owner's request, independent of Phases 5–8)
-- Full design in §15. Steps, each on its own go-ahead: **N1** (done 2026-11-21) schema + source registry + fetch/extract framework + RSS and WordPress adapters + worker + probe script; **N2** (done 2026-11-21) HTML reader and settings for the server-rendered sites, with saved-page tests; **N3** review queue API (approve / edit / reject / unpublish, bulk actions, audit) + public `GET /news`; **N4** (done 2026-11-21, built before N3) relevance rules, repeat flags, source health records and stats; the alert email waits for Phase 6; **N5** (optional) headless-browser fetcher for the 3 or 4 JavaScript-only sites.
+- Full design in §15. Steps, each on its own go-ahead: **N1** (done 2026-11-21) schema + source registry + fetch/extract framework + RSS and WordPress adapters + worker + probe script; **N2** (done 2026-11-21) HTML reader and settings for the server-rendered sites, with saved-page tests; **N3** (done 2026-11-21) review queue API (edit / publish / reject / unpublish / restore, bulk reject and restore, audit) + public `GET /news` and `GET /news/{slug}`; **N4** (done 2026-11-21, built before N3) relevance rules, repeat flags, source health records and stats; the alert email waits for Phase 6; **N5** (optional) headless-browser fetcher for the 3 or 4 JavaScript-only sites.
 - **Done when:** a new notice appearing on a source site shows up in the admin review queue within one fetch cycle, an editor can fix its wording and publish it, it appears on `GET /news` with a link to the official original, and a broken source is visible in the admin source list.
 
 Suggested order is by dependency and by priority (rank predictor before finder). Phases 3 and 4 are independent and could swap or run in parallel if the NTA files arrive late.
@@ -444,9 +444,10 @@ No paid API or third-party scraping service is needed. Everything fits the exist
   - Nine JavaScript-driven sites (Gujarat, Madhya Pradesh, Mizoram, Punjab, Rajasthan, Assam, MCC, West Bengal MCC, UP): **wait for step N5** (owner decision).
 - **Frontend is not touched while the backend is built (owner decision, 2026-11-21).** `docs/openapi.json` is kept up to date, but the generated types in `frontend/src/api/schema.d.ts` are not regenerated until the frontend work begins. (The N1 commit did include one regeneration of that file.)
 
-### 15.7 Admin API (Admin · News; role to confirm, default COUNSELLOR and above for review, EDITOR and above for sources)
-`GET /admin/news` (filters: status, state, category, source, search, `isNew`) · `GET /admin/news/{id}` · `PATCH /admin/news/{id}` (edit wording, category, state, pin) · `POST /admin/news/{id}/publish|reject|unpublish|restore` · `POST /admin/news/bulk` (reject/restore many) · `GET/POST/PATCH/DELETE /admin/news/sources` · `POST /admin/news/sources/{id}/test` (dry run: fetch + extract, show what would be found, store nothing) · `POST /admin/news/sources/{id}/run` (fetch now) · `GET /admin/news/sources/{id}/runs` · `GET /admin/news/stats` (pending count per state, broken sources).
-Public: `GET /news`, `GET /news/{slug}`, plus `latestNews` (top 3) added to the homepage/state-page payloads when the frontend wants it.
+### 15.7 Routes (as built)
+**Sources** (EDITOR and above): `GET/POST /admin/news/sources`, `GET/PATCH/DELETE /admin/news/sources/{id}`, `POST .../{id}/test` (dry run, shows what would be kept), `POST .../{id}/run` (fetch now), `GET .../{id}/runs`; `POST /admin/news/relevance/test`, `POST /admin/news/rescore`.
+**Review** (any staff: COUNSELLOR, EDITOR, ADMIN): `GET /admin/news/stats`; `GET /admin/news/items` (status tabs with counts, filters, cursor paging), `GET/PATCH /admin/news/items/{id}`, `POST .../{id}/publish|reject|unpublish|restore`, `POST /admin/news/items/bulk` (reject or restore up to 100; publishing is never bulk).
+**Public** (no login): `GET /news` (state, central, category, search, pinned first, facets, page/pageSize), `GET /news/{slug}`. The homepage's latest three is `GET /news?pageSize=3`.
 
 ### 15.8 Testing
 Saved HTML/RSS snapshots of every onboarded site as fixtures (no live network in tests); one contract test per adapter; table-driven corpus for relevance scoring; dedupe, baseline and health-state tests; publish-flow and role matrix tests; a `bun run news:probe <source>` script for live checks by hand.
