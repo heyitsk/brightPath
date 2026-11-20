@@ -8,7 +8,7 @@ import { runSource } from "../src/modules/news/ingest";
 import { findDateInText } from "../src/modules/news/text";
 import { HTML_SETUP, NEWS_SOURCES, seedNewsSources } from "../prisma/seed/news";
 import { seedReferenceData } from "../prisma/seed/reference";
-import { FIXTURE_DIR, snapshot } from "../scripts/news-golden";
+import { fixturePath, readFixture, snapshot } from "../scripts/news-golden";
 import expected from "./fixtures/news/expected.json";
 
 const NOW = new Date("2026-11-21T10:00:00Z");
@@ -176,7 +176,7 @@ describe("saved pages of the real sites", () => {
   test("every site with settings has a saved page and expected results", () => {
     const configured = Object.entries(HTML_SETUP).filter(([, s]) => Object.keys(s.config).length > 0).map(([slug]) => slug);
     expect(slugs.sort()).toEqual(configured.sort());
-    for (const slug of slugs) expect(existsSync(`${FIXTURE_DIR}${slug}.html`)).toBe(true);
+    for (const slug of slugs) expect(existsSync(fixturePath(slug))).toBe(true);
   });
 
   for (const slug of Object.keys(expected)) {
@@ -185,12 +185,9 @@ describe("saved pages of the real sites", () => {
     });
   }
 
-  test("every notice from every site has a clean title, an absolute http(s) address and no repeats", async () => {
+  test("every notice from every site has a clean title, an absolute http(s) address and no repeats", () => {
     for (const slug of slugs) {
-      const setup = HTML_SETUP[slug]!;
-      const url = setup.listUrl ?? NEWS_SOURCES.find((s) => s.slug === slug)!.listUrl;
-      const html = await Bun.file(`${FIXTURE_DIR}${slug}.html`).text();
-      const items = extractHtmlList({ body: html, url, config: setup.config, now: NOW });
+      const items = readFixture(slug);
       expect(items.length).toBeGreaterThan(0);
       expect(new Set(items.map((i) => i.url)).size).toBe(items.length);
       for (const i of items) {
@@ -213,13 +210,13 @@ describe("source registry", () => {
     expect(sources).toHaveLength(NEWS_SOURCES.length);
     for (const s of sources) {
       if (s.isActive) {
-        expect(["RSS", "WP_REST", "HTML_LIST"]).toContain(s.kind);
-        if (s.kind === "HTML_LIST") expect(Object.keys(s.config as object).length).toBeGreaterThan(0);
+        expect(["RSS", "WP_REST", "HTML_LIST", "JSON_LIST"]).toContain(s.kind);
+        if (s.kind === "HTML_LIST" || s.kind === "JSON_LIST") expect(Object.keys(s.config as object).length).toBeGreaterThan(0);
       } else {
         expect(s.notes ?? "").not.toBe("");
       }
     }
-    expect(sources.filter((s) => s.isActive).length).toBeGreaterThanOrEqual(18);
+    expect(sources.filter((s) => s.isActive).length).toBeGreaterThanOrEqual(23);
   });
 
   test("seeding again changes nothing; a source staff have edited is never overwritten", async () => {

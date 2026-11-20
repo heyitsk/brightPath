@@ -9,16 +9,16 @@ const idParam = t.Object({ id: t.String({ format: "uuid" }) });
 const iso = t.String({ format: "date-time" });
 const nullableIso = t.Union([iso, t.Null()]);
 
-const KindSchema = t.Union([t.Literal("RSS"), t.Literal("WP_REST"), t.Literal("HTML_LIST"), t.Literal("HTML_JS")], {
+const KindSchema = t.Union([t.Literal("RSS"), t.Literal("WP_REST"), t.Literal("HTML_LIST"), t.Literal("JSON_LIST"), t.Literal("HTML_JS")], {
   description:
-    "How the source is read. `RSS` = RSS/Atom feed; `WP_REST` = WordPress JSON API; `HTML_LIST` = a normal web page, read with the settings in `config` (needs `scope`); `HTML_JS` = a page whose notices are filled in by JavaScript, which cannot be read yet (step N5). `canFetch` says whether the kind can be read today.",
+    "How the source is read. `RSS` = RSS/Atom feed; `WP_REST` = WordPress JSON API; `HTML_LIST` = a normal web page, read with the settings in `config` (needs `scope`); `JSON_LIST` = a JSON address that lists notices (the data behind a JavaScript page), read with `itemsPath`, `titlePath` and an address setting; `HTML_JS` = a page that cannot be read: it needs a browser, or it is closed to our bot. `canFetch` says whether the kind can be read today.",
 });
 const StatusSchema = t.Union([t.Literal("OK"), t.Literal("DEGRADED"), t.Literal("BROKEN")], {
   description: "Health. DEGRADED = several failed runs in a row. BROKEN = many failed runs, or it keeps returning nothing where it used to return notices.",
 });
 const configField = t.Record(t.String(), t.Unknown(), {
   description:
-    "Reading settings. For `HTML_LIST`: `scope` (CSS selector of the area holding the notices; required), `exclude`, `row`, `titleSelector`, `dateSelector`, `dateFromUrl` (regex with named groups y, m, d), `skipText`, `onlyText`, `skipHref`, `onlyHref` (lists of regex sources), `minTitleLength`, `maxItems`, `order` (`auto`, `newest-first`, `oldest-first`), `generic` (true to read the whole page while trying a site out). For `WP_REST`: `apiUrl`. For any kind: `allowInsecureTls` (true to read a site whose certificate is expired or incomplete).",
+    "Reading settings. `HTML_LIST`: `scope` (CSS selector of the area holding the notices; required), `exclude`, `row`, `titleSelector`, `dateSelector`, `dateFromUrl` (regex with named groups y, m, d), `skipText`, `onlyText`, `skipHref`, `onlyHref` (lists of regex sources), `postbackLinks` (true for pages whose notices open through an ASP.NET postback button: each gets an address made from its title), `minTitleLength`, `maxItems`, `order` (`auto`, `newest-first`, `oldest-first`), `generic` (true to read the whole page while trying a site out). `JSON_LIST`: `itemsPath` (dotted path, or a list of paths, to the list of notices), `titlePath`, `urlPath` or `urlTemplate` (like `https://site/notice/{Id}`), `datePath`, `snippetPath`, plus `minTitleLength`, `maxItems`, `order`. `WP_REST`: `apiUrl`. Any kind: `allowInsecureTls` (true to read a site whose certificate is expired or incomplete).",
 });
 const nullableText = (max: number, description: string) => t.Union([t.String({ maxLength: max }), t.Null()], { description });
 
@@ -32,10 +32,10 @@ const SourceSchema = t.Object(
     listUrl: t.String({ description: "The page, feed or API address that is fetched" }),
     siteUrl: t.Union([t.String(), t.Null()], { description: "The site's home page" }),
     config: t.Record(t.String(), t.Unknown()),
-    isActive: t.Boolean({ description: "Scheduled fetching is on. A source whose kind cannot be read yet (`HTML_JS`) cannot be switched on." }),
+    isActive: t.Boolean({ description: "Scheduled fetching is on. A source whose kind cannot be read (`HTML_JS`) cannot be switched on." }),
     fetchIntervalMin: t.Integer({ description: "Minutes between fetches" }),
     notes: t.Union([t.String(), t.Null()]),
-    canFetch: t.Boolean({ description: "False for kinds that cannot be read yet (`HTML_JS`)" }),
+    canFetch: t.Boolean({ description: "False for kinds that cannot be read (`HTML_JS`)" }),
     status: StatusSchema,
     lastRunAt: nullableIso,
     lastSuccessAt: nullableIso,
@@ -136,7 +136,7 @@ export const newsAdminRoutes = new Elysia({ tags: ["Admin · News"] })
       detail: {
         summary: "Add a news source",
         description:
-          "Registers a site to watch. It starts switched off: use `POST /admin/news/sources/{id}/test` to see what would be found, then switch it on with `PATCH`. A source whose kind cannot be read yet (`HTML_JS`) cannot be switched on. Audited." + note,
+          "Registers a site to watch. It starts switched off: use `POST /admin/news/sources/{id}/test` to see what would be found, then switch it on with `PATCH`. A source whose kind cannot be read (`HTML_JS`) cannot be switched on. Audited." + note,
       },
       response: { 201: t.Object({ source: SourceSchema }, { description: "Created" }), ...errorResponses(401, 403, 422) },
     },

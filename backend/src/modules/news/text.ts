@@ -90,3 +90,16 @@ export function findDateInText(text: string, now = new Date()): Date | null {
   if (m) candidates.push({ index: m.index, date: buildDate(+m[2]!, MONTHS[m[1]!.toLowerCase().slice(0, 3)]!, +m[3]!, now) });
   return candidates.filter((c) => c.date).sort((a, b) => a.index - b.index)[0]?.date ?? null;
 }
+
+/**
+ * A date as a site's data writes it. Indian sites write local dates, often as `2026-11-20T00:00:00` with no zone;
+ * a plain `new Date()` would read that in the server's zone and could land on the day before. Zone-less values are
+ * therefore taken as the Indian calendar day (noon, like every other date here). Values with a zone, and dates written
+ * as text ("20-11-2026"), are read as they are.
+ */
+export function parseSiteDate(value: string, now = new Date()): Date | null {
+  const v = value.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/.exec(v);
+  if (m) return buildDate(+m[3]!, +m[2]!, +m[1]!, now);
+  return parseDate(v, now) ?? findDateInText(v, now);
+}

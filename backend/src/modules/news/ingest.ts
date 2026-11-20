@@ -83,7 +83,7 @@ export type Extraction =
 export async function fetchAndExtract(source: NewsSource, opts: { conditional: boolean; now?: Date }): Promise<Extraction> {
   const adapter = adapterFor(source.kind);
   if (!adapter) {
-    return { ok: false, outcome: "ERROR", httpStatus: null, error: `Sources of kind ${source.kind} cannot be read yet (that reader is built in a later step).` };
+    return { ok: false, outcome: "ERROR", httpStatus: null, error: `Sources of kind ${source.kind} cannot be read: a page that needs a browser, or that is closed to our bot.` };
   }
   const config = (source.config ?? {}) as Record<string, unknown>;
   const url = requestUrl(source);
@@ -91,6 +91,7 @@ export async function fetchAndExtract(source: NewsSource, opts: { conditional: b
     etag: opts.conditional ? source.etag : null,
     lastModified: opts.conditional ? source.lastModified : null,
     allowInsecureTls: config.allowInsecureTls === true,
+    accept: source.kind === "JSON_LIST" || source.kind === "WP_REST" ? "application/json" : undefined,
   });
   if (res.kind === "blocked-by-robots") return { ok: false, outcome: "BLOCKED_BY_ROBOTS", httpStatus: null, error: "The site's robots.txt does not allow reading this page." };
   if (res.kind === "error") return { ok: false, outcome: "ERROR", httpStatus: res.status, error: res.message };

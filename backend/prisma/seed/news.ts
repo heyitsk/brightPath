@@ -21,7 +21,7 @@ type SourceSeed = {
 };
 
 const N2 = "Waiting for the HTML adapter (step N2).";
-const N5 = "The page is built by JavaScript, so it needs the headless-browser fetcher (step N5).";
+const N5 = "Cannot be read as a plain page: see the notes added in step N5 (backendPlan.md section 15.12).";
 
 export const NEWS_SOURCES: SourceSeed[] = [
   // ---- sources with a working feed that carries real notices ----
@@ -99,12 +99,33 @@ export const HTML_SETUP: Record<string, HtmlSetup> = {
   "maharashtra-cet-cell": { listUrl: "https://cetcell.mahacet.org/notices/", config: { scope: "table", row: "tr", titleSelector: 'td[data-column="Subject"]', dateSelector: 'td[data-column="Date"]' }, notes: READ("the Notices page (not the home page): a table with subject and date columns; mostly engineering and other CETs") },
   "chandigarh-gmch": { listUrl: "https://gmch.gov.in/public-notices", config: { scope: "table" }, notes: READ("the Public Notices page; mostly hospital matters, so most of it will be filtered out in N4") },
 
-  // Looked at on 2026-11-21 and not readable as plain pages: the notices are not in the page the server sends.
-  "assam-dme": { kind: "HTML_JS", config: {}, active: false, notes: "The notice pages (e.g. /document/admission-notices-orders) contain no notice links in the HTML the server sends; they are filled in by JavaScript. Needs step N5." },
-  "central-mcc": { kind: "HTML_JS", config: {}, active: false, notes: "The home page has no notice links in the HTML the server sends (the notices are filled in by JavaScript). Needs step N5." },
-  "westbengal-wbmcc": { kind: "HTML_JS", config: {}, active: false, notes: "The home page has no notice links in the HTML the server sends. Needs step N5." },
-  "up-neet": { kind: "HTML_JS", config: {}, active: false, notes: "The notices page (/NewandNotification.aspx) opens each PDF through an ASP.NET postback button, not a link, so there is no address to read. Needs step N5." },
+  // ---- step N5: sites built by JavaScript. Looking at what they really load showed that most need no browser. ----
+  "westbengal-wbmcc": { kind: "HTML_LIST", listUrl: "https://wbmcc.nic.in/ug-medical-dental-counselling/", config: { scope: "#wpb-content-root" }, notes: READ("the UG Medical and Dental counselling page (the home page lists none); schedules, provisional lists by round, urgent notices with dates in the title") },
+  "gujarat-medadm": { kind: "HTML_LIST", listUrl: "https://medadmgujarat.org/ug/home.aspx", config: { scope: "div.post", maxItems: 100 }, notes: READ("the UG Medical and Dental page (the home page is only a menu); newest round first; no dates on the page") },
+  "up-neet": {
+    kind: "HTML_LIST",
+    listUrl: "https://upneet.gov.in/",
+    config: { scope: "#tickerTrack", postbackLinks: true, maxItems: 100, allowInsecureTls: true },
+    notes: READ("the notice ticker on the home page, newest first; UG and PG mixed; no dates") + " Each notice opens through a postback button, so it has no address of its own: the link goes to the official counselling home page (with `?notice=` added), where the notice is in the ticker and under Notifications. The site's certificate chain is incomplete, so reading it without certificate checks is switched on for this source (the same trade-off as the two sites in plan section 15.6).",
+  },
+  "rajasthan-dme": {
+    kind: "JSON_LIST",
+    listUrl: "https://medicalportal.rajasthan.gov.in/webapi/api/Sectoral/GetLatestUpdateAndReleaseListBySectoralDept?SectoralDeptCode=964",
+    config: { itemsPath: "Data.LatestUpdateList", titlePath: "Achievement", urlTemplate: "https://medicaleducation.rajasthan.gov.in/order/detail/964/0/{Id}", datePath: "AchievementDate" },
+    notes: "Read from the data the department's page loads (the page itself is built by JavaScript): its five latest updates, with dates. Mostly staff and recruitment matters, so most will be filtered. Found with `bun run news:discover`.",
+  },
+
+  // ---- looked at in step N5 and cannot be read (2026-11-21). Details in backendPlan.md section 15.12 ----
+  "central-mcc": { kind: "HTML_JS", config: {}, active: false, notes: "OFF: the site answers our bot with HTTP 403 on every page, even robots.txt (a normal browser is let in). We identify ourselves honestly and do not pretend to be a browser, so reading it needs MCC's permission. Same reason as NTA. MCC results are in any case followed by the state sites." },
+  "assam-dme": { kind: "HTML_JS", config: {}, active: false, notes: "OFF: its notice page (/document-details/admission-notices-orders-0) is a plain table, but it is an archive: the newest file is from 2022, so there is nothing current to read. Give it HTML_LIST settings (scope `tbody`) if Assam starts posting there again." },
+  "mp-dme": { kind: "HTML_JS", config: {}, active: false, notes: "OFF: the home page is a service portal (links to login pages and notices from the 2020-21 session); there is no notice list to read." },
+  "mizoram-mc": { kind: "HTML_JS", config: {}, active: false, notes: "OFF: a single-page choice-filling application; the only text is last year's (2025) schedule. There is no notice list to read." },
+  "punjab-bfuhs": { kind: "HTML_JS", config: {}, active: false, notes: "OFF: the notice pages (examination.bfuhsonline.ac.in) are form grids without notice links, and the home page's news strip is built by JavaScript. Nothing can be read as links." },
 };
+
+/** Notes written by earlier seeds. A source whose notes still start like this was never edited by staff, so its note may be refreshed. */
+const OLD_SEED_NOTES = ["Waiting for the HTML adapter", "Cannot be read as a plain page", "The page is built by JavaScript", "The notice pages (e.g. /document/", "The home page has no notice links", "The notices page (/NewandNotification", "The site is under maintenance"];
+const isOldSeedNote = (n: string | null) => !n || OLD_SEED_NOTES.some((p) => n.startsWith(p));
 
 export async function seedNewsSources() {
   const states = await prisma.state.findMany({ select: { id: true, code: true } });
@@ -120,11 +141,15 @@ export async function seedNewsSources() {
       isActive: setup ? (setup.active ?? Object.keys(setup.config).length > 0) : (s.active ?? false),
       notes: setup?.notes ?? s.notes ?? null,
     };
-    const exists = await prisma.newsSource.findUnique({ where: { slug: s.slug }, select: { id: true, config: true, kind: true } });
+    const exists = await prisma.newsSource.findUnique({ where: { slug: s.slug }, select: { id: true, config: true, kind: true, notes: true } });
     if (!exists) {
       await prisma.newsSource.create({ data: { slug: s.slug, name: s.name, stateId: s.state ? (stateByCode.get(s.state) ?? null) : null, siteUrl: s.siteUrl, ...data } });
       created++;
-    } else if (setup && JSON.stringify(exists.config ?? {}) === "{}" && (Object.keys(setup.config).length > 0 || (setup.kind !== undefined && setup.kind !== exists.kind))) {
+    } else if (
+      setup &&
+      JSON.stringify(exists.config ?? {}) === "{}" &&
+      (Object.keys(setup.config).length > 0 || (setup.kind !== undefined && setup.kind !== exists.kind) || (isOldSeedNote(exists.notes) && exists.notes !== data.notes))
+    ) {
       // Step N2 settings for a source created by the step N1 seed (still unconfigured, or still of the
       // old kind). A source whose settings staff have already edited is never touched, and a source
       // that is already up to date is left alone, so running the seed twice changes nothing.

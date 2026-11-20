@@ -199,6 +199,31 @@
       "url": "https://dte.goa.gov.in/for-dte-fee-payment-click-here-1"
     }
   },
+  "gujarat-medadm": {
+    "count": 41,
+    "dated": 2,
+    "first": [
+      {
+        "title": "List of the candidates removed from MBBS BDS merit list due to Admitted in BAMS & BHMS",
+        "url": "https://medadmgujarat.ncode.in/web/UG2026/R6/bams_bhms_admitted.pdf",
+        "date": null
+      },
+      {
+        "title": "List of the candidates removed from MBBS BDS merit list due to Allotment in All India Quota Round 6. (list provided by the MCC, New Delhi)",
+        "url": "https://medadmgujarat.ncode.in/web/UG2026/R6/AIQ_Alloted_r6.pdf",
+        "date": null
+      },
+      {
+        "title": "Vacant Seats For Round 06 BDS",
+        "url": "https://medadmgujarat.ncode.in/web/UG2026/R6/r6_bds_vac.pdf",
+        "date": null
+      }
+    ],
+    "last": {
+      "title": "AIQ and State Schedule Round 2_3_4_ on date14.09.2026",
+      "url": "https://medadmgujarat.ncode.in/web/UG2026/202609141373493448.pdf"
+    }
+  },
   "haryana-dmer": {
     "count": 64,
     "dated": 64,
@@ -424,6 +449,31 @@
       "url": "https://centacpuducherry.in/htmlpages/2026/UgNonNeet_2026/round_mopup_1_eligible_list.html"
     }
   },
+  "rajasthan-dme": {
+    "count": 4,
+    "dated": 4,
+    "first": [
+      {
+        "title": "Important Notice - Mentor-Mentee Programme with Department-wise Mentor Directory and Mobile Numbers (Updated November 2026)",
+        "url": "https://medicaleducation.rajasthan.gov.in/order/detail/964/0/244807",
+        "date": "2026-11-20"
+      },
+      {
+        "title": "Assistant Professor 2021 & 2024 Documents Verfication Schedule",
+        "url": "https://medicaleducation.rajasthan.gov.in/order/detail/964/0/244809",
+        "date": "2026-11-20"
+      },
+      {
+        "title": "Direction to PMC for Assistant Professor 2024 for Medical Health Check Up",
+        "url": "https://medicaleducation.rajasthan.gov.in/order/detail/964/0/244810",
+        "date": "2026-11-20"
+      }
+    ],
+    "last": {
+      "title": "ATTESTATION FORM",
+      "url": "https://medicaleducation.rajasthan.gov.in/order/detail/964/0/244811"
+    }
+  },
   "tamilnadu-selection": {
     "count": 100,
     "dated": 33,
@@ -474,6 +524,31 @@
       "url": "https://dme.tripura.gov.in/sites/default/files/2026-02/Work%20assignment.pdf"
     }
   },
+  "up-neet": {
+    "count": 92,
+    "dated": 0,
+    "first": [
+      {
+        "title": "TENTATIVE SEAT MATRIX FOR - UP NEET PG MDMS COUNSELING FOR ROUND-2 -2026",
+        "url": "https://upneet.gov.in/?notice=45c6f99d4518",
+        "date": null
+      },
+      {
+        "title": "TENTATIVE SEAT MATRIX FOR - UP NEET PG DNB COUNSELING FOR ROUND-2 -2026",
+        "url": "https://upneet.gov.in/?notice=f10e55190caf",
+        "date": null
+      },
+      {
+        "title": "REVISED TENTATIVE SEAT MATRIX FOR - UP NEET UG COUNSELING FOR FIFTH ROUND -2026",
+        "url": "https://upneet.gov.in/?notice=5bf451b2b8a0",
+        "date": null
+      }
+    ],
+    "last": {
+      "title": "UP NEET PG-2026 POLICY GO",
+      "url": "https://upneet.gov.in/?notice=4cc2c70519a6"
+    }
+  },
   "uttarakhand-hnbumu": {
     "count": 62,
     "dated": 0,
@@ -497,6 +572,31 @@
     "last": {
       "title": "Our Affiliated Colleges Click here for more Details",
       "url": "https://hnbumu.ac.in/Files/New%20Updated%20College%20list.pdf"
+    }
+  },
+  "westbengal-wbmcc": {
+    "count": 25,
+    "dated": 6,
+    "first": [
+      {
+        "title": "Provisional List of Candidates for Round 6 (BDS)",
+        "url": "https://cdnbbsr.s3waas.gov.in/s3aae8d1e00b15a30e5901227e97ffbef7/uploads/2026/11/20261120763946529.pdf",
+        "date": null
+      },
+      {
+        "title": "Urgent Notice dated 07-11-2026",
+        "url": "https://cdnbbsr.s3waas.gov.in/s3aae8d1e00b15a30e5901227e97ffbef7/uploads/2026/11/20261107692770427.pdf",
+        "date": "2026-11-07"
+      },
+      {
+        "title": "Provisional List of Candidates for Spl. Stray/Round-5",
+        "url": "https://cdnbbsr.s3waas.gov.in/s3aae8d1e00b15a30e5901227e97ffbef7/uploads/2026/11/202611061560908857.pdf",
+        "date": null
+      }
+    ],
+    "last": {
+      "title": "Seat Allotment Result Spl. Stray/Round-5",
+      "url": "https://cdnbbsr.s3waas.gov.in/s3aae8d1e00b15a30e5901227e97ffbef7/uploads/2026/11/202611121726434468.pdf"
     }
   }
 }

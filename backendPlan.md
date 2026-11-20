@@ -323,7 +323,7 @@ Each phase ends **shippable and demo-able**: migrations applied, tests green, `d
 - **Done when:** a written launch checklist is signed off.
 
 ### Phase 9 — News tool (added 2026-11-21; built next at the owner's request, independent of Phases 5–8)
-- Full design in §15. Steps, each on its own go-ahead: **N1** (done 2026-11-21) schema + source registry + fetch/extract framework + RSS and WordPress adapters + worker + probe script; **N2** (done 2026-11-21) HTML reader and settings for the server-rendered sites, with saved-page tests; **N3** (done 2026-11-21) review queue API (edit / publish / reject / unpublish / restore, bulk reject and restore, audit) + public `GET /news` and `GET /news/{slug}`; **N4** (done 2026-11-21, built before N3) relevance rules, repeat flags, source health records and stats; the alert email waits for Phase 6; **N5** (optional) headless-browser fetcher for the 3 or 4 JavaScript-only sites.
+- Full design in §15. Steps, each on its own go-ahead: **N1** (done 2026-11-21) schema + source registry + fetch/extract framework + RSS and WordPress adapters + worker + probe script; **N2** (done 2026-11-21) HTML reader and settings for the server-rendered sites, with saved-page tests; **N3** (done 2026-11-21) review queue API (edit / publish / reject / unpublish / restore, bulk reject and restore, audit) + public `GET /news` and `GET /news/{slug}`; **N4** (done 2026-11-21, built before N3) relevance rules, repeat flags, source health records and stats; the alert email waits for Phase 6; **N5** (done 2026-11-21) the JavaScript-driven sites: found to need no browser; four became readable (HTML pages, postback links, a JSON reader) and five stay off with a stated reason (§15.12).
 - **Done when:** a new notice appearing on a source site shows up in the admin review queue within one fetch cycle, an editor can fix its wording and publish it, it appears on `GET /news` with a link to the official original, and a broken source is visible in the admin source list.
 
 Suggested order is by dependency and by priority (rank predictor before finder). Phases 3 and 4 are independent and could swap or run in parallel if the NTA files arrive late.
@@ -411,7 +411,7 @@ No paid API or third-party scraping service is needed. Everything fits the exist
 - **Fetch:** Bun `fetch` with timeouts, identifying User-Agent, conditional GET (ETag / If-Modified-Since), per-host rate limit.
 - **HTML parsing:** `cheerio` (CSS selectors, no browser). **Feeds:** `fast-xml-parser` (RSS/Atom). **WordPress:** `/wp-json/wp/v2/posts` JSON.
 - **Scheduling:** BullMQ repeatable jobs in the existing `worker.ts` (default every 3 hours per source; a setting to go hourly in counselling season).
-- **Later, only if needed:** `playwright` in a separate worker image for JS-only sites (N5); a PDF text reader to pull a date/title from a notice PDF.
+- **Not needed after all (N5):** a headless browser. Each JavaScript-driven site was rendered and its requests captured; none needed a browser, so the worker stays free of Chrome. A developer tool (`bun run news:discover`) finds the data address behind such a page. Possible later: a PDF text reader for dates.
 - **Not used:** an LLM (consistent with the plain-words search rule, D-rule in `history.md`); hosted services such as RSS.app, PageCrawl or changedetection.io (they detect page-level changes, not a clean list of new notices, add cost or another service to run, and would sit outside the review model). Revisit only if in-house parsing proves too costly to maintain.
 
 ### 15.4 Data model (new tables; migration in N1)
@@ -441,7 +441,7 @@ No paid API or third-party scraping service is needed. Everything fits the exist
   - `neet.nta.nic.in` (NTA): the site answers our bot with HTTP 403 although a normal browser is let in. The bot identifies itself honestly and will not pretend to be a browser, so this source stays off. Its settings are ready; to turn it on, get NTA to allow the bot (or find another official route) and switch the source on. Revisit if NTA notices are needed sooner; NTA results are in any case followed by MCC and the states.
   - `telangana-knruhs`: its feed lists site pages, not notices.
   - `karnataka-kea`: the site is under maintenance; switch on when it is back.
-  - Nine JavaScript-driven sites (Gujarat, Madhya Pradesh, Mizoram, Punjab, Rajasthan, Assam, MCC, West Bengal MCC, UP): **wait for step N5** (owner decision).
+  - The nine JavaScript-driven sites: see §15.12 for what step N5 found.
 - **Frontend is not touched while the backend is built (owner decision, 2026-11-21).** `docs/openapi.json` is kept up to date, but the generated types in `frontend/src/api/schema.d.ts` are not regenerated until the frontend work begins. (The N1 commit did include one regeneration of that file.)
 
 ### 15.7 Routes (as built)
@@ -462,3 +462,19 @@ Env: `NEWS_USER_AGENT`, `NEWS_CONTACT_EMAIL`, `NEWS_MIN_HOST_DELAY_MS`. Settings
 - `drntr.uhsap.in/index/` (Andhra Pradesh): server-rendered, about 140 notice links, mostly PDFs, mixed with PG; works with the HTML adapter.
 - **Update 2026-11-21 (second reply):** Himachal is now `amruhp.ac.in` (Atal Medical and Research University; WordPress, about 236 notice links, 180 PDFs, MBBS/BDS prospectus and counselling links), replacing `hpsmc.org`, which is dropped. Rajasthan is now `medicaleducation.rajasthan.gov.in/home`, which is JavaScript-rendered (no links in the raw page), so it joins the N5 group. Karnataka (`kea.kar.nic.in`) is under maintenance: registered but `isActive = false` until it is back. Andhra Pradesh stays on `drntr.uhsap.in` (it works).
 - `hpsmc.org` (dropped) and `nmc.nagaland.gov.in` (kept as given, still unconfirmed): from their link text ("Provisional Registration", "Registration Rules", "Re-registration", "Election Notification") these look like the **state medical councils** (doctor registration), not the admission and counselling bodies. They will mostly produce notices that the relevance rules filter out. Kept as sources as given; owner asked to confirm whether the actual HP and Nagaland counselling sites are wanted instead.
+
+### 15.12 What step N5 found about the nine JavaScript-driven sites (2026-11-21)
+Each was rendered in headless Chrome and its requests captured. No browser fetcher was built: none was needed.
+| Site | Result |
+|---|---|
+| `wbmcc.nic.in` (West Bengal) | **Read.** The home page is only a menu; `/ug-medical-dental-counselling/` is plain HTML with schedules, provisional lists by round and dated urgent notices. |
+| `medadmgujarat.org` (Gujarat) | **Read.** The home page is only a menu; `/ug/home.aspx` lists the UG medical and dental rounds, newest round first, without dates. |
+| `upneet.gov.in` (Uttar Pradesh) | **Read.** The home-page ticker holds about 92 notices as server-rendered postback buttons. They have no per-notice address, so each is linked to the counselling home page with `?notice=<hash of title>` (decision D-184). Read without certificate checks (D-187). |
+| `medicaleducation.rajasthan.gov.in` | **Read, from its JSON data.** The page is an Angular app; its "latest updates" come from a public JSON address, read by the new `JSON_LIST` kind. Mostly staff matters, so most notices are filtered; the department does not run MBBS counselling there. |
+| `mcc.nic.in` (MCC) | **Off.** HTTP 403 for our bot on every page, even `robots.txt`; a normal browser identity gets in. We do not pretend to be a browser (same as NTA). Revisit if MCC allows the bot. |
+| `dme.assam.gov.in` | **Off.** Its notice page is a plain table but an archive: the newest file is from 2022. Give it HTML settings (scope `tbody`) if Assam posts there again. |
+| `dme.mponline.gov.in` (Madhya Pradesh) | **Off.** A service portal (login links and notices from the 2020-21 session); no notice list. |
+| `mc.mizoram.gov.in` | **Off.** A one-page choice-filling application whose only text is last year's schedule. |
+| `bfuhs.ac.in` (Punjab) | **Off.** Its notice pages are form grids without links; the news strip is built by JavaScript. |
+Karnataka (`kea.kar.nic.in`) was tried again and is still down. After N5, **24 sources are switched on**.
+

@@ -8,8 +8,10 @@ enum NewsSourceKind {
   WP_REST
   /// Server-rendered HTML list page, read with per-site selectors (step N2).
   HTML_LIST
-  /// Page that needs a headless browser (step N5).
+  /// A page that cannot be read as plain HTML: built by JavaScript, or closed to our bot. Stays off until it can be read.
   HTML_JS
+  /// A JSON address that returns a list of notices (the data behind a JavaScript page), read with settings (step N5).
+  JSON_LIST
 }
 
 enum NewsSourceStatus {

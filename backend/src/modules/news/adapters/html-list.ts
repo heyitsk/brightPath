@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import { clip, findDateInText, parseDate, toPlainText } from "../text";
 import { normalizeUrl } from "../url";
@@ -15,6 +16,9 @@ import { AdapterError, type Adapter, type Candidate } from "./types";
 //   skipText / onlyText  lists of regex sources tested against the title.
 //   skipHref / onlyHref  the same, tested against the link address (for menus mixed in with notices).
 //   minTitleLength (12), maxItems (150), order ("auto", "newest-first", "oldest-first").
+//   postbackLinks  true for pages whose notices open through an ASP.NET postback button (`javascript:__doPostBack(...)`),
+//                so there is no address to read. Each such notice gets the page's own address plus `?notice=<hash of its title>`;
+//                the site ignores the extra part and shows its list, where staff and visitors find the notice.
 //   generic      true to read the whole page when no scope is given (only for trying a new site out).
 
 interface HtmlConfig {
@@ -30,6 +34,7 @@ interface HtmlConfig {
   onlyHref: RegExp[];
   minTitleLength: number;
   maxItems: number;
+  postbackLinks: boolean;
   order: "auto" | "newest-first" | "oldest-first";
 }
 
@@ -71,12 +76,14 @@ export function parseHtmlConfig(raw: Record<string, unknown>): HtmlConfig {
     skipHref: regexes("skipHref", raw.skipHref),
     onlyHref: regexes("onlyHref", raw.onlyHref),
     minTitleLength: typeof raw.minTitleLength === "number" ? raw.minTitleLength : 12,
+    postbackLinks: raw.postbackLinks === true,
     maxItems: typeof raw.maxItems === "number" ? Math.min(Math.max(raw.maxItems, 1), 500) : 150,
     order,
   };
 }
 
 const NOT_A_PAGE = /^(#|javascript:|mailto:|tel:|data:)/i;
+const POSTBACK = /^javascript:\s*__doPostBack\(/i;
 /** Links that are navigation, not notices, whatever the site. */
 const GENERIC_LABEL = /^(read more|more|view all|view more|click here|download|home|next|previous|back|top|login|log in|archive|archives|\d+|…|\.\.\.)\W*$/i;
 // Punctuation is spelled out because `\W` also matches Hindi and Tamil letters, which would be eaten.
@@ -106,7 +113,7 @@ export const extractHtmlList: Adapter = ({ body, url, config, now }) => {
 
   const validAnchor = (a: any) => {
     const href = ($(a).attr("href") ?? "").trim();
-    return href !== "" && !NOT_A_PAGE.test(href);
+    return href !== "" && (!NOT_A_PAGE.test(href) || (cfg.postbackLinks && POSTBACK.test(href)));
   };
   const anchors = scopeEls.find("a[href]").filter((_, a) => validAnchor(a)).toArray();
   const seenAnchor = new Set(anchors);
@@ -115,10 +122,14 @@ export const extractHtmlList: Adapter = ({ body, url, config, now }) => {
   const seenUrl = new Set<string>();
   for (const a of new Set(anchors)) {
     const href = ($(a).attr("href") ?? "").trim();
-    const normalized = normalizeUrl(href, url);
-    if (!normalized || seenUrl.has(normalized)) continue;
-    if (cfg.onlyHref.length && !cfg.onlyHref.some((r) => r.test(normalized))) continue;
-    if (cfg.skipHref.some((r) => r.test(normalized))) continue;
+    const postback = POSTBACK.test(href);
+    // A postback notice has no address of its own; it is given one after its title is known.
+    let normalized = postback ? "" : normalizeUrl(href, url);
+    if (normalized === null || (!postback && seenUrl.has(normalized))) continue;
+    if (!postback) {
+      if (cfg.onlyHref.length && !cfg.onlyHref.some((r) => r.test(normalized!))) continue;
+      if (cfg.skipHref.some((r) => r.test(normalized!))) continue;
+    }
 
     const $a = $(a);
     let row = $a.closest(cfg.row);
@@ -133,6 +144,11 @@ export const extractHtmlList: Adapter = ({ body, url, config, now }) => {
     if (title.length < cfg.minTitleLength || GENERIC_LABEL.test(title)) continue;
     if (cfg.onlyText.length && !cfg.onlyText.some((r) => r.test(title))) continue;
     if (cfg.skipText.some((r) => r.test(title))) continue;
+    if (postback) {
+      const mark = createHash("sha1").update(title.toLowerCase().replace(/\s+/g, " ")).digest("hex").slice(0, 12);
+      normalized = normalizeUrl(`${url}${url.includes("?") ? "&" : "?"}notice=${mark}`);
+      if (!normalized || seenUrl.has(normalized)) continue;
+    }
 
     // A date counts only when it clearly belongs to this notice: the date selector, the title itself,
     // a row that holds just this one link, or the file address. A date shared by several links is ambiguous.
@@ -145,8 +161,8 @@ export const extractHtmlList: Adapter = ({ body, url, config, now }) => {
       if (g?.y && g.m && g.d) date = parseDate(new Date(Date.UTC(+g.y, +g.m - 1, +g.d, 6, 30)).toISOString(), now);
     }
 
-    seenUrl.add(normalized);
-    out.push({ title: clip(title, 300), url: normalized, sourcePublishedAt: date, dateBasis: date ? "SOURCE" : "FIRST_SEEN", snippet: null });
+    seenUrl.add(normalized!);
+    out.push({ title: clip(title, 300), url: normalized!, sourcePublishedAt: date, dateBasis: date ? "SOURCE" : "FIRST_SEEN", snippet: null });
   }
 
   return orderNewestFirst(out, cfg.order).slice(0, cfg.maxItems);

@@ -14,6 +14,8 @@ export interface FetchOptions {
   lastModified?: string | null;
   /** Staff opt-in for a site with a broken certificate chain. Off unless the source says so. */
   allowInsecureTls?: boolean;
+  /** Ask for this kind of answer. JSON sources send `application/json`: some APIs answer in XML when the request also mentions XML. */
+  accept?: string;
   /** Skip the robots.txt check (the check itself is the only caller that sets this). */
   skipRobots?: boolean;
 }
@@ -133,7 +135,7 @@ async function robotsFor(origin: string, options: FetchOptions): Promise<Rule[]>
 async function request(url: string, options: FetchOptions): Promise<FetchResult> {
   const host = new URL(url).host;
   return politely(host, async () => {
-    const headers: Record<string, string> = { "user-agent": USER_AGENT, accept: "text/html,application/xhtml+xml,application/xml,application/json;q=0.9,*/*;q=0.5" };
+    const headers: Record<string, string> = { "user-agent": USER_AGENT, accept: options.accept ?? "text/html,application/xhtml+xml,application/xml,application/json;q=0.9,*/*;q=0.5" };
     if (options.etag) headers["if-none-match"] = options.etag;
     if (options.lastModified) headers["if-modified-since"] = options.lastModified;
     try {

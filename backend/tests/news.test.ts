@@ -324,7 +324,7 @@ describe("runSource", () => {
     const source = await makeSource({ kind: "HTML_JS" });
     const r = await runSource(source.id, NOW);
     expect(r.outcome).toBe("ERROR");
-    expect(r.error).toContain("cannot be read yet");
+    expect(r.error).toContain("cannot be read");
   });
 
   test("items carry the source's state", async () => {
