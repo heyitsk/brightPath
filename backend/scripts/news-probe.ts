@@ -18,7 +18,7 @@ async function show(source: NewsSource) {
   console.log(`\n== ${source.slug} (${source.kind}) ${r.requestedUrl}`);
   if (!r.ok) return console.log(`   FAILED: ${r.error}${r.httpStatus ? ` [HTTP ${r.httpStatus}]` : ""}`);
   console.log(`   HTTP ${r.httpStatus}, ${r.itemsFound} notices found, ${r.itemsNew} not stored yet`);
-  for (const i of r.items) console.log(`   ${i.sourcePublishedAt?.slice(0, 10) ?? "no date  "}  ${i.isNew ? "NEW" : "   "}  ${i.title.slice(0, 90)}\n              ${i.url}`);
+  for (const i of r.items) console.log(`   ${i.sourcePublishedAt?.slice(0, 10) ?? "no date  "}  ${i.isNew ? "NEW" : "   "}  ${i.relevant ? "KEEP" : "drop"} ${String(i.score).padStart(3)}  ${i.title.slice(0, 80)}\n              ${i.url}  [${i.reasons.join(" ")}]`);
 }
 
 if (arg === "--all") {

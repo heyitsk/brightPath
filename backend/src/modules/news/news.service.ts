@@ -5,7 +5,8 @@ import { logger } from "../../lib/logger";
 import { prisma } from "../../lib/prisma";
 import { optionalText, parseUrl, requiredText } from "../reference/reference.schemas";
 import { isSupportedKind } from "./adapters";
-import { previewSource } from "./ingest";
+import { previewSource, relevanceThreshold } from "./ingest";
+import { classify, titleKey } from "./relevance";
 import { enqueueFetchNow, syncNewsSchedules } from "./news.queue";
 
 // Admin side of the news tool: the source registry (plan §15.7). Review of the notices
@@ -228,5 +229,91 @@ export async function listRuns(id: string, limit = 30) {
       itemsNew: r.itemsNew,
       error: r.error,
     })),
+  };
+}
+
+// ---- relevance tools (step N4) ----------------------------------------------------------------
+
+
+/** What the rules say about a title, with the current threshold. For staff who want to know why a notice was kept or filtered. */
+export async function testRelevance(title: string) {
+  const threshold = await relevanceThreshold();
+  return { threshold, ...classify(title, { threshold }) };
+}
+
+/**
+ * Re-apply the current rules and threshold to notices nobody has handled yet (PENDING or FILTERED,
+ * never reviewed). Staff decisions are never touched. Also fills in the title key and the "repeat of"
+ * flag on notices stored before step N4. With `dryRun` nothing is saved.
+ */
+export async function rescoreItems(actor: AuditActor | null, opts: { dryRun?: boolean; sourceId?: string } = {}) {
+  const threshold = await relevanceThreshold();
+  const items = await prisma.newsItem.findMany({
+    where: { status: { in: ["PENDING", "FILTERED"] }, reviewedById: null, ...(opts.sourceId ? { sourceId: opts.sourceId } : {}) },
+    select: { id: true, title: true, status: true, relevanceScore: true, category: true, relevanceReasons: true, titleKey: true },
+  });
+  let toPending = 0;
+  let toFiltered = 0;
+  const updates: Array<ReturnType<typeof prisma.newsItem.update>> = [];
+  for (const it of items) {
+    const cls = classify(it.title, { threshold });
+    const status = cls.relevant ? ("PENDING" as const) : ("FILTERED" as const);
+    const key = titleKey(it.title);
+    const changed = status !== it.status || cls.score !== it.relevanceScore || cls.category !== it.category || key !== it.titleKey || cls.reasons.join() !== it.relevanceReasons.join();
+    if (!changed) continue;
+    if (status !== it.status) status === "PENDING" ? toPending++ : toFiltered++;
+    if (!opts.dryRun) updates.push(prisma.newsItem.update({ where: { id: it.id }, data: { status, relevanceScore: cls.score, category: cls.category, relevanceReasons: cls.reasons, titleKey: key } }));
+  }
+  for (let i = 0; i < updates.length; i += 200) await prisma.$transaction(updates.slice(i, i + 200));
+  const flagged = opts.dryRun ? 0 : await backfillRepeats();
+  const result = { threshold, examined: items.length, changed: opts.dryRun ? toPending + toFiltered : updates.length, toPending, toFiltered, repeatsFlagged: flagged, dryRun: opts.dryRun ?? false };
+  if (!opts.dryRun && actor) await audit(prisma, { actor, action: "news.rescore", entityType: "NewsItem", entityId: opts.sourceId ?? "all", after: result });
+  return result;
+}
+
+/** Marks later notices that share a title with an earlier one (within 120 days) as repeats of the earliest. Returns how many were flagged. */
+async function backfillRepeats(): Promise<number> {
+  const since = new Date(Date.now() - 120 * 86_400_000);
+  const groups = await prisma.newsItem.groupBy({ by: ["titleKey"], where: { titleKey: { not: "" }, createdAt: { gte: since } }, having: { titleKey: { _count: { gt: 1 } } } });
+  let flagged = 0;
+  for (const g of groups) {
+    const rows = await prisma.newsItem.findMany({ where: { titleKey: g.titleKey, createdAt: { gte: since } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, duplicateOfId: true } });
+    const first = rows[0]!.id;
+    const missing = rows.slice(1).filter((r) => r.duplicateOfId === null).map((r) => r.id);
+    if (missing.length) {
+      await prisma.newsItem.updateMany({ where: { id: { in: missing } }, data: { duplicateOfId: first } });
+      flagged += missing.length;
+    }
+  }
+  return flagged;
+}
+
+/** Numbers for the news badge and the source list: what waits for review, and which sources need attention. */
+export async function newsStats(now = new Date()) {
+  const [pendingByState, filtered, newLast24h, sources, states] = await Promise.all([
+    prisma.newsItem.groupBy({ by: ["stateId"], where: { status: "PENDING" }, _count: { _all: true } }),
+    prisma.newsItem.count({ where: { status: "FILTERED" } }),
+    prisma.newsItem.count({ where: { status: "PENDING", firstSeenAt: { gte: new Date(now.getTime() - 86_400_000) } } }),
+    prisma.newsSource.findMany({ select: { id: true, slug: true, name: true, status: true, isActive: true, lastError: true, lastSuccessAt: true } }),
+    prisma.state.findMany({ select: { id: true, name: true } }),
+  ]);
+  const stateName = new Map(states.map((s) => [s.id, s.name]));
+  const byState = pendingByState
+    .map((g) => ({ stateId: g.stateId, stateName: g.stateId ? (stateName.get(g.stateId) ?? null) : null, count: g._count._all }))
+    .sort((a, b) => b.count - a.count);
+  const active = sources.filter((s) => s.isActive);
+  return {
+    pending: { total: byState.reduce((n, s) => n + s.count, 0), newLast24h, byState },
+    filtered,
+    sources: {
+      active: active.length,
+      off: sources.length - active.length,
+      ok: active.filter((s) => s.status === "OK").length,
+      degraded: active.filter((s) => s.status === "DEGRADED").length,
+      broken: active.filter((s) => s.status === "BROKEN").length,
+    },
+    attention: active
+      .filter((s) => s.status !== "OK")
+      .map((s) => ({ id: s.id, slug: s.slug, name: s.name, status: s.status, lastError: s.lastError, lastSuccessAt: s.lastSuccessAt?.toISOString() ?? null })),
   };
 }

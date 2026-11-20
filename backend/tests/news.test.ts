@@ -213,7 +213,7 @@ describe("baseline and health rules", () => {
 
 describe("runSource", () => {
   const url = "https://feed.example/feed/";
-  const items = (n: number, startDay = 1) => Array.from({ length: n }, (_, i) => ({ title: `Notice ${i + 1}`, link: `https://feed.example/n/${i + 1}`, date: day(startDay + i * 0.1) }));
+  const items = (n: number, startDay = 1) => Array.from({ length: n }, (_, i) => ({ title: `MBBS counselling notice ${i + 1}`, link: `https://feed.example/n/${i + 1}`, date: day(startDay + i * 0.1) }));
 
   test("first read keeps only the newest 20 recent notices for review; the rest are baseline", async () => {
     const source = await makeSource({ listUrl: url });
@@ -231,14 +231,14 @@ describe("runSource", () => {
     const source = await makeSource({ listUrl: url });
     fakeWeb({ [url]: () => rssFeed(items(3)) });
     await runSource(source.id, NOW);
-    fakeWeb({ [url]: () => rssFeed([{ title: "Brand new", link: "https://feed.example/n/new", date: day(0) }, ...items(3)]) });
+    fakeWeb({ [url]: () => rssFeed([{ title: "MBBS counselling brand new schedule", link: "https://feed.example/n/new", date: day(0) }, ...items(3)]) });
     const r = await runSource(source.id, NOW);
     expect(r).toMatchObject({ itemsFound: 4, itemsNew: 1 });
     expect(await prisma.newsItem.count({ where: { sourceId: source.id } })).toBe(4);
     const fresh = await prisma.newsItem.findFirstOrThrow({ where: { originalUrl: "https://feed.example/n/new" } });
     expect(fresh).toMatchObject({ status: "PENDING", dateBasis: "SOURCE", firstSeenAt: NOW });
     // same notice spelled differently on a third read is still the same notice
-    fakeWeb({ [url]: () => rssFeed([{ title: "Brand new", link: "https://FEED.example/n/new/?utm_source=x", date: day(0) }]) });
+    fakeWeb({ [url]: () => rssFeed([{ title: "MBBS counselling brand new schedule", link: "https://FEED.example/n/new/?utm_source=x", date: day(0) }]) });
     expect((await runSource(source.id, NOW)).itemsNew).toBe(0);
   });
 
@@ -314,7 +314,7 @@ describe("runSource", () => {
     const source = await makeSource({ listUrl: url });
     fakeWeb({ [url]: () => rssFeed(items(2)) });
     await runSource(source.id, NOW);
-    fakeWeb({ [url]: () => rssFeed(Array.from({ length: 60 }, (_, i) => ({ title: `New ${i}`, link: `https://feed.example/new/${i}`, date: day(1 + i * 0.01) }))) });
+    fakeWeb({ [url]: () => rssFeed(Array.from({ length: 60 }, (_, i) => ({ title: `MBBS counselling new round ${i}`, link: `https://feed.example/new/${i}`, date: day(1 + i * 0.01) }))) });
     await runSource(source.id, NOW);
     expect(await prisma.newsItem.count({ where: { sourceId: source.id, status: "PENDING" } })).toBe(2 + 20);
     expect(await prisma.newsItem.count({ where: { sourceId: source.id, status: "BASELINE" } })).toBe(40);

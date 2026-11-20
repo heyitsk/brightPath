@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { errorResponses } from "../../lib/errors";
 import { staffGuard } from "../../plugins/auth";
 import { slugField, urlField } from "../reference/reference.schemas";
-import { createSource, deleteSource, getSource, listRuns, listSources, runSourceNow, testSource, updateSource } from "./news.service";
+import { createSource, deleteSource, getSource, listRuns, listSources, rescoreItems, runSourceNow, testRelevance, testSource, updateSource } from "./news.service";
 
 const note = " Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.";
 const idParam = t.Object({ id: t.String({ format: "uuid" }) });
@@ -68,6 +68,10 @@ const PreviewSchema = t.Object(
         dateBasis: t.Union([t.Literal("SOURCE"), t.Literal("PDF"), t.Literal("FIRST_SEEN")]),
         snippet: t.Union([t.String(), t.Null()]),
         isNew: t.Boolean(),
+        relevant: t.Boolean({ description: "Whether the relevance rules would send it to the review queue (true) or the Filtered tab (false)" }),
+        score: t.Integer({ description: "Relevance score; the setting `news.relevanceThreshold` is the line" }),
+        category: t.String({ description: "What the notice is about: COUNSELLING, SCHEDULE, SEAT_MATRIX, MERIT_LIST, REGISTRATION, RESULT, FEE or OTHER" }),
+        reasons: t.Array(t.String(), { description: "The rules that fired: `+mbbs` added to the score, `-pg` took away" }),
       }),
       { description: "The first 30 notices, newest first as the site lists them" },
     ),
@@ -197,4 +201,46 @@ export const newsAdminRoutes = new Elysia({ tags: ["Admin · News"] })
     query: t.Object({ limit: t.Optional(t.Integer({ minimum: 1, maximum: 100, description: "How many runs (default 30), newest first" })) }),
     detail: { summary: "Recent fetch runs of a source", description: "The last 30 days of fetch attempts, newest first, so staff can see why a source is unhealthy." + note },
     response: { 200: t.Object({ items: t.Array(RunSchema) }), ...errorResponses(401, 403, 404, 422) },
-  });
+  })
+  .post("/admin/news/relevance/test", ({ body }) => testRelevance(body.title), {
+    body: t.Object({ title: t.String({ minLength: 1, maxLength: 400, examples: ["Special stray round counselling for MBBS/BDS 2026"] }) }),
+    detail: {
+      summary: "Test the relevance rules on a title",
+      description:
+        "Shows what the rules make of a notice title: its score, the category, whether it would go to the review queue (`relevant`) or the Filtered tab, and which rules fired (`+mbbs` added to the score, `-pg` took away; `(soft)` means the title names MBBS or NEET UG so the penalty was reduced). Use it to understand why a notice was filtered. Stores nothing." + note,
+    },
+    response: {
+      200: t.Object({
+        threshold: t.Integer({ description: "The current setting `news.relevanceThreshold`" }),
+        score: t.Integer(),
+        category: t.Union([t.Literal("COUNSELLING"), t.Literal("SCHEDULE"), t.Literal("SEAT_MATRIX"), t.Literal("MERIT_LIST"), t.Literal("REGISTRATION"), t.Literal("RESULT"), t.Literal("FEE"), t.Literal("OTHER")]),
+        relevant: t.Boolean(),
+        reasons: t.Array(t.String()),
+      }),
+      ...errorResponses(401, 403, 422),
+    },
+  })
+  .post(
+    "/admin/news/rescore",
+    async ({ staff, body }) => rescoreItems(staff, body ?? {}),
+    {
+      body: t.Optional(t.Object({ dryRun: t.Optional(t.Boolean({ description: "True to only count what would move, saving nothing" })), sourceId: t.Optional(t.String({ format: "uuid", description: "Limit to one source" })) })),
+      detail: {
+        summary: "Re-apply the relevance rules to waiting notices",
+        description:
+          "Run it after changing the rules or the setting `news.relevanceThreshold`. Looks at notices that are waiting (`PENDING`) or filtered (`FILTERED`) and that no staff member has handled, re-scores them, and moves them between the review queue and the Filtered tab. Notices staff have reviewed, published or rejected are never touched. Also fills in the 'repeat of' flag on older notices. Audited unless `dryRun`." + note,
+      },
+      response: {
+        200: t.Object({
+          threshold: t.Integer(),
+          examined: t.Integer({ description: "Waiting or filtered notices looked at" }),
+          changed: t.Integer({ description: "Notices whose score, category or status changed" }),
+          toPending: t.Integer({ description: "Moved from Filtered to the review queue" }),
+          toFiltered: t.Integer({ description: "Moved from the review queue to Filtered" }),
+          repeatsFlagged: t.Integer({ description: "Notices newly flagged as repeats of an earlier one" }),
+          dryRun: t.Boolean(),
+        }),
+        ...errorResponses(401, 403, 422),
+      },
+    },
+  );

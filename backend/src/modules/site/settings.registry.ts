@@ -39,6 +39,7 @@ export const SETTINGS: SettingDef[] = [
   { key: "finder.stretchPct", description: "A college counts as a stretch if its past closing rank is within this percent beyond the student's likely rank.", isPublic: false, schema: t.Integer({ minimum: 0, maximum: 50 }), default: 15 },
   { key: "enquiry.alertEmails", description: "Counsellor email addresses that receive an alert for every new enquiry.", isPublic: false, schema: t.Array(t.String({ format: "email", maxLength: 254 }), { maxItems: 20 }), default: [] },
   { key: "enquiry.retentionMonths", description: "Enquiries older than this many months are anonymised.", isPublic: false, schema: t.Integer({ minimum: 1, maximum: 120 }), default: 24 },
+  { key: "news.relevanceThreshold", description: "A fetched notice needs at least this relevance score to go to the review queue; below it, it goes to the Filtered tab. Raise it to see less, lower it to see more. After changing it, ask the news tool to re-score existing notices.", isPublic: false, schema: t.Integer({ minimum: 1, maximum: 20 }), default: 3 },
   { key: "verification.stalenessDays", description: "A college fact not re-checked within this many days is flagged as stale for editors.", isPublic: false, schema: t.Integer({ minimum: 7, maximum: 730 }), default: 90 },
 ];
 

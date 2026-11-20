@@ -127,9 +127,19 @@ model NewsItem {
   dateBasis         NewsDateBasis @default(FIRST_SEEN)
   firstSeenAt       DateTime      @default(now())
 
-  relevanceScore Int            @default(0)
-  category       NewsCategory   @default(OTHER)
-  status         NewsItemStatus @default(PENDING)
+  /// Letters and digits of the title, lower-cased: two notices with the same key are probably the same notice (D-168).
+  titleKey      String     @default("")
+  /// An earlier notice with the same title (this source or another). A flag for reviewers, never a reason to hide the item.
+  duplicateOfId String?    @db.Uuid
+  duplicateOf   NewsItem?  @relation("NewsItemRepeats", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  repeats       NewsItem[] @relation("NewsItemRepeats")
+
+  /// How well the title fits MBBS and UG-NEET admissions (step N4). Higher is more relevant.
+  relevanceScore   Int            @default(0)
+  /// The rules that fired, e.g. `+mbbs`, `+counselling`, `-pg`, so staff can see why an item was kept or filtered.
+  relevanceReasons String[]
+  category         NewsCategory   @default(OTHER)
+  status           NewsItemStatus @default(PENDING)
 
   // ---- written by staff (step N3) ----
   publicTitle   String?
@@ -148,6 +158,7 @@ model NewsItem {
   @@unique([sourceId, urlHash])
   @@index([status, firstSeenAt])
   @@index([status, stateId, publishedAt])
+  @@index([titleKey])
   @@map("news_items")
 }
 

@@ -4,7 +4,10 @@ import { prisma } from "../../lib/prisma";
 import { adapterFor, AdapterError, type Candidate } from "./adapters";
 import { defaultWpApiUrl } from "./adapters/wp-rest";
 import { politeFetch } from "./fetcher";
+import { classify, titleKey } from "./relevance";
 import { urlHash } from "./url";
+import { getSetting } from "../site/site.service";
+import { audit } from "../../lib/audit";
 
 // Fetch one source, find its notices, store the new ones as candidates, and keep the source's
 // health up to date (plan §15.5 steps 1 to 5, §15.6).
@@ -114,6 +117,68 @@ function uniqueByHash(candidates: Candidate[]) {
   return out;
 }
 
+// ---- relevance, repeats and health changes (step N4) ----------------------------------------
+
+/** Notices with the same title seen in the last 120 days count as repeats (the same notice on another page, or re-posted). */
+const REPEAT_WINDOW_DAYS = 120;
+
+export async function relevanceThreshold(): Promise<number> {
+  const v = await getSetting<number>("news.relevanceThreshold");
+  return Number.isInteger(v) && v >= 1 ? v : 3;
+}
+
+/**
+ * Decide what each new notice becomes. Relevance comes first, so that the first-read limit counts only
+ * relevant notices ("the newest 20" means the newest 20 that matter, not 20 of which 18 are PG). A notice
+ * that is not relevant goes to FILTERED, or to BASELINE if it is also too old to matter.
+ */
+export function planStatuses<T extends { candidate: Candidate; index: number }>(
+  fresh: T[],
+  threshold: number,
+  limit: boolean,
+  now: Date,
+): Array<T & { cls: ReturnType<typeof classify>; status: NewsItemStatus }> {
+  const classified = fresh.map((f) => ({ ...f, cls: classify(f.candidate.title, { threshold }) }));
+  let relevantIndex = 0;
+  return classified.map((c) => {
+    if (!c.cls.relevant) {
+      const old = c.candidate.sourcePublishedAt && c.candidate.sourcePublishedAt.getTime() < now.getTime() - BASELINE_MAX_AGE_DAYS * 86_400_000;
+      return { ...c, status: limit && old ? ("BASELINE" as const) : ("FILTERED" as const) };
+    }
+    const status = limit ? baselineStatus(c.candidate, relevantIndex, now) : ("PENDING" as const);
+    relevantIndex++;
+    return { ...c, status };
+  });
+}
+
+/** For each new notice, the id of an earlier notice with the same title, if there is one. Also finds repeats inside the same batch. */
+async function findRepeats(rows: Array<{ id: string; key: string }>, now: Date): Promise<Map<string, string>> {
+  const keys = [...new Set(rows.map((r) => r.key).filter(Boolean))];
+  const since = new Date(now.getTime() - REPEAT_WINDOW_DAYS * 86_400_000);
+  const earlier = keys.length
+    ? await prisma.newsItem.findMany({ where: { titleKey: { in: keys }, createdAt: { gte: since } }, orderBy: { createdAt: "asc" }, select: { id: true, titleKey: true } })
+    : [];
+  const firstByKey = new Map<string, string>();
+  for (const e of earlier) if (!firstByKey.has(e.titleKey)) firstByKey.set(e.titleKey, e.id);
+  const out = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.key) continue;
+    const first = firstByKey.get(r.key);
+    if (first) out.set(r.id, first);
+    else firstByKey.set(r.key, r.id); // the first of its kind in this batch
+  }
+  return out;
+}
+
+/** A source going bad, or coming back, is written to the audit log (and the server log) so it cannot pass unnoticed. Email alerts arrive with the email service (Phase 6). */
+async function recordHealthChange(source: NewsSource, to: NewsSourceStatus, detail: { lastError: string | null; consecutiveFailures: number; consecutiveEmptyRuns: number }) {
+  if (source.status === to) return;
+  const action = to === "BROKEN" ? "news-source.broken" : to === "DEGRADED" && source.status === "OK" ? "news-source.degraded" : to === "OK" ? "news-source.recovered" : null;
+  if (!action) return;
+  logger[to === "BROKEN" ? "error" : "warn"]({ source: source.slug, from: source.status, to, ...detail }, "news source health changed");
+  await audit(prisma, { actor: null, action, entityType: "NewsSource", entityId: source.id, before: { status: source.status }, after: { status: to, ...detail } });
+}
+
 // ---- a real run -------------------------------------------------------------------------
 
 export interface RunSummary {
@@ -140,6 +205,7 @@ export async function runSource(sourceId: string, now = new Date()): Promise<Run
       prisma.newsSource.update({ where: { id: sourceId }, data: { ...health, lastRunAt: now, lastError: extraction.error } }),
     ]);
     logger.warn({ source: source.slug, status: health.status, error: extraction.error }, "news fetch failed");
+    await recordHealthChange(source, health.status, { lastError: extraction.error, consecutiveFailures: health.consecutiveFailures, consecutiveEmptyRuns: health.consecutiveEmptyRuns });
     return { outcome: extraction.outcome, httpStatus: extraction.httpStatus, itemsFound: 0, itemsNew: 0, error: extraction.error, durationMs };
   }
 
@@ -160,23 +226,33 @@ export async function runSource(sourceId: string, now = new Date()): Promise<Run
   const fresh = unique.filter((u) => !known.has(u.hash));
 
   const isFirstRead = source.baselineAt === null;
-  const flood = !isFirstRead && fresh.length > FLOOD_LIMIT;
-  if (flood) logger.warn({ source: source.slug, fresh: fresh.length }, "news source returned a flood of new notices; keeping only the newest");
-  const limitIt = isFirstRead || flood;
+  const threshold = await relevanceThreshold();
+  const relevantFresh = fresh.filter((f) => classify(f.candidate.title, { threshold }).relevant);
+  const flood = !isFirstRead && relevantFresh.length > FLOOD_LIMIT;
+  if (flood) logger.warn({ source: source.slug, fresh: relevantFresh.length }, "news source returned a flood of new notices; keeping only the newest");
+  const planned = planStatuses(fresh, threshold, isFirstRead || flood, now);
 
-  const created = fresh.length
+  const rows = planned.map((p) => ({ ...p, id: Bun.randomUUIDv7(), key: titleKey(p.candidate.title) }));
+  const repeats = await findRepeats(rows, now);
+  const created = rows.length
     ? await prisma.newsItem.createMany({
-        data: fresh.map(({ candidate, hash, index }) => ({
+        data: rows.map(({ id, key, candidate, hash, cls, status }) => ({
+          id,
           sourceId,
           stateId: source.stateId,
           title: candidate.title,
           originalUrl: candidate.url,
           urlHash: hash,
+          titleKey: key,
+          duplicateOfId: repeats.get(id) ?? null,
           snippet: candidate.snippet ?? null,
           sourcePublishedAt: candidate.sourcePublishedAt,
           dateBasis: candidate.dateBasis,
           firstSeenAt: now,
-          status: limitIt ? baselineStatus(candidate, index, now) : ("PENDING" as const),
+          relevanceScore: cls.score,
+          relevanceReasons: cls.reasons,
+          category: cls.category,
+          status,
         })),
         skipDuplicates: true, // a second run racing this one must not fail on the unique key
       })
@@ -201,6 +277,7 @@ export async function runSource(sourceId: string, now = new Date()): Promise<Run
       },
     }),
   ]);
+  await recordHealthChange(source, health.status, { lastError: null, consecutiveFailures: health.consecutiveFailures, consecutiveEmptyRuns: health.consecutiveEmptyRuns });
   return { outcome: "OK", httpStatus: extraction.httpStatus, itemsFound: found, itemsNew: created.count, error: null, durationMs };
 }
 
@@ -214,7 +291,7 @@ export interface PreviewResult {
   itemsFound: number;
   /** Not yet stored for this source. */
   itemsNew: number;
-  items: Array<{ title: string; url: string; sourcePublishedAt: string | null; dateBasis: NewsDateBasis; snippet: string | null; isNew: boolean }>;
+  items: Array<{ title: string; url: string; sourcePublishedAt: string | null; dateBasis: NewsDateBasis; snippet: string | null; isNew: boolean; relevant: boolean; score: number; category: string; reasons: string[] }>;
 }
 
 /** Fetch and read a source exactly as a real run would, but store nothing and change no health. */
@@ -227,14 +304,22 @@ export async function previewSource(source: NewsSource, limit = 30): Promise<Pre
     ? await prisma.newsItem.findMany({ where: { sourceId: source.id, urlHash: { in: unique.map((u) => u.hash) } }, select: { urlHash: true } })
     : [];
   const known = new Set(existing.map((e) => e.urlHash));
-  const items = unique.slice(0, limit).map(({ candidate, hash }) => ({
-    title: candidate.title,
-    url: candidate.url,
-    sourcePublishedAt: candidate.sourcePublishedAt?.toISOString() ?? null,
-    dateBasis: candidate.dateBasis,
-    snippet: candidate.snippet ?? null,
-    isNew: !known.has(hash),
-  }));
+  const threshold = await relevanceThreshold();
+  const items = unique.slice(0, limit).map(({ candidate, hash }) => {
+    const cls = classify(candidate.title, { threshold });
+    return {
+      title: candidate.title,
+      url: candidate.url,
+      sourcePublishedAt: candidate.sourcePublishedAt?.toISOString() ?? null,
+      dateBasis: candidate.dateBasis,
+      snippet: candidate.snippet ?? null,
+      isNew: !known.has(hash),
+      relevant: cls.relevant,
+      score: cls.score,
+      category: cls.category,
+      reasons: cls.reasons,
+    };
+  });
   return { ok: true, error: null, httpStatus: extraction.httpStatus, requestedUrl, itemsFound: unique.length, itemsNew: unique.filter((u) => !known.has(u.hash)).length, items };
 }
 

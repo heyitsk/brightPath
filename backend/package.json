@@ -36,7 +36,8 @@
     "db:seed": "bun run prisma/seed.ts",
     "admin:bootstrap": "bun run scripts/bootstrap-admin.ts",
     "news:probe": "bun run scripts/news-probe.ts",
-    "news:golden": "bun run scripts/news-golden.ts"
+    "news:golden": "bun run scripts/news-golden.ts",
+    "news:rescore": "bun run scripts/news-rescore.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
