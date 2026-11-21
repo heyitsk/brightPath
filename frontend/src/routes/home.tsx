@@ -4,7 +4,8 @@ import { safeCall } from '../api/errors'
 import { Icon } from '../components/Icon'
 import { isValidScore, num, PATH } from '../components/rank/labels'
 import { MenuLink } from '../components/site/MenuLink'
-import { useRootData } from '../components/site/config'
+import { HERO_DEFAULT } from '../components/shared/home'
+import { useRootData, useSiteConfig } from '../components/site/config'
 import { TalkToCounsellor } from '../components/site/TalkToCounsellor'
 import {
   SAMPLE_ABROAD,
@@ -52,6 +53,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 }
 
 function Hero({ years }: { years: string[] }) {
+  // Admin-set wording from /site/config; null means keep the built-in text.
+  const { hero } = useSiteConfig()
   const [scoreError, setScoreError] = useState(false)
 
   // Check the score before handing off to the rank predictor; without JS the browser submits as is.
@@ -69,11 +72,8 @@ function Hero({ years }: { years: string[] }) {
     <section className="hero">
       <div className="wrap hero-grid">
         <div>
-          <h1>Your NEET score, turned into a likely rank and a list of colleges you can really get</h1>
-          <p className="lead">
-            See your All-India rank range from official NTA results, then colleges in India and abroad that fit your
-            rank and budget, with full fees.
-          </p>
+          <h1>{hero.headline ?? HERO_DEFAULT.headline}</h1>
+          <p className="lead">{hero.subtext ?? HERO_DEFAULT.subtext}</p>
           <div className="hero-proof">
             <div className="mini-record">
               <p

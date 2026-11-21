@@ -17,6 +17,7 @@ const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'NMC notices', href: '/admin/nmc-notices', roles: ['EDITOR'] },
   { label: 'NEET data', href: '/admin/neet', roles: ['EDITOR'] },
   { label: 'Staff', href: '/admin/users', roles: [] },
+  { label: 'Home page', href: '/admin/homepage', roles: [] },
   { label: 'Settings', href: '/admin/settings', roles: [] },
   { label: 'Disclaimers', href: '/admin/disclaimers', roles: [] },
   { label: 'Audit log', href: '/admin/audit-logs', roles: [] },

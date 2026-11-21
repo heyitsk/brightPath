@@ -9,6 +9,7 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import { api, unwrap } from './api/client.server'
+import { AnnouncementStrip } from './components/site/AnnouncementStrip'
 import { CoverBar } from './components/site/CoverBar'
 import { SiteFooter } from './components/site/SiteFooter'
 import { TabBar } from './components/site/TabBar'
@@ -87,6 +88,7 @@ export default function App() {
         Skip to content
       </a>
       <SampleBand />
+      <AnnouncementStrip />
       <TopBar />
       <CoverBar />
       <main id="main">
