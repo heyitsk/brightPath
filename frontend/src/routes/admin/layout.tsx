@@ -1,7 +1,8 @@
 import { Form, NavLink, Outlet, redirect } from 'react-router'
 import { adminApi } from '../../api/client.browser'
 import { handleApiError, safeCall } from '../../api/errors'
-import { sectionsFor } from '../../components/admin/sections'
+import { NEWS_HREF, sectionsFor } from '../../components/admin/sections'
+import { formatNumber } from '../../components/shared/format'
 import adminStyles from '../../styles/pages/admin.css?url'
 import type { Route } from './+types/layout'
 
@@ -14,7 +15,12 @@ export const meta: Route.MetaFunction = () => [
 
 /** Session check for everything under /admin: 401 → login; forced password change comes first. */
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
-  const result = await safeCall(adminApi.GET('/admin/auth/me'))
+  // The news count is fetched alongside the session check. This loader re-runs only on the first
+  // load, after a form is sent and when the query string changes, not on every page.
+  const [result, stats] = await Promise.all([
+    safeCall(adminApi.GET('/admin/auth/me')),
+    safeCall(adminApi.GET('/admin/news/stats')),
+  ])
   if (!('data' in result) || !result.data) {
     const failure = handleApiError(result)
     throw new Response(failure.formError, { status: failure.status || 503 })
@@ -22,7 +28,10 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const { user } = result.data
   const onChangePage = new URL(request.url).pathname === '/admin/change-password'
   if (user.mustChangePassword && !onChangePage) throw redirect('/admin/change-password')
-  return { user }
+  // Only a badge: if the stats call fails, the menu simply shows no number.
+  const statsData = 'data' in stats && stats.data && !user.mustChangePassword ? stats.data : null
+  const newsWaiting = statsData ? Number(statsData.pending.total) : 0
+  return { user, newsWaiting }
 }
 clientLoader.hydrate = true as const
 
@@ -31,7 +40,7 @@ export function HydrateFallback() {
 }
 
 export default function AdminLayout({ loaderData }: Route.ComponentProps) {
-  const { user } = loaderData
+  const { user, newsWaiting } = loaderData
   const sections = user.mustChangePassword ? [] : sectionsFor(user.role)
   return (
     <div className="adm-shell">
@@ -46,7 +55,17 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             {sections.map(({ label, href }) => (
               <li key={label}>
                 {href ? (
-                  <NavLink to={href}>{label}</NavLink>
+                  <NavLink to={href}>
+                    {label}
+                    {href === NEWS_HREF && newsWaiting > 0 && (
+                      <>
+                        {' '}
+                        <span className="adm-badge" aria-label={`${formatNumber(newsWaiting)} waiting`}>
+                          {formatNumber(newsWaiting)}
+                        </span>
+                      </>
+                    )}
+                  </NavLink>
                 ) : (
                   <>
                     {label} <span className="soon">(coming soon)</span>

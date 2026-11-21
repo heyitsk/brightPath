@@ -6,6 +6,9 @@ export type Role = StaffUser['role']
 
 export type AdminSection = { label: string; href?: string }
 
+/** The news review queue; the sidebar shows how many notices wait next to it. */
+export const NEWS_HREF = '/admin/news'
+
 /** Admin sections and who may use them. ADMIN always sees everything. No href = coming soon. */
 const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'Colleges', href: '/admin/colleges', roles: ['EDITOR'] },
@@ -16,6 +19,7 @@ const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'Sources', href: '/admin/sources', roles: ['EDITOR'] },
   { label: 'NMC notices', href: '/admin/nmc-notices', roles: ['EDITOR'] },
   { label: 'NEET data', href: '/admin/neet', roles: ['EDITOR'] },
+  { label: 'News review', href: NEWS_HREF, roles: ['COUNSELLOR', 'EDITOR'] },
   { label: 'Staff', href: '/admin/users', roles: [] },
   { label: 'Home page', href: '/admin/homepage', roles: [] },
   { label: 'Settings', href: '/admin/settings', roles: [] },
