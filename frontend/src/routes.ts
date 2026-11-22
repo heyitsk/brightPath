@@ -6,6 +6,8 @@ export default [
   route('colleges/:slug', 'routes/college.tsx'),
   route('mbbs-abroad/:country', 'routes/country.tsx'),
   route('neet-counselling/:state', 'routes/state.tsx'),
+  route('news', 'routes/news.tsx'),
+  route('news/:slug', 'routes/news-item.tsx'),
   // Admin: client-only (clientLoader/clientAction), never server rendered beyond the fallback.
   route('admin/login', 'routes/admin/login.tsx'),
   route('admin/logout', 'routes/admin/logout.tsx'),
