@@ -43,6 +43,11 @@ export default [
     route('imports/:id', 'routes/admin/import.tsx'),
     // News review (any staff). Under /admin/news: /admin/sources is the college data sources section.
     route('news', 'routes/admin/news.tsx'),
+    // News sources (EDITOR and ADMIN). Above 'news/:id', or "sources" would be read as a notice id.
+    route('news/sources', 'routes/admin/news-sources.tsx'),
+    route('news/sources/new', 'routes/admin/news-source-new.tsx'),
+    route('news/sources/:id', 'routes/admin/news-source.tsx'),
+    route('news/sources/:id/delete', 'routes/admin/news-source-delete.tsx'),
     route('news/:id', 'routes/admin/news-item.tsx'),
     // One set of pages for every CRUD section (states, countries, sources, nmc-notices).
     route(':section', 'routes/admin/section-list.tsx'),

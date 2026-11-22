@@ -20,6 +20,7 @@ const SECTIONS: (AdminSection & { roles: Role[] })[] = [
   { label: 'NMC notices', href: '/admin/nmc-notices', roles: ['EDITOR'] },
   { label: 'NEET data', href: '/admin/neet', roles: ['EDITOR'] },
   { label: 'News review', href: NEWS_HREF, roles: ['COUNSELLOR', 'EDITOR'] },
+  { label: 'News sources', href: '/admin/news/sources', roles: ['EDITOR'] },
   { label: 'Staff', href: '/admin/users', roles: [] },
   { label: 'Home page', href: '/admin/homepage', roles: [] },
   { label: 'Settings', href: '/admin/settings', roles: [] },
