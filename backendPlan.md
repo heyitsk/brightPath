@@ -140,6 +140,7 @@ Derived at publish time: `totalCourseFeeInr` (denormalised on `College` for fast
 - Country content (on `Country` or `CountryContent` 1:1): intro, why-study, typical fee range, recognition explainer, admission steps, `lastCheckedAt`, sources.
 - `ContentPage(slug, kind: ABOUT|CONTACT|LEGAL|GUIDE|HOW_WE_CHECK, title, summary, body (markdown), seoTitle, seoDescription, status, publishedAt, authorId, lastCheckedAt?)` — guides live at `/neet/[slug]` (sheet 09).
 - `Faq(scope: GLOBAL|RANK_PREDICTOR|COLLEGE_FINDER|COUNTRY|STATE|GUIDE|COLLEGE, scopeRefId?, question, answer, sort, isPublished)`
+- **Featured colleges and countries on the home page (added 2026-11-23, D-192).** Chosen by staff, not derived: ordered slug lists `featuredColleges` and `featuredCountries`, edited in the homepage admin (`PATCH /admin/site/homepage`, which already saves hero and strip all-or-nothing, D-125). Every slug must exist; a college must be READY, a country LIVE; a sensible cap on each list (to settle when built). The public read returns ready-made cards (college card as in `GET /colleges`; country name, ISO code, live-college count). Built together with the country pages and `GET /countries`, because a country card needs somewhere to link.
 - Menu data (sheet 00a–00e) is **derived** where it is data (countries with live-college counts, top colleges, alert chips, states) and **frontend-owned** where it is just links (NEET UG 2026, Exams). No generic CMS menu builder in v1 (D-014).
 
 ### 4.8 Imports (Phase 4)
@@ -258,6 +259,8 @@ Base URL `/`; JSON; errors per §3.3. "Auth" = staff session. Public routes need
 | Closing ranks | CRUD + CSV import | EDITOR | 5 |
 | Enquiries | list/filter/export CSV, detail, status, assign, notes, requeue delivery, anonymise | COUNSELLOR (own/all by role), ADMIN for anonymise | 6 |
 | Content (pages, guides, FAQs, state counselling, country content) | CRUD, publish | EDITOR | 7 |
+| Homepage featured colleges and countries | read/edit with the hero and strip (`/admin/site/homepage`) | ADMIN (as the homepage admin is today) | 7 |
+| States list and news sources list (read only, slim) | `GET /admin/states`, `GET /admin/news/sources`: for counsellors' filters; writes stay EDITOR (D-191) | any staff role | after 9 |
 
 ---
 
@@ -316,6 +319,7 @@ Each phase ends **shippable and demo-able**: migrations applied, tests green, `d
 
 ### Phase 7 — Content and navigation
 - Tables §4.7 + `StateCounselling`/`CounsellingStep`; country/state/guide/page/FAQ endpoints; `GET /navigation/explore`; `GET /sitemap`; admin CRUD with publish.
+- **Also in Phase 7 (D-192):** featured colleges and featured countries for the home page, managed in the homepage admin (see §4.7). To be looked at in detail at the start of Phase 7, with a short plan first.
 - **Done when:** every UI sheet (01–12) has all of its data available from an endpoint documented in OpenAPI.
 
 ### Phase 8 — Hardening and launch readiness
