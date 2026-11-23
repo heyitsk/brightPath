@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { errorResponses } from "../../lib/errors";
 import { staffGuard } from "../../plugins/auth";
 import { slugField, urlField } from "../reference/reference.schemas";
-import { createSource, deleteSource, getSource, listRuns, listSources, rescoreItems, runSourceNow, testRelevance, testSource, updateSource } from "./news.service";
+import { createSource, deleteSource, getSource, listRuns, listSources, rescoreItems, runSourceNow, testRelevance, testSource, toSlimSource, updateSource } from "./news.service";
 
 const note = " Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.";
 const idParam = t.Object({ id: t.String({ format: "uuid" }) });
@@ -102,9 +102,21 @@ const sourceFields = {
   notes: t.Optional(nullableText(2000, "Internal notes for staff")),
 };
 
-export const newsAdminRoutes = new Elysia({ tags: ["Admin · News"] })
-  .use(staffGuard({ roles: ["EDITOR"] }))
-  .get("/admin/news/sources", ({ query }) => listSources(query), {
+// The slim source row that a COUNSELLOR gets (D-191): enough to filter the review queue by source. The scraper settings,
+// notes, addresses and error text are editors' working detail and are left out.
+const SLIM_KEYS = ["id", "slug", "name", "state", "kind", "isActive", "status"] as const;
+const SourceListItemSchema = t.Composite(
+  [t.Pick(SourceSchema, [...SLIM_KEYS]), t.Partial(t.Omit(SourceSchema, [...SLIM_KEYS]))],
+  { description: "One watched site. Staff with role EDITOR or ADMIN get every field; a COUNSELLOR gets only `id`, `slug`, `name`, `state`, `kind`, `isActive` and `status`" },
+);
+
+// Read-only list open to every staff role. Everything that writes, and the by-id routes, stay EDITOR-only below.
+export const newsSourceReadRoutes = new Elysia({ tags: ["Admin · News"] })
+  .use(staffGuard())
+  .get("/admin/news/sources", async ({ staff, query }) => {
+    const { items, attentionCount } = await listSources(query);
+    return { items: staff.role === "COUNSELLOR" ? items.map(toSlimSource) : items, attentionCount };
+  }, {
     query: t.Object({
       kind: t.Optional(KindSchema),
       status: t.Optional(StatusSchema),
@@ -115,10 +127,13 @@ export const newsAdminRoutes = new Elysia({ tags: ["Admin · News"] })
     detail: {
       summary: "List news sources",
       description:
-        "Every official site that is watched, switched-on ones first, with health and counts. `attentionCount` is how many switched-on sources are not healthy (for a badge). No paging: the list is a few dozen rows." + note,
+        "Every official site that is watched, switched-on ones first, with health and counts. `attentionCount` is how many switched-on sources are not healthy (for a badge). No paging: the list is a few dozen rows. Open to every staff role; a COUNSELLOR gets a slim row (`id`, `slug`, `name`, `state`, `kind`, `isActive`, `status`) so they can filter the review queue by source, while EDITOR and ADMIN get every field. The by-id routes and all writes need role EDITOR or ADMIN.",
     },
-    response: { 200: t.Object({ items: t.Array(SourceSchema), attentionCount: t.Integer() }), ...errorResponses(401, 403, 422) },
-  })
+    response: { 200: t.Object({ items: t.Array(SourceListItemSchema), attentionCount: t.Integer() }), ...errorResponses(401, 403, 422) },
+  });
+
+export const newsAdminRoutes = new Elysia({ tags: ["Admin · News"] })
+  .use(staffGuard({ roles: ["EDITOR"] }))
   .get("/admin/news/sources/:id", async ({ params }) => ({ source: await getSource(params.id) }), {
     params: idParam,
     detail: { summary: "Get a news source", description: "One source with its health and counts." + note },

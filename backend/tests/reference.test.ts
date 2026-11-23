@@ -36,7 +36,6 @@ async function newCountry(h: Record<string, string>, over: Record<string, unknow
 
 describe("access control", () => {
   const routes: Array<[string, string]> = [
-    ["GET", "/admin/states"],
     ["GET", "/admin/countries"],
     ["GET", "/admin/sources"],
     ["GET", "/admin/nmc-notices"],
@@ -55,6 +54,25 @@ describe("access control", () => {
       expect((await call(path, { method, headers: editor })).status).toBe(200);
       expect((await call(path, { method, headers: admin })).status).toBe(200);
     }
+  });
+
+  test("the states list is open to every staff role, but states cannot be read by id or changed by a COUNSELLOR", async () => {
+    expect((await call("/admin/states")).status).toBe(401);
+    const counsellor = await as("COUNSELLOR");
+    const editor = await as("EDITOR");
+    const list = await call("/admin/states", { headers: counsellor });
+    expect(list.status).toBe(200);
+    expect(Array.isArray((list.body as any).items)).toBe(true);
+    expect((await call("/admin/states", { headers: editor })).status).toBe(200);
+    expect((await call("/admin/states", { headers: await as("ADMIN") })).status).toBe(200);
+    // still locked for a counsellor: create, read by id, edit
+    expect((await call("/admin/states", { method: "POST", headers: counsellor, json: { slug: "x-land", name: "X Land", code: "XL" } })).status).toBe(403);
+    const created = await call("/admin/states", { method: "POST", headers: editor, json: { slug: "x-land", name: "X Land", code: "XL" } });
+    expect(created.status).toBe(201);
+    const id = (created.body as any).state.id;
+    expect((await call(`/admin/states/${id}`, { headers: counsellor })).status).toBe(403);
+    expect((await call(`/admin/states/${id}`, { method: "PATCH", headers: counsellor, json: { name: "Y" } })).status).toBe(403);
+    expect((await call(`/admin/states/${id}`, { headers: editor })).status).toBe(200);
   });
 
   test("a write without the X-BP-Admin header is refused", async () => {
