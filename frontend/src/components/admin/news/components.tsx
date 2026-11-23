@@ -1,5 +1,6 @@
+import { HEALTH_LABEL } from './sources'
 import { STATUS_LABEL } from './data'
-import type { NewsStatus } from './types'
+import type { NewsStatus, SourceHealth } from './types'
 
 export function NewsStatusBadge({ status }: { status: NewsStatus }) {
   const cls =
@@ -26,4 +27,13 @@ export function OriginalLink({ href, className, children }: { href: string; clas
       {children} ↗
     </a>
   )
+}
+
+export function HealthBadge({ status }: { status: SourceHealth }) {
+  const cls = status === 'OK' ? 'adm-badge on' : status === 'BROKEN' ? 'adm-badge off' : 'adm-badge'
+  return <span className={cls}>{HEALTH_LABEL[status]}</span>
+}
+
+export function OnOffBadge({ on }: { on: boolean }) {
+  return <span className="adm-badge">{on ? 'On' : 'Off'}</span>
 }
