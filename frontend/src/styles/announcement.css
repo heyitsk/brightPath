@@ -1,0 +1,13 @@
+/*
+  Announcement strip above the header (admin-set, dismissible). Not part of the v3 reference,
+  so it lives here rather than in components.css, and uses only existing tokens: light paper
+  so it reads apart from the navy top bar and cover below it. No animation.
+*/
+.announce{background:var(--paper-2);color:var(--ink);border-bottom:1px solid var(--line);font-size:.875rem;line-height:1.4}
+.announce .wrap{display:flex;align-items:center;gap:8px;min-height:44px}
+.announce p{margin:0;padding:6px 0;flex:1;min-width:0;overflow-wrap:anywhere}
+.announce a{color:var(--ink);font-weight:650;text-decoration:underline;text-underline-offset:2px}
+.announce a:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.announce-close{flex:none;display:inline-grid;place-items:center;width:44px;height:44px;margin-right:-12px;padding:0;background:transparent;border:0;border-radius:var(--r);color:var(--ink);cursor:pointer}
+.announce-close:hover{background:var(--paper)}
+.announce-close:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}

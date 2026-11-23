@@ -23,6 +23,7 @@ export default [
     route('disclaimers', 'routes/admin/disclaimers.tsx'),
     route('disclaimers/:key', 'routes/admin/disclaimers-edit.tsx'),
     route('audit-logs', 'routes/admin/audit-logs.tsx'),
+    route('homepage', 'routes/admin/homepage.tsx'),
     route('neet', 'routes/admin/neet-years.tsx'),
     route('neet/new', 'routes/admin/neet-new.tsx'),
     route('neet/:year', 'routes/admin/neet-year.tsx'),
