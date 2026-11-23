@@ -72,6 +72,7 @@ export type Navigation = {
 const LIVE = new Set<string>([
   '/',
   '/neet-rank-predictor',
+  '/news',
   ...SAMPLE_COUNTRY_SLUGS.map((slug) => `/mbbs-abroad/${slug}`),
   ...SAMPLE_STATE_SLUGS.map((slug) => `/neet-counselling/${slug}`),
 ])
@@ -107,6 +108,7 @@ const collegeFinder = item('College Finder', '/college-finder')
 const compare = item('Compare colleges', '/compare')
 const guides = item('NEET guides', '/neet')
 const about = item('About', '/about')
+const news = item('News', '/news')
 const contact = item('Contact', '/contact')
 
 function exploreCountry(
@@ -250,6 +252,7 @@ export const SAMPLE_NAVIGATION: Navigation = {
           items: [
             guide('MCC All India Quota', 'mcc-all-india-quota'),
             ...['Uttar Pradesh', 'Bihar', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Karnataka', 'Gujarat'].map(state),
+            news,
           ],
         },
         {
@@ -274,6 +277,7 @@ export const SAMPLE_NAVIGATION: Navigation = {
         state('Uttar Pradesh'),
         state('Bihar'),
         state('Maharashtra'),
+        news,
         rankPredictor,
         collegeFinder,
         guide('Cut-off 2026', 'neet-ug-cut-off-2026'),
@@ -400,6 +404,7 @@ export const SAMPLE_NAVIGATION: Navigation = {
         country('Kazakhstan'),
         country('Georgia'),
         item('NEET counselling by state', '/neet-counselling'),
+        news,
         item('All countries', '/mbbs-abroad'),
       ],
     },

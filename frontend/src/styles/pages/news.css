@@ -1,0 +1,22 @@
+/* News page styles. Layout rules (.finder, .summary) copied verbatim from
+   _reference/design/design-handoff-v3/src/pages/03-college-finder.html (page css);
+   the news-* rules below only arrange existing tokens, no new colours. */
+@layer components {
+.finder{display:grid;gap:24px}@media(min-width:1000px){.finder{grid-template-columns:360px minmax(0,1fr);gap:36px;align-items:start}.finder form{position:sticky;top:84px}}
+.summary{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:12px}.summary h2{font-size:1.5rem}
+
+.news .record h3,.news .record .place,.news-summary{overflow-wrap:anywhere}
+.news-summary{margin:0;color:var(--ink-2)}
+.news .checked{align-items:flex-start}
+.news .checked svg{flex:none;margin-top:2px}
+.news-clear{margin:12px 0 0;text-align:center}
+.news-pager{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:20px}
+.news-empty{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px 22px}
+.news-empty h2{font-size:1.25rem}
+.news-empty p{margin:10px 0 0}
+.news-head h1,.news .kv dd{overflow-wrap:anywhere}
+.news-head h1{max-width:32ch}
+.news-card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 22px;display:grid;gap:16px;max-width:760px;box-shadow:var(--shadow-1)}
+.news-card p{margin:0}
+.news-actions{display:flex;flex-wrap:wrap;gap:12px}
+}

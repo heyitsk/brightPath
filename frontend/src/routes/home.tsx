@@ -1,10 +1,12 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { api } from '../api/client.server'
 import { safeCall } from '../api/errors'
 import { Icon } from '../components/Icon'
 import { isValidScore, num, PATH } from '../components/rank/labels'
 import { MenuLink } from '../components/site/MenuLink'
 import { HERO_DEFAULT } from '../components/shared/home'
+import { placeName, publicDateLine } from '../components/shared/news'
 import { useRootData, useSiteConfig } from '../components/site/config'
 import { TalkToCounsellor } from '../components/site/TalkToCounsellor'
 import {
@@ -15,6 +17,7 @@ import {
   SAMPLE_STAMP_DATES,
   type Destination,
 } from '../data/home'
+import { latestNews, type NewsCard } from '../data/news'
 import homeStyles from '../styles/pages/home.css?url'
 import type { Route } from './+types/home'
 
@@ -29,11 +32,14 @@ export const meta: Route.MetaFunction = () => [
   },
 ]
 
-/** Published NEET years for the hero form's year choice. Empty when none, or when the API fails. */
+/**
+ * Published NEET years for the hero form's year choice, and the latest three news notices.
+ * Both are empty when there are none or when the API fails, so the home page never breaks.
+ */
 export async function loader() {
-  const res = await safeCall(api.GET('/neet/data-sources'))
+  const [res, notices] = await Promise.all([safeCall(api.GET('/neet/data-sources')), latestNews()])
   const years = 'data' in res && res.data ? res.data.years.map((y) => String(num(y.year))) : []
-  return { years }
+  return { years, notices }
 }
 
 const rot = (deg: string) => ({ '--rot': deg }) as CSSProperties
@@ -47,6 +53,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <RouteSteps />
       <Destinations />
       <Guides />
+      {loaderData.notices.length > 0 && <LatestNotices notices={loaderData.notices} />}
       <TalkToCounsellor />
     </>
   )
@@ -334,6 +341,40 @@ function Guides() {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  )
+}
+
+/** The newest notices from GET /news/?pageSize=3. Only rendered when there is at least one. */
+function LatestNotices({ notices }: { notices: NewsCard[] }) {
+  return (
+    <section className="section">
+      <div className="wrap">
+        <div className="section-head">
+          <h2>Latest notices</h2>
+          <p>Counselling notices from the official sites, checked by our team, with a link to each original.</p>
+        </div>
+        <ul className="guides">
+          {notices.map((n) => (
+            <li key={n.slug}>
+              <Link to={`/news/${n.slug}`} prefetch="intent">
+                <b style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                  {n.title}
+                  <span>
+                    {n.source.name} · {placeName(n)} · {publicDateLine(n)}
+                  </span>
+                </b>
+                <Icon name="arrow" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p style={{ marginTop: 20 }}>
+          <Link className="link-arrow" to="/news">
+            All notices <Icon name="arrow" size={16} />
+          </Link>
+        </p>
       </div>
     </section>
   )

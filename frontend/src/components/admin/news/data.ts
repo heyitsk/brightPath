@@ -1,6 +1,7 @@
 import { adminApi } from '../../../api/client.browser'
 import { handleApiError, safeCall } from '../../../api/errors'
 import { formatDate } from '../../shared/format'
+import { CATEGORY_LABEL, isNewsCategory, noticeDateLine } from '../../shared/news'
 import type { Opt } from '../crud/types'
 import type { NewsCategory, NewsListItem, NewsStatus } from './types'
 
@@ -18,28 +19,20 @@ export const STATUS_LABEL: Record<NewsStatus, string> = {
 export const STATUSES = Object.keys(STATUS_LABEL) as NewsStatus[]
 export const isStatus = (v: unknown): v is NewsStatus => STATUSES.includes(v as NewsStatus)
 
-export const CATEGORY_LABEL: Record<NewsCategory, string> = {
-  COUNSELLING: 'Counselling',
-  SCHEDULE: 'Schedule',
-  SEAT_MATRIX: 'Seat matrix',
-  MERIT_LIST: 'Merit list',
-  REGISTRATION: 'Registration',
-  RESULT: 'Result',
-  FEE: 'Fee',
-  OTHER: 'Other',
-}
+export { CATEGORY_LABEL }
 export const CATEGORY_OPTIONS: Opt[] = (Object.keys(CATEGORY_LABEL) as NewsCategory[]).map((c) => ({
   value: c,
   label: CATEGORY_LABEL[c],
 }))
-export const isCategory = (v: unknown): v is NewsCategory => typeof v === 'string' && v in CATEGORY_LABEL
+export const isCategory = (v: unknown): v is NewsCategory => isNewsCategory(v)
 
 /** The date of a notice with where it came from. Never presents our first sighting as the site's date. */
 export function dateLine(item: Pick<NewsListItem, 'dateBasis' | 'sourcePublishedAt' | 'firstSeenAt'>): string {
-  const { dateBasis, sourcePublishedAt } = item
-  if (dateBasis === 'SOURCE' && sourcePublishedAt) return `Dated ${formatDate(sourcePublishedAt)} on the official site`
-  if (dateBasis === 'PDF' && sourcePublishedAt) return `Dated ${formatDate(sourcePublishedAt)} in the notice PDF`
-  return `First seen by us on ${formatDate(item.firstSeenAt)} (the site gives no date)`
+  return noticeDateLine(
+    item.dateBasis,
+    item.sourcePublishedAt,
+    () => `First seen by us on ${formatDate(item.firstSeenAt)} (the site gives no date)`,
+  )
 }
 
 /** The same date for the list column, e.g. "5 Nov 2026 · official site". */
