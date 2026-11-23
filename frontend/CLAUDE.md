@@ -9,8 +9,8 @@ We own **only `frontend/`**. Never edit `backend/`, `docs/openapi.json` or `fron
 - Before saying a change is done, check exit codes: `bun run typecheck; echo $?`, lint and build must all pass with no warnings.
 
 ## Scope
-- The scope is the page list in the PRD (`../_reference/docs/PRD.md`, section "Pages"): Home, NEET Rank Predictor, College Finder, Compare, Country, College (abroad and India), State counselling, NEET guide, About, Contact, Privacy, Terms, Disclaimer, the enquiry form, header, menus, tab bar and footer.
-- **Out of scope:** partner/B2B portal, commissions and payments, chatbot, news, student accounts and saved shortlists. Do not build or stub them.
+- The scope is the page list in the PRD (`../_reference/docs/PRD.md`, section "Pages"): Home, NEET Rank Predictor, College Finder, Compare, Country, College (abroad and India), State counselling, NEET guide, About, Contact, Privacy, Terms, Disclaimer, News list and News item (official counselling notices, reviewed by staff), the enquiry form, header, menus, tab bar and footer.
+- **Out of scope:** partner/B2B portal, commissions and payments, chatbot, student accounts and saved shortlists. Do not build or stub them.
 - Menus show only pages that are published. Never link to a page that does not exist.
 
 ## Design
