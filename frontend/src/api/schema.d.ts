@@ -2410,7 +2410,12 @@ export interface operations {
                             dateBasis: "SOURCE" | "PDF" | "FIRST_SEEN";
                             /**
                              * Format: date-time
-                             * @description When BrightPath put it on the News page
+                             * @description When BrightPath's fetcher first found the notice on the official site. Use it as the "added on" date when `dateBasis` is FIRST_SEEN. A source's very first read records the notices already on the site, so those carry that day.
+                             */
+                            firstSeenAt: string;
+                            /**
+                             * Format: date-time
+                             * @description When staff put it on the News page (after review). Later than `firstSeenAt`; it decides the order of the list
                              */
                             publishedAt: string;
                             /**
@@ -2542,7 +2547,12 @@ export interface operations {
                             dateBasis: "SOURCE" | "PDF" | "FIRST_SEEN";
                             /**
                              * Format: date-time
-                             * @description When BrightPath put it on the News page
+                             * @description When BrightPath's fetcher first found the notice on the official site. Use it as the "added on" date when `dateBasis` is FIRST_SEEN. A source's very first read records the notices already on the site, so those carry that day.
+                             */
+                            firstSeenAt: string;
+                            /**
+                             * Format: date-time
+                             * @description When staff put it on the News page (after review). Later than `firstSeenAt`; it decides the order of the list
                              */
                             publishedAt: string;
                             /**

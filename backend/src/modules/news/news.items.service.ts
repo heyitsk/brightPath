@@ -287,6 +287,7 @@ const toPublic = (r: PublicRow) => ({
   originalUrl: r.originalUrl,
   sourcePublishedOn: dateOnly(r.sourcePublishedAt),
   dateBasis: r.dateBasis,
+  firstSeenAt: r.firstSeenAt.toISOString(),
   publishedAt: r.publishedAt!.toISOString(),
   checkedOn: dateOnly(r.reviewedAt ?? r.publishedAt),
 });

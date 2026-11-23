@@ -320,7 +320,7 @@ describe("the public News page", () => {
     });
     // nothing staff-only is visible to the public
     const text = r.text;
-    for (const secret of ["relevance", "reviewedBy", "publishedBy", "firstSeenAt", "urlHash", "titleKey", "duplicateOf", "status", "Still waiting", "Rejected one", `"id"`]) expect(text).not.toContain(secret);
+    for (const secret of ["relevance", "reviewedBy", "publishedBy", "urlHash", "titleKey", "duplicateOf", "status", "Still waiting", "Rejected one", `"id"`]) expect(text).not.toContain(secret);
   });
 
   test("filters, facets, paging and the 'added on' date basis", async () => {
@@ -350,6 +350,15 @@ describe("the public News page", () => {
     const p2 = (await call("/news?pageSize=3&page=2")).body as any;
     expect([p1.items.length, p2.items.length, p1.total]).toEqual([3, 1, 4]);
     expect(((await call("/news?q=advisory")).body as any).items[0]).toMatchObject({ dateBasis: "FIRST_SEEN", sourcePublishedOn: null });
+
+    // firstSeenAt is when the fetcher found it, not when staff published it: both the list and the detail carry it
+    const advisory = await prisma.newsItem.findFirstOrThrow({ where: { title: "NMC advisory on foreign colleges" } });
+    const found = ago(3);
+    await prisma.newsItem.update({ where: { id: advisory.id }, data: { firstSeenAt: found } });
+    const inList = ((await call("/news?q=advisory")).body as any).items[0];
+    expect(inList.firstSeenAt).toBe(found.toISOString());
+    expect(inList.firstSeenAt < inList.publishedAt).toBe(true);
+    expect(((await call(`/news/${inList.slug}`)).body as any).news.firstSeenAt).toBe(found.toISOString());
     expect((await call("/news?pageSize=0")).status).toBe(422);
     expect((await call("/news?category=BOGUS")).status).toBe(422);
   });
