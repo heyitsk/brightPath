@@ -351,14 +351,40 @@ describe("admin news sources: access", () => {
   test("anonymous 401, COUNSELLOR 403, EDITOR allowed", async () => {
     const id = (await makeSource()).id;
     const routes: Array<[string, string]> = [
-      ["GET", "/admin/news/sources"],
       ["GET", `/admin/news/sources/${id}`],
       ["GET", `/admin/news/sources/${id}/runs`],
     ];
     for (const [method, path] of routes) expect((await call(path, { method })).status).toBe(401);
     const counsellor = await as("COUNSELLOR");
     for (const [method, path] of routes) expect((await call(path, { method, headers: counsellor })).status).toBe(403);
-    expect((await call("/admin/news/sources", { headers: await as("EDITOR") })).status).toBe(200);
+    expect((await call(`/admin/news/sources/${id}`, { headers: await as("EDITOR") })).status).toBe(200);
+    // writes stay closed to a counsellor too
+    expect((await call("/admin/news/sources", { method: "POST", headers: counsellor, json: body() })).status).toBe(403);
+    expect((await call(`/admin/news/sources/${id}`, { method: "PATCH", headers: counsellor, json: { notes: "x" } })).status).toBe(403);
+  });
+
+  test("the sources list is open to every staff role; a COUNSELLOR gets a slim row", async () => {
+    await seedReferenceData();
+    const hp = await prisma.state.findFirstOrThrow({ where: { code: "HP" } });
+    const src = await makeSource({ stateId: hp.id, notes: "internal note", lastError: "HTTP 500 from the site", config: { scope: "table.notices" } });
+    expect((await call("/admin/news/sources")).status).toBe(401);
+
+    const slim = await call("/admin/news/sources", { headers: await as("COUNSELLOR") });
+    expect(slim.status).toBe(200);
+    const row = (slim.body as any).items.find((i: any) => i.id === src.id);
+    expect(Object.keys(row).sort()).toEqual(["id", "isActive", "kind", "name", "slug", "state", "status"]);
+    expect(row.state).toMatchObject({ id: hp.id, code: "HP" });
+    expect(typeof (slim.body as any).attentionCount).toBe("number");
+    for (const hidden of ["internal note", "HTTP 500", "scope", "listUrl"]) expect(slim.text).not.toContain(hidden);
+
+    for (const role of ["EDITOR", "ADMIN"] as const) {
+      const full = await call("/admin/news/sources", { headers: await as(role) });
+      expect(full.status).toBe(200);
+      expect((full.body as any).items.find((i: any) => i.id === src.id)).toMatchObject({ notes: "internal note", lastError: "HTTP 500 from the site", config: { scope: "table.notices" }, listUrl: expect.any(String) });
+    }
+    // the filters still work for a counsellor
+    const filtered = await call(`/admin/news/sources?stateId=${hp.id}`, { headers: await as("COUNSELLOR") });
+    expect((filtered.body as any).items.map((i: any) => i.id)).toEqual([src.id]);
   });
 
   test("writes need the X-BP-Admin header", async () => {

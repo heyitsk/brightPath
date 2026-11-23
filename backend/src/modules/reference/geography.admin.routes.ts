@@ -12,9 +12,9 @@ const stateCode = t.String({ pattern: "^[A-Z]{2,3}$", description: "Short upper-
 const isoCode = t.String({ pattern: "^[A-Z]{2}$", description: "ISO 3166-1 alpha-2 country code, e.g. `RU`", examples: ["RU"] });
 const name = t.String({ minLength: 1, maxLength: 80 });
 
-export const geographyAdminRoutes = new Elysia({ tags: ["Admin · Reference"] })
-  .use(staffGuard({ roles: ["EDITOR"] }))
-  // ---- states ----
+// Read-only list open to every staff role (D-191): counsellors filter by state. Everything that writes, and the by-id route, stay EDITOR-only.
+export const statesReadRoutes = new Elysia({ tags: ["Admin · Reference"] })
+  .use(staffGuard())
   .get(
     "/admin/states",
     async ({ query }) => ({ items: await listStates({ isLive: query.isLive }) }),
@@ -22,11 +22,15 @@ export const geographyAdminRoutes = new Elysia({ tags: ["Admin · Reference"] })
       query: t.Object({ isLive: t.Optional(t.Boolean({ description: "Only live (true) or not-yet-live (false) states" })) }),
       detail: {
         summary: "List states",
-        description: "All Indian states and union territories, live ones first, then by sort order and name. The list is small, so it is not paginated." + note,
+        description: "All Indian states and union territories, live ones first, then by sort order and name. The list is small, so it is not paginated. Open to every staff role (a COUNSELLOR uses it to filter by state); creating and editing states needs role EDITOR or ADMIN.",
       },
       response: { 200: t.Object({ items: t.Array(StateSchema) }), ...errorResponses(401, 403, 422) },
     },
-  )
+  );
+
+export const geographyAdminRoutes = new Elysia({ tags: ["Admin · Reference"] })
+  .use(staffGuard({ roles: ["EDITOR"] }))
+  // ---- states ----
   .post(
     "/admin/states",
     async ({ staff, body, set }) => {

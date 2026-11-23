@@ -67,6 +67,11 @@ async function resync() {
   }
 }
 
+/** What a COUNSELLOR sees of a source (D-191): enough to filter by it, none of the scraper settings, notes or error text. */
+export function toSlimSource(s: ReturnType<typeof toSourceDto>) {
+  return { id: s.id, slug: s.slug, name: s.name, state: s.state, kind: s.kind, isActive: s.isActive, status: s.status };
+}
+
 async function loadSource(id: string): Promise<SourceWithState> {
   const s = await prisma.newsSource.findUnique({ where: { id }, include: withState });
   if (!s) throw AppError.notFound("News source not found.");

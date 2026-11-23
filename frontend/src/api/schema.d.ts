@@ -454,7 +454,7 @@ export interface paths {
         };
         /**
          * List states
-         * @description All Indian states and union territories, live ones first, then by sort order and name. The list is small, so it is not paginated. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         * @description All Indian states and union territories, live ones first, then by sort order and name. The list is small, so it is not paginated. Open to every staff role (a COUNSELLOR uses it to filter by state); creating and editing states needs role EDITOR or ADMIN.
          */
         get: operations["getAdminStates"];
         put?: never;
@@ -1146,7 +1146,7 @@ export interface paths {
         };
         /**
          * List news sources
-         * @description Every official site that is watched, switched-on ones first, with health and counts. `attentionCount` is how many switched-on sources are not healthy (for a badge). No paging: the list is a few dozen rows. Requires role EDITOR or ADMIN. Writes need the `X-BP-Admin: 1` header.
+         * @description Every official site that is watched, switched-on ones first, with health and counts. `attentionCount` is how many switched-on sources are not healthy (for a badge). No paging: the list is a few dozen rows. Open to every staff role; a COUNSELLOR gets a slim row (`id`, `slug`, `name`, `state`, `kind`, `isActive`, `status`) so they can filter the review queue by source, while EDITOR and ADMIN get every field. The by-id routes and all writes need role EDITOR or ADMIN.
          */
         get: operations["getAdminNewsSources"];
         put?: never;
@@ -15564,46 +15564,46 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             kind: "RSS" | "WP_REST" | "HTML_LIST" | "JSON_LIST" | "HTML_JS";
-                            /** @description The page, feed or API address that is fetched */
-                            listUrl: string;
-                            /** @description The site's home page */
-                            siteUrl: string | null;
-                            config: {
-                                [key: string]: unknown;
-                            };
                             /** @description Scheduled fetching is on. A source whose kind cannot be read (`HTML_JS`) cannot be switched on. */
                             isActive: boolean;
-                            /** @description Minutes between fetches */
-                            fetchIntervalMin: string | number;
-                            notes: string | null;
-                            /** @description False for kinds that cannot be read (`HTML_JS`) */
-                            canFetch: boolean;
                             /** @enum {string} */
                             status: "OK" | "DEGRADED" | "BROKEN";
+                            /** @description The page, feed or API address that is fetched */
+                            listUrl?: string;
+                            /** @description The site's home page */
+                            siteUrl?: string | null;
+                            config?: {
+                                [key: string]: unknown;
+                            };
+                            /** @description Minutes between fetches */
+                            fetchIntervalMin?: string | number;
+                            notes?: string | null;
+                            /** @description False for kinds that cannot be read (`HTML_JS`) */
+                            canFetch?: boolean;
                             /** Format: date-time */
-                            lastRunAt: string | null;
+                            lastRunAt?: string | null;
                             /** Format: date-time */
-                            lastSuccessAt: string | null;
+                            lastSuccessAt?: string | null;
                             /** @description Notices found on the last run that found any */
-                            lastItemCount: string | number;
-                            consecutiveFailures: string | number;
+                            lastItemCount?: string | number;
+                            consecutiveFailures?: string | number;
                             /** @description Runs in a row that found nothing although earlier runs found notices */
-                            consecutiveEmptyRuns: string | number;
+                            consecutiveEmptyRuns?: string | number;
                             /** @description Plain-words reason the last run failed; null after a good run */
-                            lastError: string | null;
+                            lastError?: string | null;
                             /**
                              * Format: date-time
                              * @description When the first read recorded what was already on the site; null until something has been found
                              */
-                            baselineAt: string | null;
+                            baselineAt?: string | null;
                             /** @description Notices stored for this source, in any status */
-                            itemCount: string | number;
+                            itemCount?: string | number;
                             /** @description Notices waiting for staff review */
-                            pendingCount: string | number;
+                            pendingCount?: string | number;
                             /** Format: date-time */
-                            createdAt: string;
+                            createdAt?: string;
                             /** Format: date-time */
-                            updatedAt: string;
+                            updatedAt?: string;
                         }[];
                         attentionCount: string | number;
                     };
