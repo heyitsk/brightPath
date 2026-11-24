@@ -32,18 +32,14 @@ export function noticeDateLine(basis: DateBasis, date: string | null | undefined
   return fallback()
 }
 
-type PublicNotice = Pick<PublicItem, 'dateBasis' | 'sourcePublishedOn' | 'publishedAt' | 'checkedOn' | 'state'>
+/** A notice without a site date: when our fetcher first found it. Same words on the public and admin pages. */
+export const firstSeenLine = (firstSeenAt: string) => `First seen by us on ${formatDate(firstSeenAt)} (the site gives no date)`
 
-/**
- * The date line on the public pages. The public API has no first-sighting date yet, so a notice
- * without a site date shows when it was added to our News page.
- */
+type PublicNotice = Pick<PublicItem, 'dateBasis' | 'sourcePublishedOn' | 'firstSeenAt' | 'checkedOn' | 'state'>
+
+/** The date line on the public pages. */
 export const publicDateLine = (item: PublicNotice) =>
-  noticeDateLine(
-    item.dateBasis,
-    item.sourcePublishedOn,
-    () => `Added to our News page on ${formatDate(item.publishedAt)} (the site gives no date)`,
-  )
+  noticeDateLine(item.dateBasis, item.sourcePublishedOn, () => firstSeenLine(item.firstSeenAt))
 
 export const checkedLine = (item: Pick<PublicNotice, 'checkedOn'>) =>
   item.checkedOn ? `Checked on ${formatDate(item.checkedOn)}` : `Checked on: ${NO_DATE}`

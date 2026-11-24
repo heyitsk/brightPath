@@ -1,7 +1,7 @@
 import { adminApi } from '../../../api/client.browser'
-import { handleApiError, safeCall } from '../../../api/errors'
+import { loadOrThrow } from '../crud/runtime'
 import { formatDate } from '../../shared/format'
-import { CATEGORY_LABEL, isNewsCategory, noticeDateLine } from '../../shared/news'
+import { CATEGORY_LABEL, firstSeenLine, isNewsCategory, noticeDateLine } from '../../shared/news'
 import type { Opt } from '../crud/types'
 import type { NewsCategory, NewsListItem, NewsStatus } from './types'
 
@@ -28,11 +28,7 @@ export const isCategory = (v: unknown): v is NewsCategory => isNewsCategory(v)
 
 /** The date of a notice with where it came from. Never presents our first sighting as the site's date. */
 export function dateLine(item: Pick<NewsListItem, 'dateBasis' | 'sourcePublishedAt' | 'firstSeenAt'>): string {
-  return noticeDateLine(
-    item.dateBasis,
-    item.sourcePublishedAt,
-    () => `First seen by us on ${formatDate(item.firstSeenAt)} (the site gives no date)`,
-  )
+  return noticeDateLine(item.dateBasis, item.sourcePublishedAt, () => firstSeenLine(item.firstSeenAt))
 }
 
 /** The same date for the list column, e.g. "5 Nov 2026 · official site". */
@@ -56,27 +52,15 @@ export const placeLabel = (item: Pick<NewsListItem, 'state'>) => item.state?.nam
 /** The title shown on the News page: the staff title, else the official one. */
 export const shownTitle = (item: Pick<NewsListItem, 'publicTitle' | 'title'>) => item.publicTitle || item.title
 
-/**
- * Choices for a select that only EDITOR and ADMIN may load. A 403 (a COUNSELLOR) gives null,
- * so the page hides that control. Any other failure throws for the section ErrorBoundary.
- */
-async function optional(call: Promise<{ data?: unknown; error?: unknown; response: Response }>, pick: (data: unknown) => Opt[]) {
-  const result = await safeCall(call)
-  const data = (result as { data?: unknown }).data
-  if (result.response.ok && data !== undefined) return pick(data)
-  const failure = handleApiError(result)
-  if (failure.status === 403) return null
-  throw new Response(failure.formError, { status: failure.status || 503 })
+type Named = { items: { id: string; name: string }[] }
+const toChoices = ({ items }: Named): Opt[] => items.map((x) => ({ value: x.id, label: x.name }))
+
+/** Choices for the state select and filter. Any failure throws for the section ErrorBoundary. */
+export async function loadStateChoices(): Promise<Opt[]> {
+  return toChoices(await loadOrThrow<Named>(adminApi.GET('/admin/states')))
 }
 
-export function loadStateChoices(): Promise<Opt[] | null> {
-  return optional(adminApi.GET('/admin/states'), (data) =>
-    (data as { items: { id: string; name: string }[] }).items.map((s) => ({ value: s.id, label: s.name })),
-  )
-}
-
-export function loadSourceChoices(): Promise<Opt[] | null> {
-  return optional(adminApi.GET('/admin/news/sources'), (data) =>
-    (data as { items: { id: string; name: string }[] }).items.map((s) => ({ value: s.id, label: s.name })),
-  )
+/** Choices for the source filter (a COUNSELLOR gets short rows, which still have id and name). */
+export async function loadSourceChoices(): Promise<Opt[]> {
+  return toChoices(await loadOrThrow<Named>(adminApi.GET('/admin/news/sources')))
 }

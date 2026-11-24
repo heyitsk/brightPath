@@ -34,3 +34,6 @@ export function sectionsFor(role: Role): AdminSection[] {
     href,
   }))
 }
+
+/** Whether a role may open the section at `href` (the same rule as the menu). */
+export const canOpen = (role: Role, href: string) => sectionsFor(role).some((s) => s.href === href)

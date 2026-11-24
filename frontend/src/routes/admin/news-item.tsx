@@ -60,8 +60,8 @@ const INTENTS = Object.keys(DONE) as Intent[]
 const STATUS_INTENTS: Intent[] = ['publish', 'reject', 'unpublish', 'restore']
 
 /**
- * The form's values as an API body. A field that is not on the form is never sent: a COUNSELLOR's
- * form has no state select, so neither Save nor Publish can change or clear the state.
+ * The form's values as an API body. A field that is not on the form is never sent, so a stale or
+ * partial form cannot clear a value it does not show.
  */
 function readBody(form: FormData): ItemBody {
   const text = (k: string) => {
@@ -219,7 +219,7 @@ export default function NewsItemPage({ loaderData, actionData }: Route.Component
   )
 }
 
-function ItemForm(props: { item: NewsItem; states: Opt[] | null; failure?: Failed }) {
+function ItemForm(props: { item: NewsItem; states: Opt[]; failure?: Failed }) {
   const { item, states, failure } = props
   const busy = useNavigation().state !== 'idle'
   const errors = failure?.fieldErrors ?? {}
@@ -242,18 +242,16 @@ function ItemForm(props: { item: NewsItem; states: Opt[] | null; failure?: Faile
       value: item.summary ?? '',
     },
     { f: { name: 'category', label: 'Category', kind: 'select', required: true }, value: item.category, options: CATEGORY_OPTIONS },
-  ]
-  if (states) {
-    fields.push({
+    {
       f: { name: 'stateId', label: 'State', kind: 'select', required: true },
       value: stateValue,
       options: [{ value: CENTRAL, label: 'Central (national notice)' }, ...states],
-    })
-  }
-  fields.push({
-    f: { name: 'isPinned', label: 'Pinned (shown first on the News page)', kind: 'checkbox' },
-    value: item.isPinned,
-  })
+    },
+    {
+      f: { name: 'isPinned', label: 'Pinned (shown first on the News page)', kind: 'checkbox' },
+      value: item.isPinned,
+    },
+  ]
 
   // The saved values. When they change (a successful save or publish), put them back in the inputs:
   // React has already moved each input's default to the new value, so reset() shows it. Failed
@@ -272,15 +270,6 @@ function ItemForm(props: { item: NewsItem; states: Opt[] | null; failure?: Faile
       {fields.map(({ f, value, options }) => (
         <FieldInput key={f.name} f={f} value={value} error={errors[f.name]} options={options} />
       ))}
-      {!states && (
-        <div className="field">
-          <p style={{ margin: 0 }}>
-            <strong>State:</strong> {placeLabel(item)}
-          </p>
-          <p className="hint">Only editors can change the state.</p>
-          {errors.stateId && <p className="err-msg">{errors.stateId}</p>}
-        </div>
-      )}
       <div className="adm-actions">
         {canPublish && (
           <button className="btn btn-primary" type="submit" name="intent" value="publish" disabled={busy}>

@@ -4,6 +4,7 @@ import { adminApi } from '../../api/client.browser'
 import { handleApiError, safeCall, type ApiFailure } from '../../api/errors'
 import { FormError } from '../../components/admin/AdminFormError'
 import { loadOrThrow } from '../../components/admin/crud/runtime'
+import { RequireSection } from '../../components/admin/crud/RequireSection'
 import { SectionError } from '../../components/admin/crud/SectionError'
 import { HealthBadge, OnOffBadge } from '../../components/admin/news/components'
 import { CATEGORY_LABEL, n, shorten } from '../../components/admin/news/data'
@@ -70,7 +71,16 @@ const SAVED: Record<string, string> = {
   deleted: 'Source deleted.',
 }
 
-export default function NewsSources({ loaderData }: Route.ComponentProps) {
+/** The list API also answers a COUNSELLOR (short rows, for the review filters); this page is for editors. */
+export default function NewsSourcesPage(props: Route.ComponentProps) {
+  return (
+    <RequireSection href={SOURCES_HREF}>
+      <NewsSources {...props} />
+    </RequireSection>
+  )
+}
+
+function NewsSources({ loaderData }: Route.ComponentProps) {
   const { sources, totals, saved } = loaderData
   const totalRows: [string, number][] = [
     ['Switched on', n(totals.active)],
