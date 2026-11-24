@@ -4,7 +4,7 @@ import type { DropMenu as DropMenuData, Navigation } from '../../data/navigation
 import { Icon } from '../Icon'
 import { MenuLink } from './MenuLink'
 import { MobileNav, MobileNavButton } from './MobileNav'
-import { SLOT, telHref, useRootData } from './config'
+import { telHref, useRootData } from './config'
 
 /*
   Sticky navy cover bar: brand, "Explore colleges" mega menu, the four dropdowns,
@@ -99,7 +99,7 @@ export function CoverBar() {
   }
 
   const phone = siteConfig.contact.phone
-  const brandName = siteConfig.brand.name ?? SLOT.brand
+  const brandName = siteConfig.brand.name
 
   return (
     <header
@@ -113,7 +113,7 @@ export function CoverBar() {
       }}
     >
       <div className="wrap">
-        <Link className="brand" to="/">
+        <Link className="brand" to="/" aria-label={brandName ? undefined : 'Home'}>
           <span className="brand-logo" aria-hidden="true">
             LOGO
           </span>
@@ -130,11 +130,13 @@ export function CoverBar() {
           <MenuLink item={navigation.about} aria-current={current(navigation.about.href, location.pathname)} />
           <MenuLink item={navigation.contact} aria-current={current(navigation.contact.href, location.pathname)} />
         </nav>
-        <a className="cover-call" href={telHref(phone)}>
-          <Icon name="phone" size={18} />
-          <span>{phone ?? SLOT.phone}</span>
-          <b className="sr">Call us</b>
-        </a>
+        {phone && (
+          <a className="cover-call" href={telHref(phone)}>
+            <Icon name="phone" size={18} />
+            <span>{phone}</span>
+            <b className="sr">Call us</b>
+          </a>
+        )}
         <MobileNavButton ref={menuButtonRef} open={mobileOpen} onToggle={() => setMobileOpen((o) => !o)} />
       </div>
       <MobileNav navigation={navigation} open={mobileOpen} />
@@ -233,9 +235,12 @@ function ExploreMenu({ explore, ...props }: MenuProps & { explore: Navigation['e
                       </li>
                     ))}
                   </ul>
-                  <MenuLink className="mega-all" item={c}>
-                    All {c.total ?? '[xx]'} colleges in {c.label.replace(/^MBBS in /, '')} <Icon name="arrow" size={14} />
-                  </MenuLink>
+                  {c.published && c.total != null && (
+                    <MenuLink className="mega-all" item={c}>
+                      {c.total === 1 ? 'The 1 college' : `All ${c.total} colleges`} in {c.label.replace(/^MBBS in /, '')}{' '}
+                      <Icon name="arrow" size={14} />
+                    </MenuLink>
+                  )}
                 </div>
               ))}
             </div>
@@ -253,7 +258,7 @@ function ExploreMenu({ explore, ...props }: MenuProps & { explore: Navigation['e
                 <li key={s.href}>
                   <MenuLink item={s}>
                     {s.label}
-                    <span>{s.count ?? '[xx]'} colleges</span>
+                    {s.count != null && <span>{s.count === 1 ? '1 college' : `${s.count} colleges`}</span>}
                   </MenuLink>
                 </li>
               ))}

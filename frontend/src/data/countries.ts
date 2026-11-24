@@ -5,7 +5,7 @@
   "YYYY-MM-DD" strings, as they will arrive in JSON.
 
   Every number, date and text below is SAMPLE data from the v3 preview (05-country) and has not
-  been checked. Author and reviewer names stay null and render as [placeholders].
+  been checked. Author and reviewer names stay null and are left out of the byline.
 
   Switching to the real API means changing ONE function: getCountry(). The college list is not
   sample: the route loader adds it from GET /colleges/?kind=ABROAD&country=<slug>, the same call
@@ -75,7 +75,7 @@ export type CountryContent = {
   sources: { title: string; url: string; checkedAt: string | null }[]
 
   // Added for the page (not named in 4.7):
-  /** null until the author and reviewer are decided; shown as [placeholders]. */
+  /** null until the author and reviewer are decided; left out of the byline. */
   writtenBy: string | null
   reviewedBy: string | null
   updatedAt: string | null
@@ -181,22 +181,6 @@ const RUSSIA: CountryDetail = {
       question: 'Do I need to know Russian before I go?',
       answer: "No. Colleges teach Russian in the first years. You'll need it to talk to patients later.",
       sort: 1,
-      isPublished: true,
-    },
-    {
-      scope: 'COUNTRY',
-      scopeRefId: 1,
-      question: 'Is it safe for Indian students?',
-      answer: '[Answer written and checked by the team.]',
-      sort: 2,
-      isPublished: true,
-    },
-    {
-      scope: 'COUNTRY',
-      scopeRefId: 1,
-      question: 'Can I pay fees year by year?',
-      answer: '[Answer written and checked by the team.]',
-      sort: 3,
       isPublished: true,
     },
   ],

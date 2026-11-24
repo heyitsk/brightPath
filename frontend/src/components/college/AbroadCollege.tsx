@@ -18,11 +18,11 @@ import {
   currencyName,
   formatDate,
   formatInr,
-  formatLakh,
+  formatInrShort,
   formatRate,
   MONTHS,
   NO_DATE,
-  slot,
+  NOT_RECORDED,
 } from '../shared/format'
 
 type FeeLine = CollegePage['fees'][number]
@@ -44,12 +44,12 @@ const oneRate = (fees: FeeLine[]) =>
 const NEET_KEY = 'NEET UG'
 const neetRule = (p: AbroadCollegePage['abroad']) => p.eligibility?.[NEET_KEY] ?? 'Qualified'
 
-const countryName = (college: AbroadCollegePage) => college.country?.name ?? slot('country')
 
 export function AbroadCollege({ college }: Props) {
   const countryHref = `/mbbs-abroad/${college.country?.slug ?? ''}`
-  const country = { label: `MBBS in ${countryName(college)}`, href: countryHref, published: isLive(countryHref) }
-  const asideTitle = college.nearby.every((r) => r.city === college.city) ? college.city : countryName(college)
+  const countryName = college.country?.name
+  const country = { label: countryName ? `MBBS in ${countryName}` : 'MBBS abroad', href: countryHref, published: isLive(countryHref) }
+  const asideTitle = !countryName || college.nearby.every((r) => r.city === college.city) ? college.city : countryName
   return (
     <>
       <div className="wrap">
@@ -75,10 +75,12 @@ export function AbroadCollege({ college }: Props) {
                 {college.nearby.map((r) => (
                   <li key={r.slug} style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
                     <MenuLink item={collegeLink(r)} />
-                    <br />
-                    <span className="small muted">
-                      {r.totalCourseFeeInr != null ? `${formatLakh(Number(r.totalCourseFeeInr))} total` : `${slot('total fee')} total`}
-                    </span>
+                    {r.totalCourseFeeInr != null && (
+                      <>
+                        <br />
+                        <span className="small muted">{formatInrShort(Number(r.totalCourseFeeInr))} total</span>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -108,6 +110,14 @@ function Header({ college }: Props) {
   const mrz = `COL<${code}<${college.slug.toUpperCase().replaceAll('-', '<')}<<${p.wdoms.id ?? ''}`.padEnd(44, '<')
   const rate = fees[0]
   const feeDate = feesChecked(fees)
+  // Facts the API has no value for are left out of the line.
+  const lead = [
+    [college.city, college.country?.name].filter(Boolean).join(', '),
+    college.ownership ? `${ownership[college.ownership]} university` : null,
+    college.courseLengthMonths != null ? `MBBS, ${courseLength(college.courseLengthMonths)}` : 'MBBS',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   let rateNote = 'No fee lines recorded yet'
   if (rate && oneRate(fees) && rate.currency === 'INR') {
     rateNote = `Tuition, hostel and fees for ${fees.length} years, in rupees`
@@ -123,8 +133,7 @@ function Header({ college }: Props) {
       <div>
         <h1>{college.name}</h1>
         <p className="lead" style={{ marginTop: 10 }}>
-          {college.city}, {countryName(college)} · {college.ownership ? ownership[college.ownership] : slot('ownership')} university ·
-          MBBS, {courseLength(college.courseLengthMonths)}
+          {lead}
         </p>
         <Stamps college={college} />
         <p className="small muted">
@@ -133,7 +142,7 @@ function Header({ college }: Props) {
       </div>
       <div className="datapage datacard">
         <p className="k">Total cost, whole course</p>
-        <p className="big">{college.totalCourseFeeInr != null ? formatLakh(Number(college.totalCourseFeeInr)) : slot('total fee')}</p>
+        <p className="big">{college.totalCourseFeeInr != null ? formatInrShort(Number(college.totalCourseFeeInr)) : NOT_RECORDED}</p>
         <p className="k" style={{ marginBottom: 16 }}>
           {rateNote}
         </p>
@@ -141,17 +150,17 @@ function Header({ college }: Props) {
           <div>
             <dt>Taught in</dt>
             <dd>
-              {p.teachingLanguage ?? slot('language')}
-              {p.languageNote ? `, ${p.languageNote}` : ''}
+              {p.teachingLanguage ?? NOT_RECORDED}
+              {p.teachingLanguage && p.languageNote ? `, ${p.languageNote}` : ''}
             </dd>
           </div>
           <div>
             <dt>Intake</dt>
-            <dd>{p.intakeMonths.length ? p.intakeMonths.map((m) => MONTHS[Number(m) - 1] ?? String(m)).join(', ') : slot('month')}</dd>
+            <dd>{p.intakeMonths.length ? p.intakeMonths.map((m) => MONTHS[Number(m) - 1] ?? String(m)).join(', ') : NOT_RECORDED}</dd>
           </div>
           <div>
             <dt>Seats for Indians</dt>
-            <dd>{p.seatsForIndians != null ? Number(p.seatsForIndians) : slot('number')}</dd>
+            <dd>{p.seatsForIndians != null ? Number(p.seatsForIndians) : NOT_RECORDED}</dd>
           </div>
           <div>
             <dt>Min. NEET</dt>
@@ -277,7 +286,7 @@ function Fees({ college }: Props) {
     return (
       <>
         <h2>Fees, year by year</h2>
-        <p>{slot('Fees not recorded yet')}</p>
+        <p>Fees not recorded yet.</p>
       </>
     )
   }
@@ -402,7 +411,8 @@ function Recognition({ college }: Props) {
               <Icon name="shield" size={16} /> Meets NMC's 2021 rules for study abroad
             </h3>
             <p>
-              The course runs {courseLength(college.courseLengthMonths)}, is taught in {p.teachingLanguage ?? slot('language')}
+              The course runs {courseLength(college.courseLengthMonths)}
+              {p.teachingLanguage ? `, is taught in ${p.teachingLanguage}` : ''}
               {p.internshipMonths != null ? `, and includes a ${Number(p.internshipMonths)}-month internship` : ''}.{' '}
               {checkedOn(nmc2021.checkedAt)}. {rulesNote}
             </p>
@@ -491,13 +501,13 @@ function Eligibility({ college }: Props) {
         ) : (
           <>
             <dt>Class 12 PCB</dt>
-            <dd>{slot('marks rule')}</dd>
+            <dd>{NOT_RECORDED}</dd>
             <dt>Age</dt>
-            <dd>{slot('age rule')}</dd>
+            <dd>{NOT_RECORDED}</dd>
           </>
         )}
         <dt>Documents</dt>
-        <dd>{p.documents.length ? p.documents.join(', ') : slot('documents')}</dd>
+        <dd>{p.documents.length ? p.documents.join(', ') : NOT_RECORDED}</dd>
       </dl>
       <p className="small muted">{college.dataCheckedAt ? `Checked ${formatDate(college.dataCheckedAt)}` : `Checked: ${NO_DATE}`}</p>
     </>

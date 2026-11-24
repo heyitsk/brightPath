@@ -12,11 +12,11 @@ import {
   courseLength,
   currencyName,
   formatDate,
-  formatLakh,
+  formatInrShort,
   formatLakhRange,
   formatRate,
   NO_DATE,
-  slot,
+  NOT_RECORDED,
 } from '../shared/format'
 
 const link = (label: string, href: string): NavItem => ({ label, href, published: isLive(href) })
@@ -42,8 +42,13 @@ export function CountryPage({ detail }: { detail: CountryDetail }) {
             <h1>MBBS in {country.name}</h1>
             <p className="lead">{content.intro}</p>
             <p className="small muted" style={{ margin: 0 }}>
-              Written by {content.writtenBy ?? '[Counsellor name]'} · Reviewed by {content.reviewedBy ?? '[Reviewer name]'} · Updated{' '}
-              {content.updatedAt ? formatDate(content.updatedAt) : NO_DATE}
+              {[
+                content.writtenBy ? `Written by ${content.writtenBy}` : null,
+                content.reviewedBy ? `Reviewed by ${content.reviewedBy}` : null,
+                `Updated ${content.updatedAt ? formatDate(content.updatedAt) : NO_DATE}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
           </div>
           {content.heroImageUrl ? (
@@ -127,7 +132,7 @@ function Glance({ detail }: { detail: CountryDetail }) {
         </div>
         <div>
           <dt>Intake</dt>
-          <dd>{content.intakeMonths.length ? content.intakeMonths.join(', ') : slot('month')}</dd>
+          <dd>{content.intakeMonths.length ? content.intakeMonths.join(', ') : NOT_RECORDED}</dd>
         </div>
         <div>
           <dt>Colleges on our list</dt>
@@ -139,11 +144,11 @@ function Glance({ detail }: { detail: CountryDetail }) {
         </div>
         <div>
           <dt>Flight from Delhi</dt>
-          <dd>{country.typicalFlightFromDelhi ?? slot('hours')}</dd>
+          <dd>{country.typicalFlightFromDelhi ?? NOT_RECORDED}</dd>
         </div>
         <div>
           <dt>Winter low</dt>
-          <dd>{content.winterLow ?? slot('temperature')}</dd>
+          <dd>{content.winterLow ?? NOT_RECORDED}</dd>
         </div>
       </dl>
       <p className="small muted" style={{ margin: '10px 0 0' }}>
@@ -236,14 +241,15 @@ function Colleges({ detail }: { detail: CountryDetail }) {
                   <MenuLink item={collegeLink(c)} />
                 </h3>
                 <p className="place">
-                  {c.city} · {c.ownership ? OWNERSHIP[c.ownership] : slot('ownership')}
+                  {c.city}
+                  {c.ownership ? ` · ${OWNERSHIP[c.ownership]}` : ''}
                 </p>
                 <Marks c={c} />
               </div>
               <dl className="facts" style={{ gridTemplateColumns: 'repeat(3,auto)', justifyContent: 'start', gap: '8px 28px' }}>
                 <div>
                   <dt>Total fees</dt>
-                  <dd>{c.totalCourseFeeInr != null ? formatLakh(Number(c.totalCourseFeeInr)) : slot('total fee')}</dd>
+                  <dd>{c.totalCourseFeeInr != null ? formatInrShort(Number(c.totalCourseFeeInr)) : NOT_RECORDED}</dd>
                 </div>
                 <div>
                   <dt>Course</dt>

@@ -8,6 +8,11 @@ import type { Route } from './+types/state'
 
 export const links: Route.LinksFunction = () => [{ rel: 'stylesheet', href: stateStyles }]
 
+/** This page still shows SAMPLE content (see root.tsx). */
+export const handle = {
+  sample: 'The counselling details, steps and questions on this page are sample text and have not been checked yet. The colleges, seats and fees are real.',
+}
+
 /** State content (SAMPLE until phase 7, see getStateCounselling()) plus its listed colleges from the API. */
 export async function loader({ params }: Route.LoaderArgs) {
   const detail = await getStateCounselling(params.state)

@@ -78,16 +78,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** Route handle flags: `admin` hides the public chrome, `sample` says which part of a page is SAMPLE content. */
+type Handle = { admin?: boolean; sample?: string } | undefined
+
 export default function App() {
+  const matches = useMatches()
   // Admin routes (handle.admin) render without the public header, footer and tab bar.
-  const isAdmin = useMatches().some((m) => (m.handle as { admin?: boolean } | undefined)?.admin)
-  if (isAdmin) return <Outlet />
+  if (matches.some((m) => (m.handle as Handle)?.admin)) return <Outlet />
+  // Only pages that still show sample content carry the notice; a "not found" error page has no loader data and none.
+  const sample = matches.findLast((m) => m.data !== undefined && (m.handle as Handle)?.sample)
+  const sampleText = (sample?.handle as Handle)?.sample
   return (
     <>
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <SampleBand />
+      {sampleText && <SampleBand text={sampleText} />}
       <AnnouncementStrip />
       <TopBar />
       <CoverBar />

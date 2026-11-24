@@ -1,16 +1,18 @@
 import { Icon } from '../Icon'
 import { MenuLink } from './MenuLink'
-import { mailHref, SLOT, telHref, useRootData } from './config'
+import { mailHref, telHref, useRootData } from './config'
 
-/** Sample-data notice, shown while menus and records are SAMPLE data. */
-export function SampleBand() {
+/**
+ * Sample-content notice. Shown only on pages that still show SAMPLE content; the route says
+ * which part is sample through `handle.sample` (see root.tsx).
+ */
+export function SampleBand({ text }: { text: string }) {
   return (
     <div className="sample-band" role="note">
       <div className="wrap">
         <Icon name="alert" size={16} />
         <span>
-          <strong>Design preview.</strong> College names come from our research list. Every number, date and
-          status on this page is sample data and has not been checked.
+          <strong>Sample content.</strong> {text}
         </span>
       </div>
     </div>
@@ -33,14 +35,18 @@ export function TopBar() {
           ))}
         </nav>
         <div className="top-contact">
-          <a href={telHref(phone)}>
-            <Icon name="phone" size={15} />
-            <span>{phone ?? SLOT.phone}</span>
-          </a>
-          <a href={mailHref(email)}>
-            <Icon name="mail" size={15} />
-            <span>{email ?? SLOT.email}</span>
-          </a>
+          {phone && (
+            <a href={telHref(phone)}>
+              <Icon name="phone" size={15} />
+              <span>{phone}</span>
+            </a>
+          )}
+          {email && (
+            <a href={mailHref(email)}>
+              <Icon name="mail" size={15} />
+              <span>{email}</span>
+            </a>
+          )}
           <MenuLink className="top-cta" item={navigation.counsellingCall} />
         </div>
       </div>

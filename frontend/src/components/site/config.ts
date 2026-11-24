@@ -12,15 +12,6 @@ export function useSiteConfig() {
   return useRootData().siteConfig
 }
 
-/** Labelled placeholders shown while a config value is still null. */
-export const SLOT = {
-  brand: '[Brand name]',
-  phone: '[Phone number]',
-  email: '[Email address]',
-  address: '[Office address]',
-  hours: '[days and hours]',
-} as const
-
 export function telHref(phone: string | null) {
   return phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : undefined
 }

@@ -37,11 +37,11 @@ export const SAMPLE_STAMP_DATES = {
 export type Destination = { code: string; name: string; meta: string; item: NavItem }
 
 export const SAMPLE_ABROAD: Destination[] = [
-  { code: 'RUS', name: 'Russia', meta: '6 years · from ₹ [xx] lakh total', item: link('Russia', '/mbbs-abroad/russia') },
-  { code: 'KAZ', name: 'Kazakhstan', meta: '5 years + internship · from ₹ [xx] lakh total', item: link('Kazakhstan', '/mbbs-abroad/kazakhstan') },
-  { code: 'KGZ', name: 'Kyrgyzstan', meta: 'Check course length carefully · from ₹ [xx] lakh', item: link('Kyrgyzstan', '/mbbs-abroad/kyrgyzstan') },
-  { code: 'UZB', name: 'Uzbekistan', meta: 'NMC alert on some colleges · from ₹ [xx] lakh', item: link('Uzbekistan', '/mbbs-abroad/uzbekistan') },
-  { code: 'GEO', name: 'Georgia', meta: '6 years · from ₹ [xx] lakh total', item: link('Georgia', '/mbbs-abroad/georgia') },
+  { code: 'RUS', name: 'Russia', meta: '6 years', item: link('Russia', '/mbbs-abroad/russia') },
+  { code: 'KAZ', name: 'Kazakhstan', meta: '5 years + internship', item: link('Kazakhstan', '/mbbs-abroad/kazakhstan') },
+  { code: 'KGZ', name: 'Kyrgyzstan', meta: 'Check course length carefully', item: link('Kyrgyzstan', '/mbbs-abroad/kyrgyzstan') },
+  { code: 'UZB', name: 'Uzbekistan', meta: 'NMC alert on some colleges', item: link('Uzbekistan', '/mbbs-abroad/uzbekistan') },
+  { code: 'GEO', name: 'Georgia', meta: '6 years', item: link('Georgia', '/mbbs-abroad/georgia') },
   { code: '+3', name: 'Philippines, Nepal, Bangladesh', meta: 'Coming next', item: link('Coming next', '/mbbs-abroad') },
 ]
 

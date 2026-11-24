@@ -51,8 +51,8 @@ export function formatLakhRange(min: number, max: number): string {
 /** Rupees below one lakh in full ("₹ 53,000"), from one lakh up in lakh ("₹ 13.5 lakh"). */
 export const formatInrShort = (n: number) => (n >= 100_000 ? formatLakh(n) : formatInr(n))
 
-/** "[number]" style slot for a fact we do not have yet. */
-export const slot = (label: string) => `[${label}]`
+/** Shown in a label/value row when the API has no value. Never a [placeholder] on a public page. */
+export const NOT_RECORDED = 'Not recorded'
 
 const CURRENCY_NAMES: Record<string, string> = {
   RUB: 'rouble',
@@ -66,9 +66,9 @@ const CURRENCY_NAMES: Record<string, string> = {
 
 export const currencyName = (code: string) => CURRENCY_NAMES[code] ?? code
 
-/** "6 years" or "58 months". The API sends whole numbers as string | number; null shows a slot. */
+/** "6 years" or "58 months". The API sends whole numbers as string | number; null shows "Not recorded". */
 export function courseLength(value: string | number | null): string {
-  if (value == null) return slot('course length')
+  if (value == null) return NOT_RECORDED
   const months = Number(value)
   if (months % 12 === 0) return `${months / 12} years`
   return `${months} months`

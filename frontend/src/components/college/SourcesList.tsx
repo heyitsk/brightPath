@@ -35,7 +35,7 @@ export function SourcesList({ sources }: { sources: CollegePage['sources'] }) {
         })}
       </ul>
       <p className="small muted" style={{ marginTop: 12 }}>
-        Spotted something out of date? Tell us and we'll check it within [reply time]. The form is not connected yet.
+        Spotted something out of date? Tell us and we'll check it. The form is not connected yet.
       </p>
     </>
   )

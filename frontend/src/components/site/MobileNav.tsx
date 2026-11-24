@@ -44,7 +44,7 @@ export function MobileNav({ navigation, open }: { navigation: Navigation; open: 
           <details key={c.href} open={i === 0}>
             <summary>
               {c.label}
-              <span className="cnt">{c.total ?? '[xx]'}</span>
+              {c.published && c.total != null && <span className="cnt">{c.total}</span>}
               {c.alert && (
                 <>
                   {' '}
@@ -61,11 +61,13 @@ export function MobileNav({ navigation, open }: { navigation: Navigation; open: 
                   <MenuLink item={college} />
                 </li>
               ))}
-              <li>
-                <MenuLink className="mega-all" item={c}>
-                  All {c.total ?? '[xx]'} colleges <Icon name="arrow" size={14} />
-                </MenuLink>
-              </li>
+              {c.published && c.total != null && (
+                <li>
+                  <MenuLink className="mega-all" item={c}>
+                    {c.total === 1 ? 'The 1 college' : `All ${c.total} colleges`} <Icon name="arrow" size={14} />
+                  </MenuLink>
+                </li>
+              )}
             </ul>
           </details>
         ))}

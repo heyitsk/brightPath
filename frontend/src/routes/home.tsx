@@ -23,6 +23,11 @@ import type { Route } from './+types/home'
 
 export const links: Route.LinksFunction = () => [{ rel: 'stylesheet', href: homeStyles }]
 
+/** This page still shows SAMPLE content (see root.tsx). */
+export const handle = {
+  sample: 'The example college record and stamp dates on this page are illustrations, not checked facts.',
+}
+
 export const meta: Route.MetaFunction = () => [
   { title: 'NEET score to likely rank and colleges you can get | MBBS in India and abroad' },
   {
