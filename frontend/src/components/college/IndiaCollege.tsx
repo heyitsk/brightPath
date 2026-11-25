@@ -10,7 +10,7 @@ import { FaqList } from '../shared/FaqList'
 import { About } from './AbroadCollege'
 import { feesChecked, sortedFees } from './college-data'
 import { SourcesList } from './SourcesList'
-import { checkedOn, formatDate, formatInr, formatLakh, NO_DATE, slot } from '../shared/format'
+import { checkedOn, formatDate, formatInr, formatInrShort, NO_DATE, NOT_RECORDED } from '../shared/format'
 
 type Props = { college: IndiaCollegePage }
 
@@ -24,14 +24,27 @@ const counsellingLink = (college: IndiaCollegePage, label: string) => {
   return { label, href, published: isLive(href) }
 }
 
-const seats = (p: IndiaCollegePage['india']) => (p.mbbsSeats != null ? Number(p.mbbsSeats) : slot('number'))
+const seats = (p: IndiaCollegePage['india']) => (p.mbbsSeats != null ? Number(p.mbbsSeats) : NOT_RECORDED)
 const totalFee = (college: IndiaCollegePage) =>
-  college.totalCourseFeeInr != null ? formatLakh(Number(college.totalCourseFeeInr)) : slot('total fee')
+  college.totalCourseFeeInr != null ? formatInrShort(Number(college.totalCourseFeeInr)) : NOT_RECORDED
 const stipend = (p: IndiaCollegePage['india']) =>
-  p.stipendInr != null ? `${formatInr(Number(p.stipendInr))} a month` : `${slot('₹ amount')} a month`
+  p.stipendInr != null ? `${formatInr(Number(p.stipendInr))} a month` : NOT_RECORDED
+
+/**
+ * Service bond in short (card) and long (section) wording. null means not recorded; only
+ * years === 0 means the college has no bond.
+ */
+function bondText(bond: IndiaCollegePage['india']['serviceBond']): { short: string; long: string } {
+  if (bond == null) return { short: NOT_RECORDED, long: NOT_RECORDED }
+  const years = Number(bond.years)
+  if (years === 0) return { short: 'None', long: 'No service bond' }
+  const penalty = bond.penaltyInr != null ? `, or a ${formatInr(Number(bond.penaltyInr))} penalty` : ' (penalty not recorded)'
+  return { short: `${years} years`, long: `${years} years of service after MBBS${penalty}` }
+}
 
 export function IndiaCollege({ college }: Props) {
-  const counselling = counsellingLink(college, `NEET counselling: ${college.state?.name ?? college.country?.name ?? slot('state')}`)
+  const place = college.state?.name ?? college.country?.name
+  const counselling = counsellingLink(college, place ? `NEET counselling: ${place}` : 'NEET counselling')
   return (
     <>
       <div className="wrap">
@@ -61,15 +74,23 @@ function Header({ college }: Props) {
   const p = college.india
   const seatSource = source(college, 'SEAT_LIST')
   const recognitionDate = p.nmcRecognitionCheckedAt ?? source(college, 'NMC_RECOGNITION')?.checkedAt ?? null
-  const bond = p.serviceBond && Number(p.serviceBond.years) > 0 ? `${Number(p.serviceBond.years)} years` : 'None'
+  const bond = bondText(p.serviceBond).short
+  // Facts the API has no value for are left out of the line.
+  const lead = [
+    [college.city, college.state?.name].filter(Boolean).join(', '),
+    college.ownership ? OWNERSHIP[college.ownership] : null,
+    college.establishedYear != null ? `Established ${Number(college.establishedYear)}` : null,
+    p.mbbsSeats != null ? `MBBS seats: ${Number(p.mbbsSeats)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <header className="c-head">
       <div>
         <h1>{college.name}</h1>
         <p className="lead" style={{ marginTop: 10 }}>
-          {college.city}, {college.state?.name ?? slot('state')} · {college.ownership ? OWNERSHIP[college.ownership] : slot('ownership')} ·
-          Established {college.establishedYear != null ? Number(college.establishedYear) : slot('year')} · MBBS seats: {seats(p)}
+          {lead}
         </p>
         <div className="stamps">
           {p.nmcRecognised === true && (
@@ -87,12 +108,14 @@ function Header({ college }: Props) {
               NMC recognition not confirmed<span className="d">{checkedOn(recognitionDate)}</span>
             </span>
           )}
-          <span className="stamp" style={{ '--rot': '2deg' } as React.CSSProperties}>
-            Seats: {seats(p)}
-            <span className="d">
-              {seatSource?.title ?? 'Seat list'}, {seatSource ? formatDate(seatSource.checkedAt) : NO_DATE}
+          {p.mbbsSeats != null && (
+            <span className="stamp" style={{ '--rot': '2deg' } as React.CSSProperties}>
+              Seats: {Number(p.mbbsSeats)}
+              <span className="d">
+                {seatSource?.title ?? 'Seat list'}, {seatSource ? formatDate(seatSource.checkedAt) : NO_DATE}
+              </span>
             </span>
-          </span>
+          )}
         </div>
       </div>
       <div className="datapage datacard">
@@ -112,7 +135,7 @@ function Header({ college }: Props) {
           </div>
           <div>
             <dt>Hospital beds</dt>
-            <dd>{p.hospital.beds != null ? Number(p.hospital.beds) : slot('number')}</dd>
+            <dd>{p.hospital.beds != null ? Number(p.hospital.beds) : NOT_RECORDED}</dd>
           </div>
           <div>
             <dt>Stipend (intern)</dt>
@@ -142,7 +165,7 @@ function Fees({ college }: Props) {
     return (
       <>
         <h2>Fees</h2>
-        <p>{slot('Fees not recorded yet')}</p>
+        <p>Fees not recorded yet.</p>
       </>
     )
   }
@@ -202,23 +225,18 @@ function Fees({ college }: Props) {
 
 function HospitalAndTraining({ college }: Props) {
   const p = college.india
-  const { serviceBond } = p
-  let bond = 'No service bond'
-  if (serviceBond && Number(serviceBond.years) > 0) {
-    const penalty = serviceBond.penaltyInr != null ? formatInr(Number(serviceBond.penaltyInr)) : slot('₹ amount')
-    bond = `${Number(serviceBond.years)} years of service after MBBS, or a ${penalty} penalty`
-  }
+  const bond = bondText(p.serviceBond).long
+  const beds = p.hospital.beds != null ? `${Number(p.hospital.beds)} beds` : null
+  const hospital = [p.hospital.name, beds].filter(Boolean).join(', ') || NOT_RECORDED
 
   return (
     <>
       <h2>Hospital and training</h2>
       <dl className="kv">
         <dt>Teaching hospital</dt>
-        <dd>
-          {p.hospital.name ?? slot('Hospital name')}, {p.hospital.beds != null ? Number(p.hospital.beds) : slot('beds')} beds
-        </dd>
+        <dd>{hospital}</dd>
         <dt>Daily outpatients</dt>
-        <dd>{p.hospital.dailyOutpatients != null ? Number(p.hospital.dailyOutpatients) : slot('number')}</dd>
+        <dd>{p.hospital.dailyOutpatients != null ? Number(p.hospital.dailyOutpatients) : NOT_RECORDED}</dd>
         <dt>Service bond</dt>
         <dd>{bond}</dd>
         <dt>Stipend (intern)</dt>
@@ -237,7 +255,7 @@ function SeatRoute({ college }: Props) {
     <>
       <h2>How to get a seat here</h2>
       <p>
-        {p.domicileRule ?? slot('domicile rule')} <MenuLink item={guide} /> <Icon name="arrow" size={16} />
+        {p.domicileRule ?? 'Domicile rule not recorded yet.'} <MenuLink item={guide} /> <Icon name="arrow" size={16} />
       </p>
       <p className="small muted">{checkedOn(checked)}</p>
     </>

@@ -8,6 +8,11 @@ import type { Route } from './+types/country'
 
 export const links: Route.LinksFunction = () => [{ rel: 'stylesheet', href: countryStyles }]
 
+/** This page still shows SAMPLE content (see root.tsx). */
+export const handle = {
+  sample: 'The country facts, costs and questions on this page are sample text and have not been checked yet. The colleges listed are real.',
+}
+
 /** Country content (SAMPLE until phase 7, see getCountry()) plus its listed colleges from the API. */
 export async function loader({ params }: Route.LoaderArgs) {
   const detail = await getCountry(params.country)

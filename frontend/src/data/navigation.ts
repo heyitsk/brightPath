@@ -12,7 +12,7 @@
 
 import type { CollegeCard } from './colleges'
 import { SAMPLE_COUNTRY_SLUGS } from './countries'
-import { SAMPLE_STATE_SLUGS } from './states'
+import { SAMPLE_STATE_PAGES, SAMPLE_STATE_SLUGS } from './states'
 
 export type NavItem = {
   label: string
@@ -21,7 +21,7 @@ export type NavItem = {
 }
 
 export type ExploreCountry = NavItem & {
-  /** Number of published colleges in the country; null shows a placeholder slot. */
+  /** Number of published colleges in the country; null = unknown, no count is shown. */
   total: number | null
   /** Short alert text, shown as a red mark (e.g. NMC alert on some colleges). */
   alert?: { menu: string; mobile: string }
@@ -32,8 +32,8 @@ export type ExploreCountry = NavItem & {
 }
 
 export type ExploreState = NavItem & {
-  /** College count as display text; null shows a placeholder slot. */
-  count: string | null
+  /** Number of published colleges in the state; null = unknown, no count is shown. */
+  count: number | null
 }
 
 export type DropMenu = {
@@ -100,7 +100,8 @@ function item(label: string, href: string): NavItem {
 }
 const college = (label: string, slug = slugify(label)) => item(label, `/colleges/${slug}`)
 const country = (name: string) => item(`MBBS in ${name}`, `/mbbs-abroad/${slugify(name.replace(/^the /, ''))}`)
-const state = (name: string) => item(name, `/neet-counselling/${slugify(name)}`)
+/** States that have a counselling page. Menus list only these, never a state without a page. */
+const states = () => SAMPLE_STATE_PAGES.map((s) => item(s.name, `/neet-counselling/${s.slug}`))
 const guide = (label: string, slug = slugify(label)) => item(label, `/neet/${slug}`)
 
 const rankPredictor = item('Rank Predictor', '/neet-rank-predictor')
@@ -190,16 +191,8 @@ export const SAMPLE_NAVIGATION: Navigation = {
     ],
     nextCountries: ['Philippines', 'Nepal', 'Bangladesh'],
     indiaNote: 'Fees and closing ranks',
-    states: [
-      { ...state('Uttar Pradesh'), count: null },
-      { ...state('Maharashtra'), count: null },
-      { ...state('Rajasthan'), count: null },
-      { ...state('Bihar'), count: null },
-      { ...state('Madhya Pradesh'), count: null },
-      { ...state('Karnataka'), count: null },
-      { ...state('Tamil Nadu'), count: null },
-      { ...state('Kerala'), count: null },
-    ],
+    // Filled in by getNavigation() from GET /colleges/.
+    states: states().map((s) => ({ ...s, count: null })),
     findColleges: { ...collegeFinder, label: 'Find my colleges' },
   },
 
@@ -251,7 +244,7 @@ export const SAMPLE_NAVIGATION: Navigation = {
           title: 'Counselling',
           items: [
             guide('MCC All India Quota', 'mcc-all-india-quota'),
-            ...['Uttar Pradesh', 'Bihar', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Karnataka', 'Gujarat'].map(state),
+            ...states(),
             news,
           ],
         },
@@ -274,9 +267,7 @@ export const SAMPLE_NAVIGATION: Navigation = {
         guide('Exam pattern', 'neet-ug-exam-pattern'),
         guide('Syllabus', 'neet-ug-syllabus'),
         guide('MCC All India Quota', 'mcc-all-india-quota'),
-        state('Uttar Pradesh'),
-        state('Bihar'),
-        state('Maharashtra'),
+        ...states(),
         news,
         rankPredictor,
         collegeFinder,

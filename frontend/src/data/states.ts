@@ -83,7 +83,7 @@ export type StateCounsellingDetail = {
   source: Source | null
   steps: CounsellingStep[]
   faqs: Faq[]
-  /** Colleges taking part in this state's counselling. null = not counted yet, shown as a [placeholder]. */
+  /** Colleges taking part in this state's counselling. null = not counted yet; the page shows only the listed count. */
   totalColleges: number | null
 }
 
@@ -124,20 +124,8 @@ const UP_STEPS: CounsellingStep[] = [
   step(4, 'Seat allotment, round 1', 'Report to the college with original documents, or wait for round 2.'),
 ]
 
-const faq = (sort: number, question: string): Faq => ({
-  scope: 'STATE',
-  scopeRefId: 1,
-  question,
-  answer: '[Answer checked against the official notice.]',
-  sort,
-  isPublished: true,
-})
-
-const UP_FAQS: Faq[] = [
-  faq(1, 'Can I apply in UP and through All India Quota at the same time?'),
-  faq(2, 'What counts as UP domicile?'),
-  faq(3, 'What happens if I leave a seat after round 2?'),
-]
+/* No UP questions yet: they are added once each answer is checked against the official notice. */
+const UP_FAQS: Faq[] = []
 
 const SAMPLE_STATES = [
   {
@@ -151,6 +139,9 @@ const SAMPLE_STATES = [
 
 /** Slugs of the sample states, so the menus can link to pages that exist. */
 export const SAMPLE_STATE_SLUGS = SAMPLE_STATES.map((s) => s.state.slug)
+
+/** The states that have a counselling page, for the menus. Menus list only these. */
+export const SAMPLE_STATE_PAGES = SAMPLE_STATES.map(({ state }) => ({ slug: state.slug, name: state.name }))
 
 /**
  * The one place the state page gets its data. SAMPLE today; replace the body with

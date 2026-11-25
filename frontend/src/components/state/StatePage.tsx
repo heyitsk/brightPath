@@ -7,7 +7,7 @@ import { Crumbs } from '../shared/Crumbs'
 import { Estimate } from '../shared/Estimate'
 import { FaqList } from '../shared/FaqList'
 import { HOME } from '../shared/home'
-import { checkedOn, formatDate, formatInrShort, formatNumber, NO_DATE, slot } from '../shared/format'
+import { checkedOn, formatDate, formatInrShort, formatNumber, NO_DATE, NOT_RECORDED } from '../shared/format'
 
 const link = (label: string, href: string): NavItem => ({ label, href, published: isLive(href) })
 
@@ -31,8 +31,9 @@ export function StatePage({ detail }: { detail: StateCounsellingDetail }) {
             How state quota seats are filled in {state.code}, which colleges take part, their fees and the ranks that got a seat last year.
           </p>
           <p className="small muted" style={{ margin: 0 }}>
-            Updated {counselling.updatedAt ? formatDate(counselling.updatedAt) : NO_DATE} · Checked against notices from the{' '}
-            {source?.publisher ?? slot('counselling authority')}, {checkedOn(counselling.checkedAt)}
+            Updated {counselling.updatedAt ? formatDate(counselling.updatedAt) : NO_DATE} ·{' '}
+            {source?.publisher ? `Checked against notices from the ${source.publisher}` : 'Checked against official counselling notices'},{' '}
+            {checkedOn(counselling.checkedAt)}
           </p>
         </header>
       </div>
@@ -127,14 +128,15 @@ function CollegeTable({ detail }: { detail: StateCounsellingDetail }) {
                   <td>
                     <MenuLink item={collegeLink(c)} />
                   </td>
-                  <td>{c.ownership ? OWNERSHIP[c.ownership] : slot('type')}</td>
-                  <td className="r">{c.mbbsSeats != null ? formatNumber(Number(c.mbbsSeats)) : 'Not recorded'}</td>
-                  <td className="r">{c.totalCourseFeeInr != null ? formatInrShort(Number(c.totalCourseFeeInr)) : slot('fee')}</td>
+                  <td>{c.ownership ? OWNERSHIP[c.ownership] : NOT_RECORDED}</td>
+                  <td className="r">{c.mbbsSeats != null ? formatNumber(Number(c.mbbsSeats)) : NOT_RECORDED}</td>
+                  <td className="r">{c.totalCourseFeeInr != null ? formatInrShort(Number(c.totalCourseFeeInr)) : NOT_RECORDED}</td>
                 </tr>
               ))}
             </tbody>
             <caption>
-              Closing ranks are not recorded yet. {colleges.length} of {totalColleges ?? slot('number')} colleges shown.
+              Closing ranks are not recorded yet.{' '}
+              {totalColleges != null ? `${colleges.length} of ${totalColleges} colleges shown.` : `${colleges.length} colleges shown.`}
             </caption>
           </table>
         </div>

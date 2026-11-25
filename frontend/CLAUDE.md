@@ -22,7 +22,9 @@ We own **only `frontend/`**. Never edit `backend/`, `docs/openapi.json` or `fron
 ## Wording (never retype)
 - The disclaimer texts (`NOT_GUARANTEED`, `FOREIGN_COLLEGES_NMC`, `ENQUIRY_CONSENT`) and the regulator line come from **`GET /site/config` → `disclaimers`**. Never hard-code, paraphrase or fall back to a copy of them. If one is missing, show a visible error.
 - **A foreign college is never "NMC approved"** (also never "WHO approved" or "MCI approved"). Indian colleges: "Recognised by NMC". Foreign colleges: "Listed in WDOMS", "Meets NMC 2021 rules", "NMC alert" / "No NMC alert found".
-- Brand name, phone, email and address come from `/site/config`. Show labelled placeholders while they are null.
+- Brand name, phone, email, address and hours come from `/site/config`. While one is null, leave that line out.
+- Never show square-bracket placeholders ("[number]", "[xx]") on a public page. A missing fact in a label/value row reads "Not recorded" (`NOT_RECORDED` in `src/components/shared/format.ts`); in running text it is left out.
+- The "Sample content" notice shows only on routes that still render SAMPLE data: set `handle.sample` on the route to say which part is sample.
 
 ## API
 - Types come **only** from `src/api/schema.d.ts`. Regenerate it with `bun run gen:api` from the repo root and never hand-write API types.
