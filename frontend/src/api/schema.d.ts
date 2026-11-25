@@ -33,7 +33,7 @@ export interface paths {
         };
         /**
          * Site configuration
-         * @description Everything the frontend needs on every page, in one cacheable call: brand name, contact details (null until the owner adds them), the finder's free-results count, and the current disclaimer texts. Disclaimer `version` 0 means the built-in default is in use. Supports `ETag` / `If-None-Match` (answers 304 with an empty body when unchanged).
+         * @description Everything the frontend needs on every page, in one cacheable call: brand name, contact details and company legal name and registration details for the footer (null until the owner adds them), the finder's free-results count, and the current disclaimer texts. Disclaimer `version` 0 means the built-in default is in use. Supports `ETag` / `If-None-Match` (answers 304 with an empty body when unchanged).
          */
         get: operations["getSiteConfig"];
         put?: never;
@@ -1566,6 +1566,13 @@ export interface operations {
                             /** @description Counsellor call-back hours */
                             callbackHours: string | null;
                         };
+                        /** @description Company details for the footer, editable by an admin as the settings company.legalName and company.registrationDetails */
+                        company: {
+                            /** @description Registered legal name of the company for the footer, null until added */
+                            legalName: string | null;
+                            /** @description Registration details for the footer (for example CIN and GSTIN) as one line of text, null until added */
+                            registrationDetails: string | null;
+                        };
                         finder: {
                             /** @description India and abroad results shown before the student leaves their details */
                             freeResultsPerGroup: string | number;
@@ -2158,7 +2165,7 @@ export interface operations {
                                     beds: (string | number) | null;
                                     dailyOutpatients: (string | number) | null;
                                 };
-                                /** @description null when there is no bond */
+                                /** @description `{ years: 0, penaltyInr: null }` = the college has no service bond; `null` = not recorded yet, so do not say there is no bond */
                                 serviceBond: {
                                     years: string | number;
                                     penaltyInr: (string | number) | null;
@@ -10008,7 +10015,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;
@@ -10107,7 +10114,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;
@@ -10206,7 +10213,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;
@@ -10948,7 +10955,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;
@@ -11039,7 +11046,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;
@@ -11130,7 +11137,7 @@ export interface operations {
                         hospitalBeds?: (string | number) | null;
                         /** @description Average outpatients per day */
                         dailyOutpatients?: (string | number) | null;
-                        /** @description Years of compulsory service, 0 or null if none */
+                        /** @description Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet */
                         serviceBondYears?: (string | number) | null;
                         /** @description Penalty in rupees for breaking the bond */
                         serviceBondPenaltyInr?: (string | number) | null;

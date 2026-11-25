@@ -201,6 +201,10 @@ export function getPublicSiteConfig() {
         officeAddress: v("contact.officeAddress") as string | null,
         callbackHours: v("contact.callbackHours") as string | null,
       },
+      company: {
+        legalName: v("company.legalName") as string | null,
+        registrationDetails: v("company.registrationDetails") as string | null,
+      },
       finder: { freeResultsPerGroup: v("finder.freeResultsPerGroup") as number },
       hero: { headline: v("hero.headline") as string | null, subtext: v("hero.subtext") as string | null },
       announcement: publicAnnouncement(stripFrom(settings), new Date()),
