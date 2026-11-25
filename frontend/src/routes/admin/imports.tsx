@@ -1,24 +1,24 @@
 import { useState } from 'react'
-import { Form, Link, redirect, useFetcher, useNavigation, type ShouldRevalidateFunction } from 'react-router'
+import {
+  Form,
+  Link,
+  redirect,
+  useFetcher,
+  useNavigation,
+  useRouteLoaderData,
+  type ShouldRevalidateFunction,
+} from 'react-router'
 import { adminApi } from '../../api/client.browser'
 import { handleApiError, safeCall, type ApiFailure } from '../../api/errors'
 import { FormError } from '../../components/admin/AdminFormError'
 import { loadOrThrow } from '../../components/admin/crud/runtime'
 import { SectionError } from '../../components/admin/crud/SectionError'
 import { ImportStatusBadge } from '../../components/admin/imports/components'
-import {
-  countsLine,
-  downloadTemplate,
-  KIND_LABEL,
-  KINDS,
-  loadWho,
-  when,
-  whoLabel,
-} from '../../components/admin/imports/data'
+import { countsLine, downloadTemplate, KIND_LABEL, KINDS, when, whoLabel } from '../../components/admin/imports/data'
 import type { Batch, BatchList, Detail, UploadKind } from '../../components/admin/imports/types'
-import type { StaffUser } from '../../components/admin/sections'
 import { Flash, PageHead } from '../../components/admin/staff/common'
 import type { Route } from './+types/imports'
+import type { clientLoader as layoutLoader } from './layout'
 
 export { SectionError as ErrorBoundary }
 export const handle = { admin: true }
@@ -33,12 +33,10 @@ const isKind = (v: unknown): v is UploadKind => v === 'COLLEGES' || v === 'FEES'
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const sp = new URL(request.url).searchParams
   const cursor = sp.get('cursor') || undefined
-  const [list, who] = await Promise.all([
-    loadOrThrow<BatchList>(adminApi.GET('/admin/imports', { params: { query: { limit: LIST_PAGE, cursor } } })),
-    // "Load more" only needs the next rows.
-    loadWho(!cursor),
-  ])
-  return { list, ...who, discarded: sp.get('discarded') === '1' }
+  const list = await loadOrThrow<BatchList>(
+    adminApi.GET('/admin/imports', { params: { query: { limit: LIST_PAGE, cursor } } }),
+  )
+  return { list, discarded: sp.get('discarded') === '1' }
 }
 
 /** A template download changes nothing, so the list need not reload. */
@@ -87,7 +85,7 @@ export async function clientAction({ request }: Route.ClientActionArgs): Promise
 }
 
 export default function Imports({ loaderData, actionData }: Route.ComponentProps) {
-  const { list, me, staff, discarded } = loaderData
+  const { list, discarded } = loaderData
   return (
     <>
       <PageHead title="Bulk upload" />
@@ -104,7 +102,7 @@ export default function Imports({ loaderData, actionData }: Route.ComponentProps
       {list.items.length === 0 ? (
         <p>No uploads yet.</p>
       ) : (
-        <UploadList first={list.items} firstCursor={list.nextCursor} me={me} staff={staff} />
+        <UploadList first={list.items} firstCursor={list.nextCursor} />
       )}
     </>
   )
@@ -191,8 +189,8 @@ function UploadForm({ failure }: { failure?: ApiFailure }) {
 type Page = Route.ComponentProps['loaderData']
 
 /** The uploads table plus "Load more": fetched pages are appended. */
-function UploadList(props: { first: Batch[]; firstCursor: string | null; me: StaffUser; staff: StaffUser[] | null }) {
-  const { first, firstCursor, me, staff } = props
+function UploadList({ first, firstCursor }: { first: Batch[]; firstCursor: string | null }) {
+  const meId = useRouteLoaderData<typeof layoutLoader>('routes/admin/layout')?.user.id
   const fetcher = useFetcher<Page>()
   const [kept, setKept] = useState<Batch[]>([])
   const loading = fetcher.state !== 'idle'
@@ -231,7 +229,7 @@ function UploadList(props: { first: Batch[]; firstCursor: string | null; me: Sta
                   <ImportStatusBadge status={b.status} />
                 </td>
                 <td>{countsLine(b.counts)}</td>
-                <td>{whoLabel(b.createdById, me, staff)}</td>
+                <td>{whoLabel(b, meId)}</td>
                 <td>
                   {when(b.createdAt)}
                   {b.committedAt && (

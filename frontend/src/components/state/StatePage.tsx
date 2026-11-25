@@ -7,7 +7,7 @@ import { Crumbs } from '../shared/Crumbs'
 import { Estimate } from '../shared/Estimate'
 import { FaqList } from '../shared/FaqList'
 import { HOME } from '../shared/home'
-import { checkedOn, formatDate, formatInrShort, NO_DATE, slot } from '../shared/format'
+import { checkedOn, formatDate, formatInrShort, formatNumber, NO_DATE, slot } from '../shared/format'
 
 const link = (label: string, href: string): NavItem => ({ label, href, published: isLive(href) })
 
@@ -128,7 +128,7 @@ function CollegeTable({ detail }: { detail: StateCounsellingDetail }) {
                     <MenuLink item={collegeLink(c)} />
                   </td>
                   <td>{c.ownership ? OWNERSHIP[c.ownership] : slot('type')}</td>
-                  <td className="r">{slot('number')}</td>
+                  <td className="r">{c.mbbsSeats != null ? formatNumber(Number(c.mbbsSeats)) : 'Not recorded'}</td>
                   <td className="r">{c.totalCourseFeeInr != null ? formatInrShort(Number(c.totalCourseFeeInr)) : slot('fee')}</td>
                 </tr>
               ))}

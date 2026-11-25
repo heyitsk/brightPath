@@ -1,8 +1,6 @@
 import { adminApi } from '../../../api/client.browser'
 import { handleApiError, safeCall, type ApiFailure } from '../../../api/errors'
-import { loadOrThrow } from '../crud/runtime'
-import type { StaffUser } from '../sections'
-import type { Action, Batch, Counts, Detail, PreviewItem, UploadKind } from './types'
+import type { Action, Batch, Counts, UploadKind } from './types'
 
 /** Whole numbers arrive as string | number. */
 export const n = (v: string | number | null | undefined) => Number(v ?? 0)
@@ -73,37 +71,13 @@ export function countsLine(c: Counts | null): string {
   return shown.length > 0 ? shown.join(' · ') : 'No rows'
 }
 
-/** Uploads only carry the uploader's id; names are known only to admins (who can list staff). */
-export function whoLabel(id: string | null, me: StaffUser, staff: StaffUser[] | null): string {
-  if (!id) return 'Unknown'
-  if (id === me.id) return 'You'
-  return staff?.find((u) => u.id === id)?.name ?? 'Another staff member'
-}
-
-/** The current staff member, plus the staff list when an admin is looking (for names). */
-export async function loadWho(withStaff: boolean): Promise<{ me: StaffUser; staff: StaffUser[] | null }> {
-  const { user } = await loadOrThrow<{ user: StaffUser }>(adminApi.GET('/admin/auth/me'))
-  if (!withStaff || user.role !== 'ADMIN') return { me: user, staff: null }
-  const result = await safeCall(adminApi.GET('/admin/users'))
-  const data = (result as { data?: { items: StaffUser[] } }).data
-  return { me: user, staff: result.response.ok && data ? data.items : null }
+/** "You" for the signed-in staff member, else the uploader's name from the API. */
+export function whoLabel(batch: Pick<Batch, 'createdById' | 'createdByName'>, meId: string | undefined): string {
+  if (batch.createdById && batch.createdById === meId) return 'You'
+  return batch.createdByName ?? 'Unknown'
 }
 
 export const PAGE = 100
-const ALL_PAGE = 500
-
-/** Every row of a waiting upload (max 5,000), for the warnings view and count: the API has no warnings filter. */
-export async function loadAllRows(id: string): Promise<PreviewItem[]> {
-  const rows: PreviewItem[] = []
-  for (let offset = 0; ; offset += ALL_PAGE) {
-    const data = await loadOrThrow<Detail>(
-      adminApi.GET('/admin/imports/{id}', { params: { path: { id }, query: { limit: ALL_PAGE, offset } } }),
-    )
-    if (!data.preview) return rows
-    rows.push(...data.preview.items)
-    if (data.preview.items.length === 0 || rows.length >= n(data.preview.itemsTotal)) return rows
-  }
-}
 
 /** Fetches a CSV template with the session cookie and saves it as a file. Throws a redirect on 401. */
 export async function downloadTemplate(kind: UploadKind): Promise<ApiFailure | null> {

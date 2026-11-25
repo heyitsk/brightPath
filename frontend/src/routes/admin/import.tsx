@@ -1,13 +1,11 @@
 import { useState, type ReactNode } from 'react'
-import { Form, Link, redirect, useNavigation } from 'react-router'
+import { Form, Link, redirect, useNavigation, useRouteLoaderData } from 'react-router'
 import { adminApi } from '../../api/client.browser'
 import { handleApiError, safeCall } from '../../api/errors'
 import { SectionError } from '../../components/admin/crud/SectionError'
 import { ImportStatusBadge, RowTable, Totals } from '../../components/admin/imports/components'
 import {
   KIND_LABEL,
-  loadAllRows,
-  loadWho,
   n,
   PAGE,
   parseShow,
@@ -22,6 +20,7 @@ import { Facts, Messages } from '../../components/admin/neet/common'
 import { Flash } from '../../components/admin/staff/common'
 import { formatNumber } from '../../components/shared/format'
 import type { Route } from './+types/import'
+import type { clientLoader as layoutLoader } from './layout'
 
 export { SectionError as ErrorBoundary }
 export const handle = { admin: true }
@@ -34,7 +33,10 @@ const GONE = 'This upload was discarded or does not exist.'
 /** The API repeats the ignored headings as a notice; they get their own warning here. */
 const IGNORED_NOTICE = 'These columns were not recognised'
 
-async function loadDetail(id: string, query: { action?: PreviewItem['action']; limit: number; offset: number }) {
+async function loadDetail(
+  id: string,
+  query: { action?: PreviewItem['action']; warnings?: boolean; limit: number; offset: number },
+) {
   const result = await safeCall(adminApi.GET('/admin/imports/{id}', { params: { path: { id }, query } }))
   const data = (result as { data?: Detail }).data
   if (result.response.ok && data) return data
@@ -48,25 +50,19 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
   const show = parseShow(sp.get('show'))
   const page = Math.max(0, Math.floor(Number(sp.get('page')) || 0))
   const action = SHOWS.find((s) => s.key === show)?.action
-  const paged = show !== 'warnings'
+  const warnings = show === 'warnings' ? true : undefined
 
-  const [detail, who] = await Promise.all([
-    loadDetail(params.id, { action, limit: PAGE, offset: paged ? page * PAGE : 0 }),
-    loadWho(true),
-  ])
+  const detail = await loadDetail(params.id, { action, warnings, limit: PAGE, offset: page * PAGE })
   const preview = detail.preview
-
-  // The API has no warnings filter or count: read every row once (small files: the page already has them all).
-  let all: PreviewItem[] | null = null
-  if (preview) {
-    const complete = show === 'all' && page === 0 && n(preview.itemsTotal) <= preview.items.length
-    all = complete ? preview.items : await loadAllRows(params.id)
+  return {
+    ...detail,
+    show,
+    page,
+    rows: preview?.items ?? [],
+    total: n(preview?.itemsTotal),
+    // Rows in the whole file with a warning, whatever the tab.
+    warnings: preview ? n(preview.warningsCount) : null,
   }
-  const warned = all?.filter((r) => r.warnings.length > 0) ?? []
-  const rows = paged ? (preview?.items ?? []) : warned.slice(page * PAGE, (page + 1) * PAGE)
-  const total = paged ? n(preview?.itemsTotal) : warned.length
-
-  return { ...detail, ...who, show, page, rows, total, warnings: all ? warned.length : null }
 }
 
 type Outcome =
@@ -107,11 +103,12 @@ export async function clientAction({ params, request }: Route.ClientActionArgs):
 type Data = Route.ComponentProps['loaderData']
 
 export default function ImportPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { batch, preview, me, staff } = loaderData
+  const { batch, preview } = loaderData
+  const meId = useRouteLoaderData<typeof layoutLoader>('routes/admin/layout')?.user.id
   const facts: [string, ReactNode][] = [
     ['Kind', KIND_LABEL[batch.kind]],
     ['Status', <ImportStatusBadge key="s" status={batch.status} />],
-    ['Uploaded', `${when(batch.createdAt)} by ${whoLabel(batch.createdById, me, staff)}`],
+    ['Uploaded', `${when(batch.createdAt)} by ${whoLabel(batch, meId)}`],
   ]
   if (batch.committedAt) facts.push(['Saved', when(batch.committedAt)])
   if (preview) facts.push(['Sheet', `${preview.sheet}, ${formatNumber(n(preview.totalRows))} rows`])
@@ -234,7 +231,7 @@ function Waiting({ data, preview, outcome }: { data: Data; preview: Preview; out
             aria-current={s.key === show ? 'page' : undefined}
             preventScrollReset
           >
-            {s.label}
+            {s.key === 'warnings' && warnings !== null ? `${s.label} (${formatNumber(warnings)})` : s.label}
           </Link>
         ))}
       </nav>

@@ -1,3 +1,4 @@
+import { RequireSection } from '../../components/admin/crud/RequireSection'
 import { ResourceList } from '../../components/admin/crud/ResourceList'
 import { getResource, loadOrThrow } from '../../components/admin/crud/runtime'
 import type { Row } from '../../components/admin/crud/types'
@@ -19,13 +20,11 @@ export async function clientLoader({ params, request }: Route.ClientLoaderArgs) 
 
 export default function SectionList({ params, loaderData }: Route.ComponentProps) {
   const { items, nextCursor, query } = loaderData
+  const cfg = getResource(params.section)
+  // The States list is open to every role in the API (for the news filters); the page is not.
   return (
-    <ResourceList
-      cfg={getResource(params.section)}
-      items={items}
-      nextCursor={nextCursor}
-      saved={query.saved ?? null}
-      query={query}
-    />
+    <RequireSection href={`/admin/${cfg.key}`}>
+      <ResourceList cfg={cfg} items={items} nextCursor={nextCursor} saved={query.saved ?? null} query={query} />
+    </RequireSection>
   )
 }
