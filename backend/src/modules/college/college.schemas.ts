@@ -37,7 +37,7 @@ export const IndiaProfileInput = t.Object(
     hospitalName: t.Optional(nullableText(200, "Attached teaching hospital")),
     hospitalBeds: t.Optional(nullableInt(0, 20000, "Beds in the attached hospital")),
     dailyOutpatients: t.Optional(nullableInt(0, 100000, "Average outpatients per day")),
-    serviceBondYears: t.Optional(nullableInt(0, 20, "Years of compulsory service, 0 or null if none")),
+    serviceBondYears: t.Optional(nullableInt(0, 20, "Years of compulsory service. 0 = confirmed no bond (shown to students as no bond); empty = not recorded yet")),
     serviceBondPenaltyInr: t.Optional(nullableInt(0, 100000000, "Penalty in rupees for breaking the bond")),
     stipendInr: t.Optional(nullableInt(0, 1000000, "Monthly internship stipend in rupees")),
     domicileRule: t.Optional(nullableText(500, "Who qualifies for state-quota seats, in plain words")),

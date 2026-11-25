@@ -111,7 +111,7 @@ export const CollegePageSchema = t.Object(
         nmcRecognitionCheckedAt: nullable(iso),
         mbbsSeats: nullable(t.Integer()),
         hospital: t.Object({ name: nullable(t.String()), beds: nullable(t.Integer()), dailyOutpatients: nullable(t.Integer()) }),
-        serviceBond: nullable(t.Object({ years: t.Integer(), penaltyInr: nullable(t.Integer()) }, { description: "null when there is no bond" })),
+        serviceBond: nullable(t.Object({ years: t.Integer(), penaltyInr: nullable(t.Integer()) }, { description: "`{ years: 0, penaltyInr: null }` = the college has no service bond; `null` = not recorded yet, so do not say there is no bond" })),
         stipendInr: nullable(t.Integer({ description: "Monthly internship stipend" })),
         domicileRule: nullable(t.String()),
       }),

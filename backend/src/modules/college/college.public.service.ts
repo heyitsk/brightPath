@@ -229,7 +229,7 @@ export async function getPublicCollege(slug: string) {
       ? {
           nmcRecognised: i.nmcRecognised, nmcRecognitionCheckedAt: iso(i.nmcRecognitionCheckedAt), mbbsSeats: i.mbbsSeats,
           hospital: { name: i.hospitalName, beds: i.hospitalBeds, dailyOutpatients: i.dailyOutpatients },
-          serviceBond: i.serviceBondYears ? { years: i.serviceBondYears, penaltyInr: i.serviceBondPenaltyInr } : null,
+          serviceBond: i.serviceBondYears == null ? null : { years: i.serviceBondYears, penaltyInr: i.serviceBondYears > 0 ? i.serviceBondPenaltyInr : null }, // 0 years = confirmed no bond; null = not recorded
           stipendInr: i.stipendInr, domicileRule: i.domicileRule,
         }
       : null,

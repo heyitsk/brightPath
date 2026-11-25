@@ -36,6 +36,14 @@ describe("GET /site/config", () => {
     expect(Object.keys(b.disclaimers).sort()).toEqual(["ENQUIRY_CONSENT", "FOREIGN_COLLEGES_NMC", "NOT_GUARANTEED"]);
   });
 
+  test("carries the company legal name and registration details for the footer", async () => {
+    expect(((await call("/site/config")).body as any).company).toEqual({ legalName: null, registrationDetails: null });
+    const h = await adminHeaders();
+    await call("/admin/settings/company.legalName", { method: "PUT", headers: h, json: { value: "BrightPath Education Pvt Ltd" } });
+    await call("/admin/settings/company.registrationDetails", { method: "PUT", headers: h, json: { value: "CIN U12345DL2024PTC000000" } });
+    expect(((await call("/site/config")).body as any).company).toEqual({ legalName: "BrightPath Education Pvt Ltd", registrationDetails: "CIN U12345DL2024PTC000000" });
+  });
+
   test("does not leak private settings", async () => {
     const h = await adminHeaders();
     await call("/admin/settings/enquiry.alertEmails", { method: "PUT", headers: h, json: { value: ["secret@counsellors.example"] } });

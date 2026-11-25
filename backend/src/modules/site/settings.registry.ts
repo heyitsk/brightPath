@@ -26,6 +26,8 @@ export const SETTINGS: SettingDef[] = [
   { key: "contact.email", description: "Business email address. Null until added.", isPublic: true, schema: t.Union([t.String({ format: "email", maxLength: 254 }), t.Null()]), default: null },
   { key: "contact.officeAddress", description: "Office address for the footer and contact page.", isPublic: true, schema: nullableText(300), default: null },
   { key: "contact.callbackHours", description: 'When counsellors call back, e.g. "10am to 7pm, Monday to Saturday".', isPublic: true, schema: nullableText(120), default: null },
+  { key: "company.legalName", description: "Registered legal name of the company, for the footer (e.g. \"BrightPath Education Pvt Ltd\"). Null until added.", isPublic: true, schema: nullableText(150), default: null },
+  { key: "company.registrationDetails", description: "Registration details for the footer, as one line of text (e.g. \"CIN U12345DL2024PTC000000 | GSTIN 07ABCDE1234F1Z5\"). Null until added.", isPublic: true, schema: nullableText(300), default: null },
   // ---- homepage: hero text and the announcement strip. Edit them together with PUT /admin/site/homepage (which also checks the rules across fields). ----
   { key: "hero.headline", description: "Main headline in the homepage hero. Null = the site's built-in headline.", isPublic: true, schema: nullableText(120), default: null },
   { key: "hero.subtext", description: "Supporting text under the hero headline. Null = the site's built-in text.", isPublic: true, schema: nullableText(300), default: null },

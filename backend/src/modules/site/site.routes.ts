@@ -12,7 +12,7 @@ export const siteRoutes = new Elysia({ prefix: "/site", tags: ["Site"] }).get(
     detail: {
       summary: "Site configuration",
       description:
-        "Everything the frontend needs on every page, in one cacheable call: brand name, contact details (null until the owner adds them), " +
+        "Everything the frontend needs on every page, in one cacheable call: brand name, contact details and company legal name and registration details for the footer (null until the owner adds them), " +
         "the finder's free-results count, and the current disclaimer texts. " +
         "Disclaimer `version` 0 means the built-in default is in use. Supports `ETag` / `If-None-Match` (answers 304 with an empty body when unchanged).",
     },
@@ -27,6 +27,13 @@ export const siteRoutes = new Elysia({ prefix: "/site", tags: ["Site"] }).get(
             officeAddress: NullableText("Office address"),
             callbackHours: NullableText("Counsellor call-back hours"),
           }),
+          company: t.Object(
+            {
+              legalName: NullableText("Registered legal name of the company for the footer, null until added"),
+              registrationDetails: NullableText("Registration details for the footer (for example CIN and GSTIN) as one line of text, null until added"),
+            },
+            { description: "Company details for the footer, editable by an admin as the settings company.legalName and company.registrationDetails" },
+          ),
           finder: t.Object({
             freeResultsPerGroup: t.Integer({ description: "India and abroad results shown before the student leaves their details" }),
           }),

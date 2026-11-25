@@ -184,6 +184,8 @@ describe("what a page shows", () => {
     await prisma.collegeIndiaProfile.update({ where: { collegeId: c.id }, data: { serviceBondYears: 2, serviceBondPenaltyInr: 1000000 } });
     expect(body(await call("/colleges/pune-sample-college")).college.india.serviceBond).toEqual({ years: 2, penaltyInr: 1000000 });
     await prisma.collegeIndiaProfile.update({ where: { collegeId: c.id }, data: { serviceBondYears: 0 } });
+    expect(body(await call("/colleges/pune-sample-college")).college.india.serviceBond).toEqual({ years: 0, penaltyInr: null });
+    await prisma.collegeIndiaProfile.update({ where: { collegeId: c.id }, data: { serviceBondYears: null, serviceBondPenaltyInr: null } });
     expect(body(await call("/colleges/pune-sample-college")).college.india.serviceBond).toBeNull();
   });
 
